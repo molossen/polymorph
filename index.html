@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Polymorph</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Polymorph — free, open-source 3D modelling for GTA V and FiveM.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: the app's own dark viewport as the page — a wide hero shot, then a stack of "viewport panels" (screenshot + caption) like the editor itself. Single dark look, deliberately. */
+:root{
+  --bg:#141518; --panel:#1b1d21; --line:#2a2d33; --fg:#eef0f2; --dim:#9aa3ae;
+  --orange:#f26b1d; --teal:#1fb5a3; --orange-ink:#141518;
+  --display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 var(--body);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+
+/* top bar: like the editor's MODEL / MAP switch */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.bar .wrap{display:flex;align-items:center;gap:20px;padding-block:12px}
+.bar img{height:28px;width:auto}
+.bar nav{display:flex;gap:18px;margin-left:auto;font:500 13px var(--mono);flex-wrap:wrap}
+.bar nav a{text-decoration:none;color:var(--dim)}
+.bar nav a:hover,.bar nav a:focus-visible{color:var(--fg)}
+.gh{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;padding:6px 12px;text-decoration:none;font:500 13px var(--mono)}
+.gh:hover,.gh:focus-visible{border-color:var(--teal);color:var(--teal)}
+.gh svg{width:16px;height:16px;fill:currentColor}
+
+/* hero */
+.hero{padding-block:56px 32px}
+.hero .wrap{display:grid;gap:28px}
+.lockup{width:min(560px,100%);height:auto}
+h1{font:700 clamp(30px,5.4vw,58px)/1.08 var(--display);letter-spacing:-.01em;margin:0;text-wrap:balance;max-width:16ch}
+h1 em{font-style:normal;color:var(--orange)}
+.lede{color:var(--dim);font-size:clamp(16px,1.7vw,19px);max-width:60ch;margin:0}
+.ctas{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:13px 20px;border-radius:8px;font:600 15px var(--body);text-decoration:none}
+.btn.primary{background:var(--orange);color:var(--orange-ink)}
+.btn.primary:hover,.btn.primary:focus-visible{background:#ff7f33}
+.btn.ghost{border:1px solid var(--line)}
+.btn.ghost:hover,.btn.ghost:focus-visible{border-color:var(--teal);color:var(--teal)}
+.meta{font:400 12.5px var(--mono);color:var(--dim);display:flex;gap:16px;flex-wrap:wrap}
+.meta b{color:var(--teal);font-weight:500}
+.shot{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000;max-width:100%}
+.shot img,.shot video{display:block;width:100%;height:auto}
+.hero .shot{margin-top:8px}
+.viewlabel{font:500 11px var(--mono);color:var(--dim);letter-spacing:.06em;text-transform:uppercase;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);display:flex;justify-content:space-between;gap:12px}
+.viewlabel span:last-child{color:var(--teal)}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+
+/* sections */
+section{padding-block:56px}
+.eyebrow{font:500 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin:0 0 10px}
+h2{font:700 clamp(24px,3.4vw,36px)/1.15 var(--display);margin:0 0 14px;text-wrap:balance;max-width:22ch}
+.intro{color:var(--dim);max-width:62ch;margin:0 0 32px}
+
+/* feature rows: screenshot + text, alternating */
+.feat{display:grid;grid-template-columns:1.35fr 1fr;gap:32px;align-items:center;padding-block:28px;border-top:1px solid var(--line)}
+.feat:nth-of-type(even){grid-template-columns:1fr 1.35fr}
+.feat:nth-of-type(even) .shot{order:2}
+.feat > div{min-width:0}
+.feat h3{font:700 21px/1.25 var(--display);margin:0 0 10px}
+.feat p{margin:0 0 12px;color:var(--dim)}
+.feat ul{margin:0;padding:0;list-style:none;display:grid;gap:6px;font:400 13.5px var(--mono);color:var(--fg)}
+.feat li::before{content:"▸ ";color:var(--orange)}
+@media (max-width:820px){.feat,.feat:nth-of-type(even){grid-template-columns:1fr}.feat:nth-of-type(even) .shot{order:0}}
+
+/* small grid of the rest */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.cell{background:var(--panel);padding:20px;min-width:0}
+.cell h4{font:600 15px var(--body);margin:0 0 6px}
+.cell p{margin:0;color:var(--dim);font-size:14.5px}
+.cell code{font:500 12.5px var(--mono);color:var(--teal)}
+
+/* scale table: real heights from the ped */
+.scale{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font:400 14px var(--mono);font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--dim);font-weight:500;font-size:12px;letter-spacing:.06em;text-transform:uppercase;background:var(--panel)}
+td:last-child{color:var(--orange)}
+tr:last-child td{border-bottom:0}
+
+/* download */
+.dl{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:28px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center}
+.dl > div{min-width:0}
+.dl p{margin:0;color:var(--dim)}
+.code{font:400 13px var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow-x:auto;white-space:pre;margin-top:14px}
+@media (max-width:700px){.dl{grid-template-columns:1fr}}
+
+footer{border-top:1px solid var(--line);padding-block:28px;color:var(--dim);font:400 13px var(--mono)}
+footer .wrap{display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+
+</head>
+<body>
+<header class="bar">
+  <div class="wrap">
+    <img src="lockup.png" alt="Polymorph">
+    <nav aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#scale">GTA scale</a>
+      <a href="#download">Download</a>
+    </nav>
+    <a class="gh" href="https://github.com/molossen/polymorph"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <img class="lockup" src="lockup.png" alt="Polymorph — 3D modelling for GTA V &amp; FiveM" width="1200" height="360">
+      <h1>Model it, paint it, <em>drop it in the city.</em></h1>
+      <p class="lede">A free 3D modeller made for GTA V and FiveM. Build a building, unwrap it, dress it with the game's own shaders, then place it on the real map and export a working resource.</p>
+      <div class="ctas">
+        <a class="btn primary" href="https://github.com/molossen/polymorph/releases/latest">Download for Windows</a>
+        <a class="btn ghost" href="https://github.com/molossen/polymorph">Source on GitHub</a>
+      </div>
+      <div class="meta"><span><b>v1.0.0</b> · Windows 10/11 x64</span><span>Free forever · MIT</span><span>Nothing to install: unzip and run</span></div>
+      <figure class="shot" style="margin:8px 0 0">
+        <div class="viewlabel"><span>[Perspective] [Realistic] · MAP</span><span>Little Seoul, Los Santos</span></div>
+        <video controls playsinline preload="none" poster="map.jpg">
+          <source src="trailer.mp4" type="video/mp4">
+        </video>
+      </figure>
+      <p class="meta" style="margin:0">Trailer (1 min 39) · if it does not play here, <a href="https://github.com/molossen/polymorph/releases/latest">watch it on the release page</a>.</p>
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <p class="eyebrow">What it does</p>
+      <h2>One app from block-out to FiveM resource</h2>
+      <p class="intro">The modelling workflow you already know, with GTA V built in: the game's shaders, its scale, its map and its file formats.</p>
+
+      <article class="feat">
+        <figure class="shot" style="margin:0"><div class="viewlabel"><span>Polygon · inset · extrude</span><span>ped 1.818 m</span></div><img src="model.jpg" alt="A four-storey building modeled in Polymorph next to a ped for scale" loading="lazy"></figure>
+        <div>
+          <h3>Model anything</h3>
+          <p>Vertex, edge, polygon and element levels, loop cuts, inset, extrude, bevel, bridge, snaps and a modifier stack. A four-storey building takes minutes.</p>
+          <ul><li>Ped button: a GTA ped (1.818 m) beside your model</li><li>Auto scale: chairs, stools, doors, counters to real size</li><li>Adjust Last Operation on every tool</li></ul>
+        </div>
+      </article>
+
+      <article class="feat">
+        <figure class="shot" style="margin:0"><div class="viewlabel"><span>UV Editor · Cube projection</span><span>xj_v_brick03 · normal_spec.sps</span></div><img src="uv.jpg" alt="Cube projection and UV editor with a GTA V brick texture" loading="lazy"></figure>
+        <div>
+          <h3>Real UVs, real GTA V shaders</h3>
+          <p>Cube projection at true size, a UV editor with islands, packing and texel density, and a library of more than 6,000 materials taken from the game, each with its own shader and parameters.</p>
+          <ul><li>normal_spec, glass_env, decal, emissive…</li><li>Exports exactly what the game reads</li></ul>
+        </div>
+      </article>
+
+      <article class="feat">
+        <figure class="shot" style="margin:0"><div class="viewlabel"><span>Molo Paint · Layers</span><span>2048 × 2048</span></div><img src="paint.jpg" alt="A sofa painted with a GTA fabric, worn edges and stitched seams" loading="lazy"></figure>
+        <div>
+          <h3>Paint your textures</h3>
+          <p>Layers, folders, smart materials and smart masks, brushes, decals and baking, on the model itself. Start from a GTA fabric, wear the edges, paint the seams, add dust in the creases.</p>
+          <ul><li>Edge wear, dirt in corners, dust on top, leaks</li><li>Normal, AO and colour bake from a high-poly</li><li>DDS export with mipmaps, ready for the game</li></ul>
+        </div>
+      </article>
+
+      <article class="feat">
+        <figure class="shot" style="margin:0"><div class="viewlabel"><span>MAP · HD around the camera</span><span>20,000+ entities</span></div><img src="mapwide.jpg" alt="The whole GTA V map loaded in Polymorph" loading="lazy"></figure>
+        <div>
+          <h3>Model right on the map</h3>
+          <p>MAP mode streams the whole of Los Santos and Blaine County from your game files. Every modelling tool works there: build a plot in place, edit a game model, open an interior, then save the .ymap and .ytyp.</p>
+          <ul><li>Uses your own GTA V install, nothing is shipped</li><li>Saves a map resource ready for FiveM</li></ul>
+        </div>
+      </article>
+
+      <article class="feat">
+        <figure class="shot" style="margin:0"><div class="viewlabel"><span>MLO Room Builder</span><span>joined door frames</span></div><img src="mlo.jpg" alt="MLO rooms with door frames and skirting generated automatically" loading="lazy"></figure>
+        <div>
+          <h3>MLO rooms build themselves</h3>
+          <p>Draw the plan, and the rooms, portals, door frames, skirting and dirt follow. Connected rooms share one door lining through the wall.</p>
+          <ul><li>Shell in the limbo room, collision on room 1</li><li>Five frame styles, windows with sills</li></ul>
+        </div>
+      </article>
+
+      <div class="grid" style="margin-top:28px">
+        <div class="cell"><h4>Weapon Forge</h4><p>Any model becomes a GTA weapon on a game donor's skeleton: muzzle moved, metas cloned, <code>/give</code> command written.</p></div>
+        <div class="cell"><h4>Vehicle Forge</h4><p>Finds the four wheels, fits your car on a donor like <code>sultan2</code>, writes the .yft, handling and <code>/spawn</code>.</p></div>
+        <div class="cell"><h4>Sculpt</h4><p>Draw, inflate, smooth, pinch and grab on any mesh, then clean it for the game.</p></div>
+        <div class="cell"><h4>Game lights</h4><p>Point, spot and capsule lights with GTA's own values, Sollumz-compatible.</p></div>
+        <div class="cell"><h4>FiveM export</h4><p>One key (F10) writes .ydr, .ytd, .ybn and the fxmanifest, checked by loading them back.</p></div>
+        <div class="cell"><h4>Send to my server</h4><p>Push the resource straight to your test server and restart it.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="scale">
+    <div class="wrap">
+      <p class="eyebrow">GTA scale</p>
+      <h2>Everything sized to the ped</h2>
+      <p class="intro">Auto scale reads the object's name (chair, tabouret, door, counter…) and brings it to the height props have in the game, scaled from its base so it stays on the floor.</p>
+      <div class="scale">
+        <table>
+          <thead><tr><th>Object</th><th>Name it…</th><th>Height</th></tr></thead>
+          <tbody>
+            <tr><td>Ped</td><td>ped, person</td><td>1.818 m</td></tr>
+            <tr><td>Door</td><td>door, porte</td><td>2.300 m</td></tr>
+            <tr><td>Door handle</td><td>handle, poignée</td><td>1.127 m</td></tr>
+            <tr><td>Bar counter</td><td>bar_counter</td><td>1.067 m</td></tr>
+            <tr><td>Counter / sink</td><td>counter, évier</td><td>0.900 m</td></tr>
+            <tr><td>Desk / table</td><td>desk, table</td><td>0.800 m</td></tr>
+            <tr><td>Stool</td><td>stool, tabouret</td><td>0.750 m</td></tr>
+            <tr><td>Seat (seat height)</td><td>seat, bench</td><td>0.455 m</td></tr>
+            <tr><td>Coffee table</td><td>coffee, table_basse</td><td>0.429 m</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="download">
+    <div class="wrap">
+      <div class="dl">
+        <div>
+          <p class="eyebrow" style="margin-bottom:6px">Download</p>
+          <h2 style="margin-bottom:8px">Polymorph 1.0.0</h2>
+          <p>Windows 10 or 11, 64-bit, a DirectX 11 graphics card. Unzip and run <code style="font:500 13px var(--mono);color:var(--teal)">Polymorph.exe</code>. For MAP mode and the forges, point it at your GTA V folder.</p>
+          <div class="code">git clone https://github.com/molossen/polymorph
+cd polymorph &amp;&amp; build.bat</div>
+        </div>
+        <div class="ctas" style="flex-direction:column;align-items:stretch">
+          <a class="btn primary" href="https://github.com/molossen/polymorph/releases/latest">Download the zip</a>
+          <a class="btn ghost" href="https://github.com/molossen/polymorph/issues">Report a bug</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Polymorph · made by Molo Modding · MIT licence</span>
+    <span><a href="https://github.com/molossen/polymorph">github.com/molossen/polymorph</a> · <a href="https://discord.com/invite/molomodding">Discord</a></span>
+  </div>
+</footer>
+
+</body>
+</html>
