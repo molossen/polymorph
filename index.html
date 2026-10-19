@@ -98,6 +98,13 @@ tr:last-child td{border-bottom:0}
 .code{font:400 13px var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow-x:auto;white-space:pre;margin-top:14px}
 @media (max-width:700px){.dl{grid-template-columns:1fr}}
 
+.tuts{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
+.tut{margin:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel);min-width:0}
+.tut video{display:block;width:100%;aspect-ratio:16/9;background:#000;max-width:100%}
+.tut figcaption{padding:12px 14px;display:grid;gap:2px}
+.tut .num{font:500 11px var(--mono);color:var(--teal);letter-spacing:.08em}
+.tut b{font:600 15px var(--body)}
+.tut figcaption span:last-child{color:var(--dim);font-size:14px}
 footer{border-top:1px solid var(--line);padding-block:28px;color:var(--dim);font:400 13px var(--mono)}
 footer .wrap{display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
@@ -110,6 +117,7 @@ footer .wrap{display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between}
     <img src="lockup.png" alt="Polymorph">
     <nav aria-label="Sections">
       <a href="#features">Features</a>
+      <a href="#tutorials">Tutorials</a>
       <a href="#scale">GTA scale</a>
       <a href="#download">Download</a>
     </nav>
@@ -196,6 +204,27 @@ footer .wrap{display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between}
         <div class="cell"><h4>Game lights</h4><p>Point, spot and capsule lights with GTA's own values, Sollumz-compatible.</p></div>
         <div class="cell"><h4>FiveM export</h4><p>One key (F10) writes .ydr, .ytd, .ybn and the fxmanifest, checked by loading them back.</p></div>
         <div class="cell"><h4>Send to my server</h4><p>Push the resource straight to your test server and restart it.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tutorials">
+    <div class="wrap">
+      <p class="eyebrow">Video tutorials</p>
+      <h2>Learn it in a few minutes</h2>
+      <p class="intro">Short films recorded in the app itself, one topic each, in the order a new user needs them.</p>
+      <div class="tuts">
+        <figure class="tut"><video controls playsinline preload="none" poster="tuto/01_modeling.jpg"><source src="tuto/01_modeling.mp4" type="video/mp4"></video><figcaption><span class="num">01</span><b>Modeling</b><span>Shift + move copies, pulling edges, Bridge, the right-click menu</span></figcaption></figure>
+        <figure class="tut"><video controls playsinline preload="none" poster="tuto/02_snaps.jpg"><source src="tuto/02_snaps.mp4" type="video/mp4"></video><figcaption><span class="num">02</span><b>Snaps</b><span>Corners, edges, faces, contact placement</span></figcaption></figure>
+        <figure class="tut"><video controls playsinline preload="none" poster="tuto/03_navigation.jpg"><source src="tuto/03_navigation.mp4" type="video/mp4"></video><figcaption><span class="num">03</span><b>Navigation</b><span>Game-style camera and the view cube</span></figcaption></figure>
+        <figure class="tut"><video controls playsinline preload="none" poster="tuto/04_materials_uv.jpg"><source src="tuto/04_materials_uv.mp4" type="video/mp4"></video><figcaption><span class="num">04</span><b>Materials and UVs</b><span>Drag and drop materials, unwrap</span></figcaption></figure>
+        <figure class="tut"><video controls playsinline preload="none" poster="tuto/05_mlo_room_builder.jpg"><source src="tuto/05_mlo_room_builder.mp4" type="video/mp4"></video><figcaption><span class="num">05</span><b>MLO Room Builder</b><span>Rooms, connected doors, frame styles</span></figcaption></figure>
+        <figure class="tut"><video controls playsinline preload="none" poster="tuto/06_gta_lights.jpg"><source src="tuto/06_gta_lights.mp4" type="video/mp4"></video><figcaption><span class="num">06</span><b>GTA lights</b><span>Point, spot, capsule, Sollumz properties</span></figcaption></figure>
+        <figure class="tut"><video controls playsinline preload="none" poster="tuto/07_map_mode.jpg"><source src="tuto/07_map_mode.mp4" type="video/mp4"></video><figcaption><span class="num">07</span><b>MAP mode</b><span>The whole map, HD around the camera, placing props</span></figcaption></figure>
+        <figure class="tut"><video controls playsinline preload="none" poster="tuto/10_map_modeling.jpg"><source src="tuto/10_map_modeling.mp4" type="video/mp4"></video><figcaption><span class="num">10</span><b>Modeling on the map</b><span>Every tool in MAP mode, game models edited in place</span></figcaption></figure>
+        <figure class="tut"><video controls playsinline preload="none" poster="tuto/11_weapon_forge.jpg"><source src="tuto/11_weapon_forge.mp4" type="video/mp4"></video><figcaption><span class="num">11</span><b>Weapon Forge</b><span>A model becomes a GTA weapon</span></figcaption></figure>
+        <figure class="tut"><video controls playsinline preload="none" poster="tuto/12_vehicle_forge.jpg"><source src="tuto/12_vehicle_forge.mp4" type="video/mp4"></video><figcaption><span class="num">12</span><b>Vehicle Forge</b><span>A car model becomes a FiveM vehicle</span></figcaption></figure>
+        <figure class="tut"><video controls playsinline preload="none" poster="tuto/08_best_of_all.jpg"><source src="tuto/08_best_of_all.mp4" type="video/mp4"></video><figcaption><span class="num">08</span><b>Best of all</b><span>What comes from 3ds Max, Blender and the GTA V tools</span></figcaption></figure>
       </div>
     </div>
   </section>
