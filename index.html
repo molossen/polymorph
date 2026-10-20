@@ -99,6 +99,15 @@ tr:last-child td{border-bottom:0}
 @media (max-width:700px){.dl{grid-template-columns:1fr}}
 
 .tuts{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
+.course{display:grid;gap:44px}
+.ch-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:16px;border-bottom:1px solid var(--line);padding-bottom:10px}
+.ch-head h3{margin:0;font-size:22px}
+.ch-head p{margin:0;color:var(--dim);font-size:15px}
+.ch-n{font:500 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--teal)}
+.tuts-one{grid-template-columns:1fr}
+.tut-big{max-width:900px}
+.tut .num{display:flex;justify-content:space-between}
+.tut .num i{font-style:normal;color:var(--dim)}
 .tut{margin:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel);min-width:0}
 .tut video{display:block;width:100%;aspect-ratio:16/9;background:#000;max-width:100%}
 .tut figcaption{padding:12px 14px;display:grid;gap:2px}
@@ -212,25 +221,41 @@ footer .wrap{display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between}
   <section id="tutorials">
     <div class="wrap">
       <p class="eyebrow">Video tutorials</p>
-      <h2>Learn it in a few minutes</h2>
-      <p class="intro">Short films recorded in the app itself, one topic each, in the order a new user needs them.</p>
-      <div class="tuts">
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/01_modeling.jpg"><source src="tuto/01_modeling.mp4" type="video/mp4"></video><figcaption><span class="num">01</span><b>Modeling</b><span>Shift + move copies, pulling edges, Bridge, the right-click menu</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/02_snaps.jpg"><source src="tuto/02_snaps.mp4" type="video/mp4"></video><figcaption><span class="num">02</span><b>Snaps</b><span>Corners, edges, faces, contact placement</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/03_navigation.jpg"><source src="tuto/03_navigation.mp4" type="video/mp4"></video><figcaption><span class="num">03</span><b>Navigation</b><span>Game-style camera and the view cube</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/04_materials_uv.jpg"><source src="tuto/04_materials_uv.mp4" type="video/mp4"></video><figcaption><span class="num">04</span><b>Materials and UVs</b><span>Drag and drop materials, unwrap</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/05_mlo_room_builder.jpg"><source src="tuto/05_mlo_room_builder.mp4" type="video/mp4"></video><figcaption><span class="num">05</span><b>MLO Room Builder</b><span>Rooms, connected doors, frame styles</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/06_gta_lights.jpg"><source src="tuto/06_gta_lights.mp4" type="video/mp4"></video><figcaption><span class="num">06</span><b>GTA lights</b><span>Point, spot, capsule, Sollumz properties</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/07_map_mode.jpg"><source src="tuto/07_map_mode.mp4" type="video/mp4"></video><figcaption><span class="num">07</span><b>MAP mode</b><span>The whole map, HD around the camera, placing props</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/10_map_modeling.jpg"><source src="tuto/10_map_modeling.mp4" type="video/mp4"></video><figcaption><span class="num">10</span><b>Modeling on the map</b><span>Every tool in MAP mode, game models edited in place</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/11_weapon_forge.jpg"><source src="tuto/11_weapon_forge.mp4" type="video/mp4"></video><figcaption><span class="num">11</span><b>Weapon Forge</b><span>A model becomes a GTA weapon</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/12_vehicle_forge.jpg"><source src="tuto/12_vehicle_forge.mp4" type="video/mp4"></video><figcaption><span class="num">12</span><b>Vehicle Forge</b><span>A car model becomes a FiveM vehicle</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/13_sculpt_paint.jpg"><source src="tuto/13_sculpt_paint.mp4" type="video/mp4"></video><figcaption><span class="num">13</span><b>Sculpt and Paint</b><span>The Sculpt and Paint buttons, brushes, smart materials like Substance</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/14_animation.jpg"><source src="tuto/14_animation.mp4" type="video/mp4"></video><figcaption><span class="num">14</span><b>Animation</b><span>Timeline, keys, auto key, texture scroll, camera, GTA .ycd</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/15_modifiers.jpg"><source src="tuto/15_modifiers.mp4" type="video/mp4"></video><figcaption><span class="num">15</span><b>Modifiers</b><span>All 13 modifiers on a cube: Edit Poly, Unwrap, Array, Mirror, Solidify, Subdivision…</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/16_boolean.jpg"><source src="tuto/16_boolean.mp4" type="video/mp4"></video><figcaption><span class="num">16</span><b>Boolean</b><span>Door and window cut in a wall, union, intersect — clean topology by itself</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/17_wall_opening.jpg"><source src="tuto/17_wall_opening.mp4" type="video/mp4"></video><figcaption><span class="num">17</span><b>Wall Opening ★ new</b><span>Trace a door or a window on the wall, pull the sides, Enter — no boolean. Rectangle, arch or round, choose the segments. Works on dense walls: your grid stays</span></figcaption></figure>
-        <figure class="tut"><video controls playsinline preload="none" poster="tuto/08_best_of_all.jpg"><source src="tuto/08_best_of_all.mp4" type="video/mp4"></video><figcaption><span class="num">08</span><b>Best of all</b><span>What comes from 3ds Max, Blender and the GTA V tools</span></figcaption></figure>
+      <h2>From zero to FiveM-ready</h2>
+      <p class="intro">17 short films recorded in the app itself, in the order you need them: watch the tour, then go part by part. Each one shows the real clicks and keys.</p>
+      <div class="course">
+        <div class="chapter"><div class="ch-head"><span class="ch-n">Part 1</span><h3>Discover</h3><p>What Polymorph is, in two minutes</p></div>
+        <div class="tuts tuts-one">
+          <figure class="tut tut-big"><video controls playsinline preload="none" poster="tuto/01_the_tour.jpg"><source src="tuto/01_the_tour.mp4" type="video/mp4"></video><figcaption><span class="num">01<i>2:01</i></span><b>The tour</b><span>The best of 3ds Max, Blender and the GTA V tools — in one free app</span></figcaption></figure>
+        </div></div>
+        <div class="chapter"><div class="ch-head"><span class="ch-n">Part 2</span><h3>The basics</h3><p>Move around and model</p></div>
+        <div class="tuts">
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/02_navigation.jpg"><source src="tuto/02_navigation.mp4" type="video/mp4"></video><figcaption><span class="num">02<i>0:40</i></span><b>Navigation</b><span>Fly like in the game, snap to any view with the cube</span></figcaption></figure>
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/03_modeling.jpg"><source src="tuto/03_modeling.mp4" type="video/mp4"></video><figcaption><span class="num">03<i>0:57</i></span><b>Modeling</b><span>Shift-copy, pull edges, bridge — everything one right click away</span></figcaption></figure>
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/04_snaps.jpg"><source src="tuto/04_snaps.mp4" type="video/mp4"></video><figcaption><span class="num">04<i>1:05</i></span><b>Snaps</b><span>Corners, edges, faces: things land exactly where they belong</span></figcaption></figure>
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/05_edit_mode_tricks.jpg"><source src="tuto/05_edit_mode_tricks.mp4" type="video/mp4"></video><figcaption><span class="num">05<i>1:02</i></span><b>Edit mode tricks</b><span>Vertex onto vertex, the material pipette, Alt+W wireframe</span></figcaption></figure>
+        </div></div>
+        <div class="chapter"><div class="ch-head"><span class="ch-n">Part 3</span><h3>Shape faster</h3><p>Cut, open, stack modifiers</p></div>
+        <div class="tuts">
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/06_boolean.jpg"><source src="tuto/06_boolean.mp4" type="video/mp4"></video><figcaption><span class="num">06<i>0:38</i></span><b>Boolean</b><span>Doors and windows cut in a wall — clean topology by itself</span></figcaption></figure>
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/07_wall_opening.jpg"><source src="tuto/07_wall_opening.mp4" type="video/mp4"></video><figcaption><span class="num">07<i>0:48</i></span><b>Wall Opening</b><span>Trace an opening, pull the sides, Enter. No boolean needed</span></figcaption></figure>
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/08_modifiers.jpg"><source src="tuto/08_modifiers.mp4" type="video/mp4"></video><figcaption><span class="num">08<i>1:04</i></span><b>Modifiers</b><span>13 modifiers stacked live: Array, Mirror, Solidify, Subdivision...</span></figcaption></figure>
+        </div></div>
+        <div class="chapter"><div class="ch-head"><span class="ch-n">Part 4</span><h3>Surface</h3><p>Materials, UVs, sculpt, paint, animate</p></div>
+        <div class="tuts">
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/09_materials_uvs.jpg"><source src="tuto/09_materials_uvs.mp4" type="video/mp4"></video><figcaption><span class="num">09<i>0:34</i></span><b>Materials and UVs</b><span>Drag and drop materials, unwrap in one click</span></figcaption></figure>
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/10_sculpt_paint.jpg"><source src="tuto/10_sculpt_paint.mp4" type="video/mp4"></video><figcaption><span class="num">10<i>1:36</i></span><b>Sculpt and Paint</b><span>Brushes and smart materials, like Substance — built in</span></figcaption></figure>
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/11_animation.jpg"><source src="tuto/11_animation.mp4" type="video/mp4"></video><figcaption><span class="num">11<i>1:29</i></span><b>Animation</b><span>Keys, auto key, texture scroll, camera — out as a GTA .ycd</span></figcaption></figure>
+        </div></div>
+        <div class="chapter"><div class="ch-head"><span class="ch-n">Part 5</span><h3>GTA V &amp; FiveM</h3><p>Lights, MLO rooms, the whole map, weapons and cars</p></div>
+        <div class="tuts">
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/12_gta_lights.jpg"><source src="tuto/12_gta_lights.mp4" type="video/mp4"></video><figcaption><span class="num">12<i>0:33</i></span><b>GTA lights</b><span>Point, spot, capsule — with every Sollumz property</span></figcaption></figure>
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/13_mlo_room_builder.jpg"><source src="tuto/13_mlo_room_builder.mp4" type="video/mp4"></video><figcaption><span class="num">13<i>1:48</i></span><b>MLO Room Builder</b><span>Draw the floor plan, the rooms build themselves</span></figcaption></figure>
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/14_map_mode.jpg"><source src="tuto/14_map_mode.mp4" type="video/mp4"></video><figcaption><span class="num">14<i>0:47</i></span><b>MAP mode</b><span>The whole GTA V map, HD around the camera, place props</span></figcaption></figure>
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/15_modeling_on_the_map.jpg"><source src="tuto/15_modeling_on_the_map.mp4" type="video/mp4"></video><figcaption><span class="num">15<i>1:10</i></span><b>Modeling on the map</b><span>Every tool in MAP mode — edit game models in place</span></figcaption></figure>
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/16_weapon_forge.jpg"><source src="tuto/16_weapon_forge.mp4" type="video/mp4"></video><figcaption><span class="num">16<i>0:39</i></span><b>Weapon Forge</b><span>Any model becomes a GTA weapon</span></figcaption></figure>
+          <figure class="tut"><video controls playsinline preload="none" poster="tuto/17_vehicle_forge.jpg"><source src="tuto/17_vehicle_forge.mp4" type="video/mp4"></video><figcaption><span class="num">17<i>0:45</i></span><b>Vehicle Forge</b><span>Any car model becomes a FiveM vehicle</span></figcaption></figure>
+        </div></div>
       </div>
     </div>
   </section>
