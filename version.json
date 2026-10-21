@@ -1,7 +1,7 @@
 {
-  "version": "1.1.3",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.1.3.exe",
-  "size": 52778661,
-  "sha256": "1f7d33826b2f7c9a868494a080a4b9679d00d4c3bb0a1f645555b34b314f4f3d",
-  "notes": "- Right-click menu: Hide Selection, Hide Unselected, Unhide All (and End Isolate), also in the Scene Explorer\n- Move tool: drag the selected object with the middle mouse button (empty space still turns the view)\n- Updates: always offers the latest version on the site"
+  "version": "1.1.4",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.1.4.exe",
+  "size": 52801545,
+  "sha256": "375cde353173f9ab7c5abb2708987474c73aa20bddda01147b5d306e2be24af8",
+  "notes": "- Edit mode: middle drag grabs selected edges and points even on the outline of the shape\n- Right-click menu: Hide Selection, Hide Unselected, Unhide All, End Isolate\n- Move tool: middle drag on the selected object moves it"
 }
