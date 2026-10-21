@@ -1,7 +1,7 @@
 {
-  "version": "1.1.4",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.1.4.exe",
-  "size": 52801545,
-  "sha256": "375cde353173f9ab7c5abb2708987474c73aa20bddda01147b5d306e2be24af8",
-  "notes": "- Edit mode: middle drag grabs selected edges and points even on the outline of the shape\n- Right-click menu: Hide Selection, Hide Unselected, Unhide All, End Isolate\n- Move tool: middle drag on the selected object moves it"
+  "version": "1.2.0",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.2.0.exe",
+  "size": 56261396,
+  "sha256": "864dfc7c1166946147eeb451ab87a60cbd36f47134527e548236d391e61fc85d",
+  "notes": "- Scripting inside Polymorph, like Python in Blender: C# code with the scene, mesh tools, materials and lights (Claude MCP tool script_run, Python pm.run)\n- Terrain 4 textures: painting works again (the terrain shader stays on, brush sized to the ground, size / strength / hardness)\n- Edit mode: middle drag grabs edges and points on the outline"
 }
