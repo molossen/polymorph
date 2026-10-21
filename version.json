@@ -1,7 +1,7 @@
 {
-  "version": "1.1.0",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.1.0.exe",
-  "size": 52794841,
-  "sha256": "fafab5f671f4d5817a41b5a6ff03726f15a8f381a68affa6ee09b1031cbd4465",
-  "notes": "- One-click updates: a green Update button shows when a new version is out\n- Ctrl+Z also undoes selection changes\n- Material pipette: copy, then paste on other faces\n- UV editor: move / rotate / scale gizmo, arrow keys\n- Camera focal length and clip in the [+] menu\n- Typed move / rotate / scale in edit mode, middle-button scale\n- Outliner: one eye for the whole selection, slide down the eyes\n- Clicks on pieces with flipped faces no longer go through"
+  "version": "1.1.1",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.1.1.exe",
+  "size": 52785381,
+  "sha256": "e672f574c3094849469bf5db7d223bb45cd2c3232dc3d3e67d0749fdfd657b02",
+  "notes": "- Move tool: drag the selected object with the middle mouse button (on the object; empty space still turns the view)\n- Licence text updated"
 }
