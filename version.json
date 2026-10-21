@@ -1,7 +1,7 @@
 {
-  "version": "1.4.1",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.1.exe",
-  "size": 65900836,
-  "sha256": "0701a1b215555a90c6f07c44955e9b2cb87adfdff588876e3c274693d5a4e530",
-  "notes": "- Gaussian splat scans: import .ply / .spz / .splat, shown in every view to model over (size, opacity, clean haze, crop)\n- Photo render (F12): path-traced photo of the view with simple settings (quality, size, light mood, brightness)\n- Several doors and windows on the same wall\n- Photo render shows its live progress\n- MLO archetype export fix"
+  "version": "1.4.2",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.2.exe",
+  "size": 65898187,
+  "sha256": "62d1720b0879a73424990a276a2ff793a3f1a580bc3170272586a6f67070bbde",
+  "notes": "- Gaussian splat scans: import .ply / .spz / .splat, shown in every view to model over (size, opacity, clean haze, crop)\n- Photo render (F12): path-traced photo of the view with simple settings (quality, size, light mood, brightness)\n- Several doors and windows on the same wall\n- Photo render shows its live progress\n- GTA .dds textures and normal maps in .glb export and photo render\n- MLO archetype export fix"
 }
