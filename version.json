@@ -1,7 +1,7 @@
 {
-  "version": "1.2.0",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.2.0.exe",
-  "size": 56261396,
-  "sha256": "864dfc7c1166946147eeb451ab87a60cbd36f47134527e548236d391e61fc85d",
-  "notes": "- Scripting inside Polymorph, like Python in Blender: C# code with the scene, mesh tools, materials and lights (Claude MCP tool script_run, Python pm.run)\n- Terrain 4 textures: painting works again (the terrain shader stays on, brush sized to the ground, size / strength / hardness)\n- Edit mode: middle drag grabs edges and points on the outline"
+  "version": "1.3.0",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.3.0.exe",
+  "size": 65743285,
+  "sha256": "a3b2ed7bba83f2f6299efdb081f060c21b446ee981ca929e23689b8a32a7e36b",
+  "notes": "- Python inside Polymorph, like Blender: 'import poly' (scene, objects, meshes, materials, lights), nothing to install\n- Add-ons menu: Python add-ons with register(), Python Script Editor window\n- Claude (MCP tool script_run) runs Python in Polymorph\n- Terrain 4 textures painting fixed"
 }
