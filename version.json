@@ -1,7 +1,7 @@
 {
-  "version": "1.3.1",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.3.1.exe",
-  "size": 65733825,
-  "sha256": "68e433e008ac6fe8aa4dc576400caec519e898dd3d87ede967187a45f8543ff3",
-  "notes": "- Several doors and windows on the same wall (Room Builder, Wall Opening, Cut Doorway)\n- Python inside Polymorph, like Blender: 'import poly', Add-ons menu, Python Script Editor\n- Claude (MCP tool script_run) runs Python in Polymorph\n- Terrain 4 textures painting fixed"
+  "version": "1.4.0",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.0.exe",
+  "size": 65897626,
+  "sha256": "c0d36adf6ba33457f80837ea02d0a0f5cfad39df74fa08feba7b9a2491ca1c68",
+  "notes": "- Gaussian splat scans: import .ply / .spz / .splat, shown in every view to model over (size, opacity, clean haze, crop)\n- Photo render (F12): path-traced photo of the view with simple settings (quality, size, light mood, brightness)\n- Several doors and windows on the same wall\n- MLO archetype export fix"
 }
