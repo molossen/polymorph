@@ -1,7 +1,7 @@
 {
-  "version": "1.4.2",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.2.exe",
-  "size": 65898187,
-  "sha256": "62d1720b0879a73424990a276a2ff793a3f1a580bc3170272586a6f67070bbde",
-  "notes": "- Gaussian splat scans: import .ply / .spz / .splat, shown in every view to model over (size, opacity, clean haze, crop)\n- Photo render (F12): path-traced photo of the view with simple settings (quality, size, light mood, brightness)\n- Several doors and windows on the same wall\n- Photo render shows its live progress\n- GTA .dds textures and normal maps in .glb export and photo render\n- MLO archetype export fix"
+  "version": "1.4.3",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.3.exe",
+  "size": 65903444,
+  "sha256": "dffbd9451ecd50f6df9a0fc88ae34c57789762a7c02ea35d055df352c5133e32",
+  "notes": "- Loop Cut: several cuts at once (wheel or + / -), Tab switches the direction\n- Knife options: angle steps (15 / 45 / 90), straight cuts on the world axes, visible faces only; a cut can start inside a face\n- Face selection: a quick second click adds one face, no more whole-loop selection\n- Ctrl + Up / Ctrl + Down grow / shrink the selection (arrows alone still move the camera)\n- Shrink selection works on stairs, open meshes and edges\n- UV Editor button error fixed (and 20 similar labels)\n- Stability fixes"
 }
