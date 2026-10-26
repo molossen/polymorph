@@ -1,7 +1,7 @@
 {
-  "version": "1.4.5",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.5.exe",
-  "size": 65860907,
-  "sha256": "18aefd3628eddda6dbd20bc1006dabaf81e8860c81c47d6050479af5f392d52b",
-  "notes": "- File > Export models: GIMS-style export, tick the models, choose .ydr / .yft, collisions on or off and the folder; one file per model, named after it, own pivot, textures embedded\n- Big selections stay fast (outlines were rebuilt every frame past 48 selected objects)\n- Hide on a Drawable hides its meshes too\n- Right-click no longer jumps the camera in the Top / Front / Left views\n- Right-click menus: Isolate Selection and Unhide All (Hide Selection / Unselected stay on their keys)"
+  "version": "1.4.6",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.6.exe",
+  "size": 65869245,
+  "sha256": "f26c72b76eb002b56c5612a9383344c4f64a3c19998ba18b3e82a5e0030fb06f",
+  "notes": "- Molo Paint: procedural patterns from ArmorPaint (cells, cracks, bricks, checker, waves, wood rings, magic, Perlin) as fills and masks, with warp\n- 14 more layer blend modes, and Brightness / contrast, Gamma, Posterize, Colour ramp filters; 4 new smart materials\n- Material panel: a thumbnail of each texture, bigger on hover\n- Join (Ctrl+J) never goes into a Drawable node any more (the result stays clickable); hidden objects stay out of it\n- Holding Ctrl no longer turns the snap on (it only flips it during a G / R / S move)\n- The walk mode (arrows) leaves as soon as the view is moved another way"
 }
