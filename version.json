@@ -1,7 +1,7 @@
 {
-  "version": "1.4.4",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.4.exe",
-  "size": 65907250,
-  "sha256": "d5b5efe2dac6d4aafd4098ad75054148146280212ebb60a0ebe827984bfa7383",
-  "notes": "- Clicks land where they are made, even right after another window (the eye of a Drawable went to the 3D view)\n- Vertex mode shows every point on screen up to 150 000 points (GTA rooms showed only the points near the mouse)\n- Separate (Detach) in vertex and edge mode: takes the faces whose points are all selected; in the right-click menu"
+  "version": "1.4.5",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.5.exe",
+  "size": 65860907,
+  "sha256": "18aefd3628eddda6dbd20bc1006dabaf81e8860c81c47d6050479af5f392d52b",
+  "notes": "- File > Export models: GIMS-style export, tick the models, choose .ydr / .yft, collisions on or off and the folder; one file per model, named after it, own pivot, textures embedded\n- Big selections stay fast (outlines were rebuilt every frame past 48 selected objects)\n- Hide on a Drawable hides its meshes too\n- Right-click no longer jumps the camera in the Top / Front / Left views\n- Right-click menus: Isolate Selection and Unhide All (Hide Selection / Unselected stay on their keys)"
 }
