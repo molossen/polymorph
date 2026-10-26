@@ -1,7 +1,7 @@
 {
-  "version": "1.4.7",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.7.exe",
-  "size": 65880104,
-  "sha256": "309407378b3d50abc1de6016ccab6a89c50663363eb3b97541543954352d5b07",
-  "notes": "- The eye (and freeze, rename) in the Scene Explorer works again after an Undo / Redo (it acted on stale copies)\n- MAP: putting a scene on the map asks where; an existing .ymap (+ .ytyp, binary or XML) next to it places the models exactly where it puts them\n- Join (Ctrl+J) never goes into a Drawable node; Ctrl no longer turns the snap on"
+  "version": "1.4.8",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.8.exe",
+  "size": 65895345,
+  "sha256": "b706edba2f05f483cfe5993c6406f21e055e8a733f3e7635f9049d5bf1f2ac5a",
+  "notes": "- Molo Paint: 'Picked parts' mask - click the parts of the model (face, piece or UV island) where a layer shows, like a colour-ID mask without an ID map\n- Molo Paint: 'Drips' particle brush - drops run down the surface from the strokes (rust, paint, water)\n- Wood rings pattern fixed (rings a few cm apart)"
 }
