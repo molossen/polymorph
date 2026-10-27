@@ -1,7 +1,7 @@
 {
-  "version": "1.5.0",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.5.0.exe",
-  "size": 65903978,
-  "sha256": "a683a620cb3c3e517a9a2889cbb4fb3635ce4455bf4c1f5db537ad589a44d0dd",
-  "notes": "- Molo Paint: node material on fill layers (like ArmorPaint) - Colour, Value, Mesh (dirt, edges, cavities, top, height), Noise, Voronoi, Bricks, Patterns, Warp, Colour ramp, Mix (every blend mode), Math, Levels, Output (colour, roughness, relief, metal); drag outputs onto inputs to link, right click to add\n- The graph is saved with the layer and in smart materials"
+  "version": "1.5.1",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.5.1.exe",
+  "size": 65904257,
+  "sha256": "566ddf14fe1119fa70676f306b48afe700982866f1825b601b0ce9b8ea804c04",
+  "notes": "- Node material: fixed a crash right after editing the graph (it was read by several cores at once)\n- File > Open Recent: scenes with the same name show their folder (the red ImGui 'conflicting ID' error is gone)\n- The node editor opens low on the screen, the model stays visible"
 }
