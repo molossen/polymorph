@@ -1,7 +1,7 @@
 {
-  "version": "1.4.9",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.9.exe",
-  "size": 65888822,
-  "sha256": "f92b2ada18d0e4e0331a57b29013be6fde03458f20343da6fccc2bce333fea0a",
-  "notes": "- Molo Paint: 'Pick the parts on the model' turns painting on by itself\n- MCP: read-only C# scripts no longer mark the scene modified; app_quit saves a scene that has a file instead of waiting on the save dialog"
+  "version": "1.5.0",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.5.0.exe",
+  "size": 65903978,
+  "sha256": "a683a620cb3c3e517a9a2889cbb4fb3635ce4455bf4c1f5db537ad589a44d0dd",
+  "notes": "- Molo Paint: node material on fill layers (like ArmorPaint) - Colour, Value, Mesh (dirt, edges, cavities, top, height), Noise, Voronoi, Bricks, Patterns, Warp, Colour ramp, Mix (every blend mode), Math, Levels, Output (colour, roughness, relief, metal); drag outputs onto inputs to link, right click to add\n- The graph is saved with the layer and in smart materials"
 }
