@@ -1,7 +1,7 @@
 {
-  "version": "1.4.8",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.8.exe",
-  "size": 65895345,
-  "sha256": "b706edba2f05f483cfe5993c6406f21e055e8a733f3e7635f9049d5bf1f2ac5a",
-  "notes": "- Molo Paint: 'Picked parts' mask - click the parts of the model (face, piece or UV island) where a layer shows, like a colour-ID mask without an ID map\n- Molo Paint: 'Drips' particle brush - drops run down the surface from the strokes (rust, paint, water)\n- Wood rings pattern fixed (rings a few cm apart)"
+  "version": "1.4.9",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.4.9.exe",
+  "size": 65888822,
+  "sha256": "f92b2ada18d0e4e0331a57b29013be6fde03458f20343da6fccc2bce333fea0a",
+  "notes": "- Molo Paint: 'Pick the parts on the model' turns painting on by itself\n- MCP: read-only C# scripts no longer mark the scene modified; app_quit saves a scene that has a file instead of waiting on the save dialog"
 }
