@@ -1,7 +1,7 @@
 {
-  "version": "1.5.1",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.5.1.exe",
-  "size": 65904257,
-  "sha256": "566ddf14fe1119fa70676f306b48afe700982866f1825b601b0ce9b8ea804c04",
-  "notes": "- Node material: fixed a crash right after editing the graph (it was read by several cores at once)\n- File > Open Recent: scenes with the same name show their folder (the red ImGui 'conflicting ID' error is gone)\n- The node editor opens low on the screen, the model stays visible"
+  "version": "1.5.2",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.5.2.exe",
+  "size": 65919980,
+  "sha256": "67f24aa59b8a12e4532bb086fb5c1ee9ea35bc6e8351b5d16b2133ed1ec3ca3c",
+  "notes": "- New Line tool (Create > Shapes > Line): click points that snap to vertices, edges and faces; Shift keeps it straight; click the first point to close\n- A line becomes a door frame casing, a beam, a pipe or an extrusion from its panel, live until Convert to Editable Poly\n- Vertex mode on huge meshes: points shown all over the mesh\n- No more 60k warnings in the stats and import report"
 }
