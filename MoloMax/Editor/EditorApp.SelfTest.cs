@@ -1043,8 +1043,8 @@ public sealed partial class EditorApp
         brush.Radial = 1;
         // eyedropper
         int te = ts.Map.Count / 3;
-        eyedropper = true; EyedropAt(ts, ts.Map.Pos[te], 0.02f);
-        Expect(!eyedropper && Vector3.Distance(brush.ColorValue, ts.CColor[te]) < 0.05f, "eyedropper picks the colour under the click");
+        paintPick = true; PaintEyedrop(ts, ts.Map.Pos[te], 0.02f);
+        Expect(!paintPick && Vector3.Distance(brush.ColorValue, ts.CColor[te]) < 0.05f, "eyedropper picks the colour under the click");
         // the new mask generators cover part of the surface
         foreach (var g in new[] { MaskGen.Dirt, MaskGen.Speckles, MaskGen.Pores })
         {

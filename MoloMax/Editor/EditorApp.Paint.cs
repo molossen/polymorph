@@ -257,7 +257,7 @@ public sealed partial class EditorApp
         {
             // Ctrl+click with the clone tool: the source
             // eyedropper (I): the brush takes the colour, roughness, metal and relief under the click
-            if (eyedropper) { EyedropAt(ts, pl, rLocal); return true; }
+            if (paintPick) { PaintEyedrop(ts, pl, rLocal); return true; }
             if (paintTool == PaintTool.Clone && Input.Ctrl) { cloneSource = pl; brush.CloneSourceSet = false; SetStatus("Clone source set. Paint where the copy goes."); return true; }
             if (partPick && ts?.Current is { } pl0)
             {
@@ -505,7 +505,7 @@ public sealed partial class EditorApp
             if (P(ImGuiKey.B)) { SetPaintTool(PaintTool.Brush); return true; }
             if (P(ImGuiKey.E)) { SetPaintTool(PaintTool.Eraser); return true; }
             if (P(ImGuiKey.F)) { SetPaintTool(PaintTool.Fill); return true; }
-            if (P(ImGuiKey.I)) { eyedropper = !eyedropper; SetStatus(eyedropper ? "Eyedropper: click the model to pick its colour." : "Eyedropper off"); return true; }
+            if (P(ImGuiKey.I)) { paintPick = !paintPick; SetStatus(paintPick ? "Eyedropper: click the model to pick its colour." : "Eyedropper off"); return true; }
         }
         if (P(ImGuiKey.Escape)) { paintMode = false; SetStatus("Paint mode off"); return true; }
         return false;
@@ -527,7 +527,7 @@ public sealed partial class EditorApp
     {
         if (!paintMode || !paintHover.Hit) return;
         var (p, n, r, _) = paintHover;
-        var col = eyedropper ? new Vector4(0.3f, 1, 0.6f, 1) : brush.Erase ? new Vector4(1, 0.4f, 0.3f, 1) : brush.MaskMode ? new Vector4(0.5f, 0.8f, 1, 1) : paintTool == PaintTool.VertexColour ? new Vector4(vertexColour.X, vertexColour.Y, vertexColour.Z, 1) : new Vector4(1, 1, 1, 1);
+        var col = paintPick ? new Vector4(0.3f, 1, 0.6f, 1) : brush.Erase ? new Vector4(1, 0.4f, 0.3f, 1) : brush.MaskMode ? new Vector4(0.5f, 0.8f, 1, 1) : paintTool == PaintTool.VertexColour ? new Vector4(vertexColour.X, vertexColour.Y, vertexColour.Z, 1) : new Vector4(1, 1, 1, 1);
         var o = Current;
         Circle(p, n, r, col);
         if (o != null && (brush.SymX || brush.SymY || brush.SymZ || brush.Radial > 1))

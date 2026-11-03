@@ -215,7 +215,7 @@ public sealed partial class EditorApp
         ImGui.Checkbox("##pc", ref brush.Color); ImGui.SameLine();
         ImGui.ColorEdit3("Colour", ref brush.ColorValue, ImGuiColorEditFlags.NoInputs);
         ImGui.SameLine();
-        if (Theme.Toggle("Pick##eyed", eyedropper, new Vector2(46, 0))) eyedropper = !eyedropper;
+        if (Theme.Toggle("Pick##eyed", paintPick, new Vector2(46, 0))) paintPick = !paintPick;
         Theme.Tip("Eyedropper (I): click the model, the brush takes its colour, roughness, metal and relief.");
         ImGui.SameLine(); ImGui.SetNextItemWidth(-1);
         int finish = brush.Metal && brush.MetalValue > 0.5f ? 2 : brush.RoughValue < 0.35f ? 1 : 0;

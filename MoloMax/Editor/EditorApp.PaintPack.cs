@@ -7,7 +7,7 @@ namespace MoloMax.Editor;
 
 /// <summary>
 /// Molo Paint starter pack: 80 brush alphas and 80 relief textures (CC0, from the SubCraft starter pack, the relief
-/// rebuilt as height maps from its normal maps), the user's own alphas, and the eyedropper.
+/// rebuilt as height maps from its normal maps), the user's own alphas, and the paintPick.
 /// </summary>
 public sealed partial class EditorApp
 {
@@ -15,7 +15,7 @@ public sealed partial class EditorApp
     List<(string Key, string Label, string Path)> packAlphas, userAlphas;
     List<(string Name, string Label, string Path, string Thumb)> reliefs;
     /// <summary>Eyedropper armed (I): the next click on the model picks the colour, roughness, metal and relief under it.</summary>
-    bool eyedropper;
+    bool paintPick;
 
     static string PaintAssets => Path.Combine(AppContext.BaseDirectory, "Assets", "paint");
     static string ReliefFolder => Path.Combine(PaintAssets, "relief");
@@ -151,9 +151,9 @@ public sealed partial class EditorApp
     }
 
     /// <summary>Eyedropper click: the brush takes the painted values under the mouse.</summary>
-    void EyedropAt(TextureSet ts, Vector3 pl, float r)
+    void PaintEyedrop(TextureSet ts, Vector3 pl, float r)
     {
-        eyedropper = false;
+        paintPick = false;
         if (ts?.Map == null) return;
         int t = ts.Map.Nearest(pl, MathF.Max(r, 1e-3f) * 2);
         if (t < 0) { SetStatus("Nothing painted there."); return; }
