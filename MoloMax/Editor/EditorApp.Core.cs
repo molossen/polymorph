@@ -159,7 +159,7 @@ public sealed partial class EditorApp : IDisposable
             HandleViewportInput();
             Prof("input");
             MoloMax.Core.Gta.Library.TextureReader.BitmapLoader ??= LoadImageRgba;
-            BrushTips.PackFolder ??= Path.Combine(AppContext.BaseDirectory, "Assets", "paint", "alphas");
+            MoloMax.Core.Paint.BrushTips.PackFolder ??= Path.Combine(AppContext.BaseDirectory, "Assets", "paint", "alphas");
             PaintFrame();
             AutosaveFrame();
             DrawChecker();
