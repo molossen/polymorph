@@ -95,7 +95,10 @@ public sealed partial class EditorApp
         {
             if (last != null) { ts.Layers.Remove(last); ts.SelectedLayer = 0; Up(); }
             tutSub = title;
-            foreach (var x in ClickAt(TutCentre("relief:" + key))) yield return x;
+            foreach (var x in MouseTo(TutCentre("relief:" + key))) yield return x;
+            tutClick = 0.35f; yield return Frames(4);
+            var rel = reliefs.First(r => r.Name == key);
+            AddReliefLayer(rel.Name, rel.Label, rel.Path);
             last = ts.Current; last.TexHeightAmount = 0.75f; last.TileMetres = 0.8f; last.TexturesChanged(); Up();
             foreach (var x in Turn(55)) yield return x;
         }
