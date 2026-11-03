@@ -1,7 +1,7 @@
 {
-  "version": "1.5.3",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.5.3.exe",
-  "size": 65907716,
-  "sha256": "7ac10088e36e6ea8d8f97f600bf7d5c5d6de28ccbc5cd6008f9eeee433266b32",
-  "notes": "- Line tool: round or chamfer the corners (radius and segments in the line's panel) for arched door frames and rounded counters\n- Line tool: Sweep your own profile - draw a moulding section as another line and it follows the path (skirting, cornices, handrails)"
+  "version": "1.6.0",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.6.0.exe",
+  "size": 70497495,
+  "sha256": "90d3cbaaf2eec322128a158b7e8d17c9cc6a075d06d7a45ae2eb0ed5ee5b6cc2",
+  "notes": "- Molo Paint: 80 new brush alphas (scratches, chips, cracks, bullet impacts, grime...) and your own with Import alphas\n- Molo Paint: Relief tab with 80 tileable reliefs (bricks, diamond plate, corrugated metal, planks...), one click = relief layer\n- Eyedropper (I), radial symmetry, scatter\n- New masks (dirt, speckles, pores) and filters (directional blur, highpass, threshold, clamp, outline)"
 }
