@@ -7,6 +7,14 @@ Grand Theft Auto V and its files belong to Rockstar Games / Take-Two Interactive
 Polymorph reads your own installed copy of the game; it does not ship any game file.
 
 ----------------------------------------------------------------------
+Molo Paint starter pack (Assets/paint) — CC0 1.0 Universal (public domain)
+----------------------------------------------------------------------
+80 brush alphas and 80 relief textures from the SubCraft starter pack by Aalzard
+(https://github.com/Aalzard/subcraft), dedicated to the public domain under CC0 1.0:
+https://creativecommons.org/publicdomain/zero/1.0/
+Resized, and the normal maps turned into height maps, for Polymorph.
+
+----------------------------------------------------------------------
 CodeWalker.Core (dexyfex and contributors) — MIT License
 ----------------------------------------------------------------------
 Copyright (c) dexyfex and contributors

@@ -9,14 +9,14 @@ namespace MoloMax.Core.Paint;
 
 public enum LayerKind { Fill, Paint, Folder }
 public enum PaintBlend { Normal, Multiply, Overlay, Screen, Add, Darken, Lighten, ColorBurn, ColorDodge, SoftLight, HardLight, LinearLight, Difference, Subtract, Divide, Hue, Saturation, Color, Value }
-public enum MaskGen { None, Painted, AmbientOcclusion, Edges, Cavity, Top, Bottom, GradientZ, Noise, Streaks, Tiles, Voronoi, Cracks, Brick, Checker, Wave, Magic, Perlin, Parts }
+public enum MaskGen { None, Painted, AmbientOcclusion, Edges, Cavity, Top, Bottom, GradientZ, Noise, Streaks, Tiles, Voronoi, Cracks, Brick, Checker, Wave, Magic, Perlin, Parts, Dirt, Speckles, Pores }
 public enum PaintChannel { Color, Height, Roughness, Metal }
 public enum PaintView { Final, Roughness, Metal, Height, AmbientOcclusion, Curvature, LayerMask, Emissive, Opacity }
 /// <summary>What a stroke does: paint the brush values, copy another place (clone) or drag the colours along (smudge).</summary>
 public enum BrushMode { Paint, Clone, Smudge }
 /// <summary>Fill tool: how much of the model one click fills.</summary>
 public enum FillScope { Face, Element, UvIsland, All }
-public enum FilterKind { Blur, Sharpen, Levels, HueSaturation, Invert, BrightnessContrast, Gamma, Posterize, ColorRamp }
+public enum FilterKind { Blur, Sharpen, Levels, HueSaturation, Invert, BrightnessContrast, Gamma, Posterize, ColorRamp, DirectionalBlur, Highpass, Threshold, Clamp, Outline }
 public enum PaintExportFormat { Dds, Png, Tga, Sollumz }
 
 /// <summary>Brush settings (radius in metres, like a 3D brush in Substance).</summary>
@@ -52,6 +52,10 @@ public sealed class PaintBrush
     public bool SymX, SymY, SymZ;
     /// <summary>Lazy mouse: the brush trails behind the cursor by this distance (metres), for clean lines.</summary>
     public float Lazy;
+    /// <summary>Scatter: each print lands at a random spot inside this fraction of the radius.</summary>
+    public float Scatter;
+    /// <summary>Radial symmetry: copies of every print around the object's vertical axis (1 = off).</summary>
+    public int Radial = 1;
 }
 
 /// <summary>A filter on a layer: on its mask (blur, sharpen, levels, invert) or on its colour (levels, hue / saturation, invert).</summary>
@@ -64,6 +68,8 @@ public sealed class PaintFilter
     public float Black, White = 1f, Gamma = 1f;
     public float Hue, Saturation = 1f, Brightness;
     public float Contrast; public int Steps = 4;
+    /// <summary>Directional blur angle in the texture (degrees).</summary>
+    public float Angle;
     /// <summary>Colour ramp: dark values become A, bright values B (on a mask: the ramp of A..B greys).</summary>
     public Vector3 RampA = new(0.1f, 0.06f, 0.03f), RampB = new(0.9f, 0.8f, 0.6f);
     public PaintFilter Copy() => (PaintFilter)MemberwiseClone();
@@ -71,7 +77,9 @@ public sealed class PaintFilter
     {
         FilterKind.Blur => $"Blur {Radius:0} px", FilterKind.Sharpen => $"Sharpen {Amount:0.0}", FilterKind.Levels => "Levels",
         FilterKind.HueSaturation => "Hue / saturation", FilterKind.BrightnessContrast => "Brightness / contrast", FilterKind.Gamma => $"Gamma {Gamma:0.00}",
-        FilterKind.Posterize => $"Posterize {Steps}", FilterKind.ColorRamp => "Colour ramp", _ => "Invert",
+        FilterKind.Posterize => $"Posterize {Steps}", FilterKind.ColorRamp => "Colour ramp",
+        FilterKind.DirectionalBlur => $"Directional blur {Radius:0} px", FilterKind.Highpass => $"Highpass {Radius:0} px", FilterKind.Threshold => $"Threshold {Black:0.00}",
+        FilterKind.Clamp => "Clamp", FilterKind.Outline => $"Outline {Radius:0} px", _ => "Invert",
     } + (OnMask ? " (mask)" : " (colour)");
 }
 
@@ -317,6 +325,12 @@ public sealed class TextureSet
                 MaskGen.Magic => ProcTex.Magic(wp, l.MaskNoiseScale * 0.2f),
                 MaskGen.Perlin => ProcTex.Perlin(wp, l.MaskNoiseScale, 6, 0.5f, 0.3f, l.Seed),
                 MaskGen.Parts => parts != null && parts.Contains(PartId(t, l.MaskPartScope)) ? 1f : 0f,
+                // grime blotches broken up by fine specks
+                MaskGen.Dirt => Smooth((Noise.Fbm(wp * l.MaskNoiseScale, l.Seed) * 0.8f + Noise.Fbm(wp * l.MaskNoiseScale * 5, l.Seed ^ 0x2f1) * 0.35f - 0.5f) / 0.22f),
+                // small random dots
+                MaskGen.Speckles => Smooth((Noise.Value(wp * l.MaskNoiseScale * 24, l.Seed) - 0.62f) / 0.12f),
+                // round pits (cells' centres)
+                MaskGen.Pores => 1 - Smooth((ProcTex.Voronoi(wp, l.MaskNoiseScale * 3, 1, l.Seed).F1 - 0.08f) / 0.12f),
                 _ => 1f,
             };
             if (l.Mask is not (MaskGen.None or MaskGen.Painted or MaskGen.Parts))
@@ -378,6 +392,18 @@ public sealed class TextureSet
             case FilterKind.BrightnessContrast: for (int t = 0; t < m.Length; t++) m[t] = Math.Clamp(BrightContrast(m[t], f), 0, 1); break;
             case FilterKind.Gamma: for (int t = 0; t < m.Length; t++) m[t] = MathF.Pow(Math.Clamp(m[t], 0, 1), MathF.Max(f.Gamma, 0.01f)); break;
             case FilterKind.Posterize: for (int t = 0; t < m.Length; t++) m[t] = Posterize(m[t], f.Steps); break;
+            case FilterKind.DirectionalBlur: { var b = DirectionalBlurTexels(m, Math.Max(1, (int)MathF.Round(f.Radius)), f.Angle); Array.Copy(b, m, m.Length); break; }
+            case FilterKind.Highpass: { var b = BlurTexels(m, Math.Max(1, (int)MathF.Round(f.Radius))); for (int t = 0; t < m.Length; t++) m[t] = Math.Clamp(0.5f + (m[t] - b[t]) * f.Amount, 0, 1); break; }
+            case FilterKind.Threshold: for (int t = 0; t < m.Length; t++) m[t] = m[t] >= f.Black ? 1 : 0; break;
+            case FilterKind.Clamp: for (int t = 0; t < m.Length; t++) m[t] = Math.Clamp(m[t], f.Black, MathF.Max(f.Black, f.White)); break;
+            case FilterKind.Outline:
+                {
+                    // the border of the mask: a band about Radius px wide around the 0.5 line
+                    var bin = new float[m.Length]; for (int t = 0; t < m.Length; t++) bin[t] = m[t] >= 0.5f ? 1 : 0;
+                    var b = BlurTexels(bin, Math.Max(1, (int)MathF.Round(f.Radius * 0.6f)));
+                    for (int t = 0; t < m.Length; t++) m[t] = Math.Clamp(1 - MathF.Abs(b[t] * 2 - 1) * 1.6f, 0, 1);
+                    break;
+                }
             case FilterKind.ColorRamp:
                 {
                     float a = Luma(f.RampA), b = Luma(f.RampB);
@@ -415,6 +441,8 @@ public sealed class TextureSet
                 case FilterKind.Gamma: { float g = MathF.Max(f.Gamma, 0.01f); c = new Vector3(MathF.Pow(MathF.Max(c.X, 0), g), MathF.Pow(MathF.Max(c.Y, 0), g), MathF.Pow(MathF.Max(c.Z, 0), g)); break; }
                 case FilterKind.Posterize: c = new Vector3(Posterize(c.X, f.Steps), Posterize(c.Y, f.Steps), Posterize(c.Z, f.Steps)); break;
                 case FilterKind.ColorRamp: c = Vector3.Lerp(f.RampA, f.RampB, Math.Clamp(Luma(c), 0, 1)); break;
+                case FilterKind.Threshold: c = Luma(c) >= f.Black ? Vector3.One : Vector3.Zero; break;
+                case FilterKind.Clamp: c = Vector3.Clamp(c, new Vector3(f.Black), new Vector3(MathF.Max(f.Black, f.White))); break;
                 case FilterKind.HueSaturation:
                     {
                         var (h, s, v) = ToHsv(c);
@@ -451,6 +479,29 @@ public sealed class TextureSet
         for (int pass = 0; pass < 2; pass++) { BoxH(img, S, radius); BoxV(img, S, radius); }
         var res = new float[v.Length];
         for (int t = 0; t < res.Length; t++) res[t] = img[Map.Pixel[t]];
+        return res;
+    }
+
+    /// <summary>Blur along one direction of the texture (scratches, rain, brushed metal), in texture space like <see cref="BlurTexels"/>.</summary>
+    public float[] DirectionalBlurTexels(float[] v, int radius, float angleDeg)
+    {
+        int S = Size; var img = new float[S * S];
+        Parallel.For(0, S, y =>
+        {
+            for (int x = 0; x < S; x++) { int id = x + y * S; int t = Map.Index[id]; if (t < 0) t = Map.Dilate[id]; img[id] = t < 0 ? 0 : v[t]; }
+        });
+        float a = angleDeg * MathF.PI / 180f, dx = MathF.Cos(a), dy = MathF.Sin(a);
+        var res = new float[v.Length];
+        Parallel.For(0, v.Length, t =>
+        {
+            int px = Map.Pixel[t] % S, py = Map.Pixel[t] / S; float acc = 0; int n = 0;
+            for (int k = -radius; k <= radius; k++)
+            {
+                int x = Math.Clamp((int)MathF.Round(px + dx * k), 0, S - 1), y = Math.Clamp((int)MathF.Round(py + dy * k), 0, S - 1);
+                acc += img[x + y * S]; n++;
+            }
+            res[t] = acc / n;
+        });
         return res;
     }
 
@@ -860,7 +911,7 @@ public sealed class TextureSet
         if (maskT)
         {
             l.maskDirty = true; MaskOf(l);
-            if (folder || l.Filters.Any(f => f.Enabled && f.OnMask && f.Kind is FilterKind.Blur or FilterKind.Sharpen)) { CompositeAll(); return; }
+            if (folder || l.Filters.Any(f => f.Enabled && f.OnMask && f.Kind is FilterKind.Blur or FilterKind.Sharpen or FilterKind.DirectionalBlur or FilterKind.Highpass or FilterKind.Outline)) { CompositeAll(); return; }
         }
         PrepareFolders();
         int x0 = int.MaxValue, y0 = int.MaxValue, x1 = -1, y1 = -1;

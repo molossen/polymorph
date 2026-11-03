@@ -1,0 +1,8 @@
+Molo Paint starter pack
+
+80 brush alphas (alphas/) and 80 relief textures (relief/) come from the SubCraft starter pack
+by Aalzard (https://github.com/Aalzard/subcraft), dedicated to the public domain under CC0 1.0 Universal:
+https://creativecommons.org/publicdomain/zero/1.0/
+
+For Polymorph the alphas were resized to 256 px and the normal maps were turned into
+512 px height maps (relief). No attribution is required; this note is a courtesy.

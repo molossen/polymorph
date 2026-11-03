@@ -74,7 +74,7 @@ public sealed partial class EditorApp
             StartPaint(o);
         }
         else paintMode = true;
-        if (paintMode) { propTab = PropTab.Paint; ShowPanel = true; SetStatus("Paint mode: LMB paints, [ ] brush size, B brush, E eraser, F fill. Esc or Paint to leave."); }
+        if (paintMode) { propTab = PropTab.Paint; ShowPanel = true; SetStatus("Paint mode: LMB paints, [ ] brush size, B brush, E eraser, F fill, I eyedropper. Esc or Paint to leave."); }
     }
 
     void StartPaint(SceneObject o)
@@ -256,6 +256,8 @@ public sealed partial class EditorApp
         if (pressed)
         {
             // Ctrl+click with the clone tool: the source
+            // eyedropper (I): the brush takes the colour, roughness, metal and relief under the click
+            if (eyedropper) { EyedropAt(ts, pl, rLocal); return true; }
             if (paintTool == PaintTool.Clone && Input.Ctrl) { cloneSource = pl; brush.CloneSourceSet = false; SetStatus("Clone source set. Paint where the copy goes."); return true; }
             if (partPick && ts?.Current is { } pl0)
             {
@@ -360,6 +362,14 @@ public sealed partial class EditorApp
             if (brush.SizeJitter > 0) rr = r * MathF.Max(0.1f, 1 + ((float)paintRnd.NextDouble() - 0.5f) * 2 * brush.SizeJitter);
             if (brush.AngleJitter > 0) ang += ((float)paintRnd.NextDouble() - 0.5f) * 2 * brush.AngleJitter;
         }
+        if (brush.Scatter > 0)
+        {
+            // scatter: the print lands somewhere inside the brush
+            Triangulator.Basis(Vector3.Normalize(n), out var su, out var sv);
+            float a = (float)paintRnd.NextDouble() * MathF.Tau, d = MathF.Sqrt((float)paintRnd.NextDouble()) * brush.Scatter * r;
+            var off = (su * MathF.Cos(a) + sv * MathF.Sin(a)) * d;
+            p += off; prev += off;
+        }
         foreach (var (mp, mn, mprev) in Mirrors(p, n, prev))
         {
             ts.Stamp(brush, mp, mn, rr, ang, mprev);
@@ -407,6 +417,20 @@ public sealed partial class EditorApp
     static Matrix4x4 InverseOf(Matrix4x4 m) { Matrix4x4.Invert(m, out var inv); return inv; }
 
     IEnumerable<(Vector3 P, Vector3 N, Vector3 Prev)> Mirrors(Vector3 p, Vector3 n, Vector3 prev)
+    {
+        foreach (var m in AxisMirrors(p, n, prev))
+        {
+            yield return m;
+            // radial symmetry: copies turned around the object's vertical axis (through its pivot)
+            for (int k = 1; k < Math.Max(1, brush.Radial); k++)
+            {
+                var rot = Matrix4x4.CreateRotationZ(MathF.Tau * k / brush.Radial);
+                yield return (Vector3.Transform(m.P, rot), Vector3.TransformNormal(m.N, rot), Vector3.Transform(m.Prev, rot));
+            }
+        }
+    }
+
+    IEnumerable<(Vector3 P, Vector3 N, Vector3 Prev)> AxisMirrors(Vector3 p, Vector3 n, Vector3 prev)
     {
         yield return (p, n, prev);
         var axes = new List<Vector3>();
@@ -466,7 +490,7 @@ public sealed partial class EditorApp
         return true;
     }
 
-    /// <summary>Paint-mode keys: [ ] brush size, B / E / F tools, X mirror, Ctrl+Z undo stroke, Esc leaves paint mode.</summary>
+    /// <summary>Paint-mode keys: [ ] brush size, B / E / F tools, I eyedropper, X mirror, Ctrl+Z undo stroke, Esc leaves paint mode.</summary>
     bool PaintKeys(bool ctrl)
     {
         if (!paintMode) return false;
@@ -481,6 +505,7 @@ public sealed partial class EditorApp
             if (P(ImGuiKey.B)) { SetPaintTool(PaintTool.Brush); return true; }
             if (P(ImGuiKey.E)) { SetPaintTool(PaintTool.Eraser); return true; }
             if (P(ImGuiKey.F)) { SetPaintTool(PaintTool.Fill); return true; }
+            if (P(ImGuiKey.I)) { eyedropper = !eyedropper; SetStatus(eyedropper ? "Eyedropper: click the model to pick its colour." : "Eyedropper off"); return true; }
         }
         if (P(ImGuiKey.Escape)) { paintMode = false; SetStatus("Paint mode off"); return true; }
         return false;
@@ -502,10 +527,10 @@ public sealed partial class EditorApp
     {
         if (!paintMode || !paintHover.Hit) return;
         var (p, n, r, _) = paintHover;
-        var col = brush.Erase ? new Vector4(1, 0.4f, 0.3f, 1) : brush.MaskMode ? new Vector4(0.5f, 0.8f, 1, 1) : paintTool == PaintTool.VertexColour ? new Vector4(vertexColour.X, vertexColour.Y, vertexColour.Z, 1) : new Vector4(1, 1, 1, 1);
+        var col = eyedropper ? new Vector4(0.3f, 1, 0.6f, 1) : brush.Erase ? new Vector4(1, 0.4f, 0.3f, 1) : brush.MaskMode ? new Vector4(0.5f, 0.8f, 1, 1) : paintTool == PaintTool.VertexColour ? new Vector4(vertexColour.X, vertexColour.Y, vertexColour.Z, 1) : new Vector4(1, 1, 1, 1);
         var o = Current;
         Circle(p, n, r, col);
-        if (o != null && (brush.SymX || brush.SymY || brush.SymZ))
+        if (o != null && (brush.SymX || brush.SymY || brush.SymZ || brush.Radial > 1))
         {
             Matrix4x4.Invert(o.World, out var inv);
             var pl = Vector3.Transform(p, inv); var nl = Vector3.TransformNormal(n, inv);

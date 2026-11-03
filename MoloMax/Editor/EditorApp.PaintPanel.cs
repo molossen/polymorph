@@ -45,6 +45,9 @@ public sealed partial class EditorApp
         ("Magic", MaskGen.Magic, false),
         ("Cloudy noise (Perlin)", MaskGen.Perlin, false),
         ("Picked parts (click them)", MaskGen.Parts, false),
+        ("Dirt (blotches)", MaskGen.Dirt, false),
+        ("Speckles", MaskGen.Speckles, false),
+        ("Pores (pits)", MaskGen.Pores, false),
     };
     static readonly (string Label, Vector3 Colour)[] Swatches =
     {
@@ -211,6 +214,9 @@ public sealed partial class EditorApp
         }
         ImGui.Checkbox("##pc", ref brush.Color); ImGui.SameLine();
         ImGui.ColorEdit3("Colour", ref brush.ColorValue, ImGuiColorEditFlags.NoInputs);
+        ImGui.SameLine();
+        if (Theme.Toggle("Pick##eyed", eyedropper, new Vector2(46, 0))) eyedropper = !eyedropper;
+        Theme.Tip("Eyedropper (I): click the model, the brush takes its colour, roughness, metal and relief.");
         ImGui.SameLine(); ImGui.SetNextItemWidth(-1);
         int finish = brush.Metal && brush.MetalValue > 0.5f ? 2 : brush.RoughValue < 0.35f ? 1 : 0;
         if (ImGui.Combo("##finish", ref finish, new[] { "Matte", "Glossy", "Metal" }, 3))
@@ -242,10 +248,14 @@ public sealed partial class EditorApp
         if (!withTip) return;
         if (paintTool != PaintTool.Decal)
         {
-            int ti = Math.Max(0, Array.IndexOf(BrushTips.Names, brush.TipName ?? "Round"));
             ImGui.SetNextItemWidth(-90);
-            if (ImGui.Combo("Tip", ref ti, BrushTips.Names, BrushTips.Names.Length)) { brush.TipName = BrushTips.Names[ti]; brush.Tip = BrushTips.Get(brush.TipName); }
-            Theme.Tip("Shape of the brush (also in the shelf, Alphas tab).");
+            if (ImGui.BeginCombo("Tip", BrushTips.LabelOf(brush.TipName)))
+            {
+                foreach (var n in BrushTips.Names) if (ImGui.Selectable(n, (brush.TipName ?? "Round") == n)) PickTip(n);
+                Ui.TextDisabled("+ 80 alphas in the shelf (Alphas tab)");
+                ImGui.EndCombo();
+            }
+            Theme.Tip("Shape of the brush. The shelf's Alphas tab has 80 more and your own.");
         }
         if (brush.Tip != null || brush.Stamp != null)
         {
@@ -260,12 +270,16 @@ public sealed partial class EditorApp
         ImGui.SetNextItemWidth(-90); ImGui.SliderFloat("Spacing", ref brush.Spacing, 0.02f, 1f);
         ImGui.SetNextItemWidth(-90); ImGui.DragFloat("Lazy mouse", ref brush.Lazy, 0.002f, 0, 2, brush.Lazy <= 0 ? "off" : "%.2f m");
         Theme.Tip("The brush trails behind the cursor: clean lines and curves.");
+        ImGui.SetNextItemWidth(-90); ImGui.SliderFloat("Scatter", ref brush.Scatter, 0, 1, brush.Scatter <= 0 ? "off" : "%.2f");
+        Theme.Tip("Each print lands at a random spot inside the brush (dirt, leaves, bullet holes...).");
         ImGui.SetNextItemWidth(-90); ImGui.SliderFloat("Drips", ref brush.Drips, 0, 1, brush.Drips <= 0 ? "off" : "%.2f");
         Theme.Tip("Particle brush: drops run down the surface from the strokes (paint, rust, water). Their length below.");
         if (brush.Drips > 0) { ImGui.SetNextItemWidth(-90); ImGui.SliderFloat("Drip length", ref brush.DripLength, 0.02f, 2, "%.2f m"); }
         Ui.TextDisabled("Symmetry"); ImGui.SameLine();
         ImGui.Checkbox("X##sx", ref brush.SymX); ImGui.SameLine(); ImGui.Checkbox("Y##sy", ref brush.SymY); ImGui.SameLine(); ImGui.Checkbox("Z##sz", ref brush.SymZ);
         Theme.Tip("Mirrors the strokes across the object's axes (through its pivot).");
+        ImGui.SetNextItemWidth(-90); ImGui.SliderInt("Radial", ref brush.Radial, 1, 16, brush.Radial <= 1 ? "off" : "%d copies");
+        Theme.Tip("Radial symmetry: the stroke is repeated around the object's vertical axis (wheels, lamps, columns).");
         ImGui.Checkbox("Only surfaces facing the brush", ref brush.BackfaceCull);
         Ui.TextDisabled("Shift+click: straight line from the last print.");
     }
@@ -563,6 +577,7 @@ public sealed partial class EditorApp
             {
                 Ui.TextDisabled("Texture: " + Path.GetFileNameWithoutExtension(l.TexDiffuse ?? l.TexHeight ?? ""));
                 ImGui.SetNextItemWidth(-90); if (ImGui.DragFloat("Tile size", ref l.TileMetres, 0.01f, 0.05f, 50, "%.2f m")) { l.TexturesChanged(); c = true; }
+                if (l.TexHeight != null) { ImGui.SetNextItemWidth(-90); if (ImGui.SliderFloat("Relief strength", ref l.TexHeightAmount, 0, 1)) { l.TexturesChanged(); c = true; } }
                 c |= ImGui.ColorEdit3("Tint", ref l.Color, ImGuiColorEditFlags.NoInputs);
             }
             ImGui.SetNextItemWidth(-90); c |= ImGui.SliderFloat("Roughness", ref l.Rough, 0, 1);
@@ -619,7 +634,7 @@ public sealed partial class EditorApp
             ImGui.SetNextItemWidth(-90); if (ImGui.SliderFloat("Amount", ref amount, 0, 1)) { l.MaskThreshold = 1 - amount; mc = true; }
             ImGui.SetNextItemWidth(-90); mc |= ImGui.SliderFloat("Sharpness", ref l.MaskContrast, 0.5f, 20);
             ImGui.SetNextItemWidth(-90); mc |= ImGui.SliderFloat("Breakup", ref l.MaskBreakup, 0, 1);
-            if (l.Mask is MaskGen.Noise or MaskGen.Streaks or MaskGen.Tiles or MaskGen.Voronoi or MaskGen.Cracks or MaskGen.Brick or MaskGen.Checker or MaskGen.Wave or MaskGen.Magic or MaskGen.Perlin || l.MaskBreakup > 0)
+            if (l.Mask is MaskGen.Noise or MaskGen.Streaks or MaskGen.Tiles or MaskGen.Voronoi or MaskGen.Cracks or MaskGen.Brick or MaskGen.Checker or MaskGen.Wave or MaskGen.Magic or MaskGen.Perlin or MaskGen.Dirt or MaskGen.Speckles or MaskGen.Pores || l.MaskBreakup > 0)
             { ImGui.SetNextItemWidth(-90); mc |= ImGui.SliderFloat(l.Mask == MaskGen.Tiles ? "Tiles / m" : l.Mask == MaskGen.Brick ? "Rows / m" : "Scale", ref l.MaskNoiseScale, 0.5f, 60); }
             ImGui.SetNextItemWidth(-90); mc |= ImGui.SliderFloat("Warp##mw", ref l.Warp, 0, 0.5f, "%.2f m");
             Theme.Tip("Bends the mask with noise (straight lines become wobbly).");
@@ -677,6 +692,20 @@ public sealed partial class EditorApp
                     break;
                 case FilterKind.Gamma: ImGui.SetNextItemWidth(-90); c |= ImGui.SliderFloat("Gamma##g", ref f.Gamma, 0.1f, 5); break;
                 case FilterKind.Posterize: ImGui.SetNextItemWidth(-90); c |= ImGui.SliderInt("Steps##ps", ref f.Steps, 2, 16); break;
+                case FilterKind.DirectionalBlur:
+                    ImGui.SetNextItemWidth(-90); c |= ImGui.SliderFloat("Length##db", ref f.Radius, 1, 48, "%.0f px");
+                    ImGui.SetNextItemWidth(-90); c |= ImGui.SliderFloat("Angle##db", ref f.Angle, -180, 180, "%.0f°");
+                    break;
+                case FilterKind.Highpass:
+                    ImGui.SetNextItemWidth(-90); c |= ImGui.SliderFloat("Radius##hp", ref f.Radius, 1, 24, "%.0f px");
+                    ImGui.SetNextItemWidth(-90); c |= ImGui.SliderFloat("Amount##hp", ref f.Amount, 0, 8);
+                    break;
+                case FilterKind.Threshold: ImGui.SetNextItemWidth(-90); c |= ImGui.SliderFloat("Level##th", ref f.Black, 0, 1); break;
+                case FilterKind.Clamp:
+                    ImGui.SetNextItemWidth(-90); c |= ImGui.SliderFloat("Min##cl", ref f.Black, 0, 1);
+                    ImGui.SetNextItemWidth(-90); c |= ImGui.SliderFloat("Max##cl", ref f.White, 0, 1);
+                    break;
+                case FilterKind.Outline: ImGui.SetNextItemWidth(-90); c |= ImGui.SliderFloat("Width##ol", ref f.Radius, 1, 24, "%.0f px"); break;
                 case FilterKind.ColorRamp:
                     c |= ImGui.ColorEdit3("Dark##ra", ref f.RampA, ImGuiColorEditFlags.NoInputs); ImGui.SameLine();
                     c |= ImGui.ColorEdit3("Bright##rb", ref f.RampB, ImGuiColorEditFlags.NoInputs);
@@ -686,12 +715,14 @@ public sealed partial class EditorApp
         }
         Ui.TextDisabled("Add a filter on the mask:");
         float w3 = (ImGui.GetContentRegionAvail().X - 6) / 4;
-        void Add(string label, FilterKind k, bool onMask) { if (ImGui.Button(label, new Vector2(w3, 0))) { l.Filters.Add(new PaintFilter { Kind = k, OnMask = onMask }); c = true; } }
+        void Add(string label, FilterKind k, bool onMask) { if (ImGui.Button(label, new Vector2(w3, 0))) { l.Filters.Add(new PaintFilter { Kind = k, OnMask = onMask, Black = k == FilterKind.Threshold ? 0.5f : 0f, Radius = k == FilterKind.DirectionalBlur ? 8f : 2f }); c = true; } }
         Add("Blur", FilterKind.Blur, true); ImGui.SameLine(0, 2); Add("Sharpen", FilterKind.Sharpen, true); ImGui.SameLine(0, 2); Add("Levels", FilterKind.Levels, true); ImGui.SameLine(0, 2); Add("Invert", FilterKind.Invert, true);
-        Add("Bright./cont.", FilterKind.BrightnessContrast, true); ImGui.SameLine(0, 2); Add("Gamma", FilterKind.Gamma, true); ImGui.SameLine(0, 2); Add("Posterize", FilterKind.Posterize, true);
+        Add("Bright./cont.", FilterKind.BrightnessContrast, true); ImGui.SameLine(0, 2); Add("Gamma", FilterKind.Gamma, true); ImGui.SameLine(0, 2); Add("Posterize", FilterKind.Posterize, true); ImGui.SameLine(0, 2); Add("Dir. blur", FilterKind.DirectionalBlur, true);
+        Add("Highpass", FilterKind.Highpass, true); ImGui.SameLine(0, 2); Add("Threshold", FilterKind.Threshold, true); ImGui.SameLine(0, 2); Add("Clamp", FilterKind.Clamp, true); ImGui.SameLine(0, 2); Add("Outline", FilterKind.Outline, true);
         Ui.TextDisabled("on the colour:");
         Add("Levels##c", FilterKind.Levels, false); ImGui.SameLine(0, 2); Add("Hue / sat.", FilterKind.HueSaturation, false); ImGui.SameLine(0, 2); Add("Invert##c", FilterKind.Invert, false); ImGui.SameLine(0, 2); Add("Bright./cont.##c", FilterKind.BrightnessContrast, false);
-        Add("Gamma##c", FilterKind.Gamma, false); ImGui.SameLine(0, 2); Add("Posterize##c", FilterKind.Posterize, false); ImGui.SameLine(0, 2); Add("Colour ramp##c", FilterKind.ColorRamp, false);
+        Add("Gamma##c", FilterKind.Gamma, false); ImGui.SameLine(0, 2); Add("Posterize##c", FilterKind.Posterize, false); ImGui.SameLine(0, 2); Add("Colour ramp##c", FilterKind.ColorRamp, false); ImGui.SameLine(0, 2); Add("Threshold##c", FilterKind.Threshold, false);
+        Add("Clamp##c", FilterKind.Clamp, false);
         if (c) { l.MaskChanged(); ts.Refresh(); }
     }
 

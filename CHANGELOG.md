@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.6.0](#160) | Molo Paint: 80 alphas, 80 reliefs, eyedropper, radial symmetry |
 | [1.5.3](#153) | Line: rounded / chamfered corners, sweep your own profile |
 | [1.5.2](#152) | Line tool: draw door frames, beams, pipes and extrusions |
 | [1.5.0](#150) | Molo Paint node materials |
@@ -18,6 +19,27 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.2.0](#120) | C# scripting inside Polymorph |
 | [1.1.0](#110) | One-click updates, animation, Wall Opening, texture library |
 | [1.0.0](#100) | First public release |
+
+---
+
+## 1.6.0
+
+**Molo Paint, painter upgrade** (brushes, reliefs and tools taken from the open-source painter SubCraft)
+- **80 brush alphas** in the shelf's Alphas tab, with thumbnails and a search: scratches, chipped edges, cracks,
+  bullet impacts, grime streaks, rivets, vents, leaves, splatters... **Import alphas...** adds your own PNG / JPG
+  (white = paint); they are kept in Documents\Polymorph\alphas.
+- **80 relief textures** in a new **Relief** tab: bricks, cobblestone, diamond plate, corrugated metal, rivets, planks,
+  peeling paint, rust pitting... One click adds a relief layer (height only, tiles every metre) with a tile size and a
+  strength; give it a mask to keep it where you want.
+- **Eyedropper**: **I** or the **Pick** button, then click the model: the brush takes its colour, roughness, metal and
+  relief.
+- **Radial symmetry**: up to 16 copies of each stroke around the object's vertical axis (wheels, lamps, columns).
+- **Scatter**: each print lands at a random spot inside the brush.
+- **New masks**: Dirt (blotches), Speckles, Pores.
+- **New filters**: directional blur, highpass, threshold, clamp and outline on masks; threshold and clamp on colours.
+
+The alphas and reliefs are CC0 (public domain), from the SubCraft starter pack by Aalzard; the normal maps were turned
+into height maps for Polymorph.
 
 ---
 

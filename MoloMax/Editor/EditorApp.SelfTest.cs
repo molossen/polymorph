@@ -196,6 +196,7 @@ public sealed partial class EditorApp
         T("Molo Paint: two materials = two texture sets, tools tab", PaintStart);
         T("Molo Paint: symmetry stroke, tip, fill, clone, mask painting", PaintStrokes);
         T("Molo Paint: folders, smart masks, filters, my smart material", PaintLayersTest);
+        T("Molo Paint: starter alphas, relief, eyedropper, radial / scatter, new masks and filters", PaintPackTest);
         T("Molo Paint: high-poly bake (normal, AO, colour)", PaintBakeTest);
         T("Molo Paint: vertex colours, emissive, export (DDS + Sollumz), save / reopen", PaintExportTest);
         T("performance: 1M vertices", Perf);
@@ -1020,6 +1021,56 @@ public sealed partial class EditorApp
         ts.SelectedLayer = ts.Layers.IndexOf(grime);
         yield return Frames(4);
         yield return Shot("paint_layers_tab");
+    }
+
+    IEnumerable<object> PaintPackTest()
+    {
+        var o = paintObj; SelectOnly(o); var ts = o.Paint.Cur;
+        EnsurePaintPack();
+        Expect(packAlphas.Count >= 80 && reliefs.Count >= 80, $"starter pack found: {packAlphas.Count} alphas, {reliefs.Count} reliefs");
+        // an image alpha as the brush tip
+        PickTip(packAlphas.First(a => a.Key.EndsWith("Scratches")).Key);
+        Expect(brush.Tip is { Width: 256 } && brush.Tip.Pixels.Where((b, i) => i % 4 == 3).Any(x => x > 200), "image alpha loaded as a tip");
+        SetPaintTool(PaintTool.Brush); brush.ColorValue = new Vector3(0.9f, 0.85f, 0.1f); brush.Strength = 1;
+        int t0 = Enumerable.Range(0, ts.Map.Count).First(t => MathF.Abs(ts.Map.Nrm[t].Z) < 0.5f);
+        PrepareStroke(o, ts);
+        StampAll(o, ts, ts.Map.Pos[t0], ts.Map.Nrm[t0], 0.4f, ts.Map.Pos[t0]);
+        PickTip("Round");
+        // radial symmetry: 4 prints turned around Z; scatter moves the print inside the brush
+        brush.Radial = 4;
+        var copies = Mirrors(new Vector3(1, 0, 0.5f), Vector3.UnitX, new Vector3(1, 0, 0.5f)).ToList();
+        Expect(copies.Count == 4 && copies.Any(c => Vector3.Distance(c.P, new Vector3(0, 1, 0.5f)) < 1e-3f), $"radial symmetry gives 4 prints ({copies.Count})");
+        brush.Radial = 1;
+        // eyedropper
+        int te = ts.Map.Count / 3;
+        eyedropper = true; EyedropAt(ts, ts.Map.Pos[te], 0.02f);
+        Expect(!eyedropper && Vector3.Distance(brush.ColorValue, ts.CColor[te]) < 0.05f, "eyedropper picks the colour under the click");
+        // the new mask generators cover part of the surface
+        foreach (var g in new[] { MaskGen.Dirt, MaskGen.Speckles, MaskGen.Pores })
+        {
+            var l = new PaintLayer { Name = g.ToString(), Kind = LayerKind.Fill, Mask = g, MaskNoiseScale = 4, Seed = 3 };
+            var m = ts.MaskOf(l); float mean = m.Average();
+            Expect(mean > 0.005f && mean < 0.95f, $"{g} mask covers part of the model ({mean:0.000})");
+        }
+        // the new filters
+        var fl = new PaintLayer { Name = "filters", Kind = LayerKind.Fill, Mask = MaskGen.Noise, MaskNoiseScale = 6 };
+        foreach (var k in new[] { FilterKind.DirectionalBlur, FilterKind.Highpass, FilterKind.Outline, FilterKind.Clamp, FilterKind.Threshold })
+            fl.Filters.Add(new PaintFilter { Kind = k, Radius = 4, Black = k == FilterKind.Threshold ? 0.5f : 0.1f, White = 0.9f, Angle = 30 });
+        var fm = ts.MaskOf(fl);
+        Expect(fm.All(v => v == 0 || v == 1) && fm.Any(v => v == 1), "directional blur, highpass, outline, clamp and threshold run (threshold leaves 0 / 1)");
+        // relief layer from the pack: the height changes
+        var rel = reliefs.First(r => r.Name == "Brick");
+        AddReliefLayer(rel.Name, rel.Label, rel.Path);
+        ts.Refresh();
+        float hmin = ts.CHeight.Min(), hmax = ts.CHeight.Max();
+        Expect(hmax - hmin > 0.2f && ts.Current.Name.Contains("Relief"), $"relief layer gives height ({hmin:0.00}..{hmax:0.00})");
+        shelfTab = 3; alphaSearch = "";
+        yield return Frames(6);
+        yield return Shot("paint_shelf_alphas_pack");
+        shelfTab = 4;
+        yield return Frames(30);
+        yield return Shot("paint_shelf_relief");
+        shelfTab = 2;
     }
 
     IEnumerable<object> PaintBakeTest()

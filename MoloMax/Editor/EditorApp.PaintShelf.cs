@@ -36,8 +36,8 @@ public sealed partial class EditorApp
         var ts = CurSet;
         float fw = ImGui.GetContentRegionAvail().X;
 
-        string[] tabs = { "Materials", "Decals", "Smart", "Alphas" };
-        float tw = (fw - 6) / 4;
+        string[] tabs = { "Materials", "Decals", "Smart", "Alphas", "Relief" };
+        float tw = (fw - 8) / 5;
         for (int i = 0; i < tabs.Length; i++)
         {
             if (i > 0) ImGui.SameLine(0, 2);
@@ -79,7 +79,23 @@ public sealed partial class EditorApp
             }
         }
         else if (shelfTab == 2) Ui.TextDisabled("drag onto the model to add it");
-        else Ui.TextDisabled("click = brush tip (shape of the brush)");
+        else if (shelfTab == 3)
+        {
+            Ui.TextDisabled("click = brush tip (shape of the brush)");
+            float bw = (fw - 2) / 2;
+            if (ImGui.Button("Import alphas...", new Vector2(bw, 0))) ImportAlphas();
+            Theme.Tip("Your own brush shapes (PNG, JPG, TGA): white = paint. They go in Documents\\Polymorph\\alphas.");
+            ImGui.SameLine(0, 2);
+            if (ImGui.Button("Open the folder##alf", new Vector2(bw, 0))) { Directory.CreateDirectory(BrushTips.UserFolder); try { System.Diagnostics.Process.Start("explorer.exe", BrushTips.UserFolder); } catch { } }
+            ImGui.SetNextItemWidth(fw);
+            ImGui.InputTextWithHint("##alsearch", "search...", ref alphaSearch, 60);
+        }
+        else
+        {
+            Ui.TextDisabled("click = new relief layer (height, tiles every metre)");
+            ImGui.SetNextItemWidth(fw);
+            ImGui.InputTextWithHint("##rlsearch", "search...", ref reliefSearch, 60);
+        }
         ImGui.Separator();
 
         ImGui.BeginChild("##shelfitems", Vector2.Zero);
@@ -117,28 +133,8 @@ public sealed partial class EditorApp
             Group("Mine", SmartLibrary.Names());
             Ui.TextDisabled("Save your own in Layers > My smart materials.");
         }
-        else if (shelfTab == 3)
-        {
-            for (int i = 0; i < BrushTips.Names.Length; i++)
-            {
-                if (i % cols != 0) ImGui.SameLine(0, gap);
-                var name = BrushTips.Names[i];
-                ImGui.BeginGroup();
-                var p = ImGui.GetCursorScreenPos();
-                ImGui.PushID(i);
-                bool click = ImGui.InvisibleButton("##tip", new Vector2(cell, cell));
-                bool hov = ImGui.IsItemHovered();
-                ImGui.PopID();
-                var dl = ImGui.GetWindowDrawList();
-                dl.AddRectFilled(p, p + new Vector2(cell, cell), 0xFF2A2A2A, 4);
-                TipPreview(dl, name, p, cell);
-                bool active = (brush.TipName ?? "Round") == name && brush.Stamp == null;
-                dl.AddRect(p, p + new Vector2(cell, cell), active ? 0xFF30B0FF : hov ? 0xFFFFFFFF : 0xFF202020, 4, ImDrawFlags.None, active ? 3 : 1);
-                Ui.TextDisabled(name);
-                ImGui.EndGroup();
-                if (click) { brush.TipName = name; brush.Tip = BrushTips.Get(name); if (paintTool is not (PaintTool.Brush or PaintTool.Eraser or PaintTool.Smudge or PaintTool.Clone)) SetPaintTool(PaintTool.Brush); SetStatus("Brush tip: " + name); }
-            }
-        }
+        else if (shelfTab == 3) AlphaGrid(cols, cell, gap);
+        else if (shelfTab == 4) ReliefGrid(cols, cell, gap);
         else if (library == null) ImGui.TextWrapped((libraryError ?? "Texture library not found.") + "  (Tools > Molo Materials to set its folder)");
         else
         {
