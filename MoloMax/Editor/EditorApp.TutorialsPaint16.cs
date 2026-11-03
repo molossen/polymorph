@@ -88,6 +88,7 @@ public sealed partial class EditorApp
         foreach (var x in StartFilm("25_paint_relief", 4)) yield return x;
         paintMode = true; shelfTab = 4; reliefSearch = ""; Hour = 17; InteriorLight = false;
         yield return Frames(15);
+        ts.NormalStrength = 8; cam.Pitch = 0.18f;
         foreach (var x in Say("Molo Paint 1.6: the Relief tab", "80 tileable reliefs: one click = a relief layer", 70)) yield return x;
         PaintLayer last = null;
         foreach (var (key, title) in new[] { ("Brick", "Bricks"), ("DiamondPlate", "Diamond plate"), ("CorrugatedMetal", "Corrugated metal"), ("Cobblestone", "Cobblestone") })
@@ -95,13 +96,13 @@ public sealed partial class EditorApp
             if (last != null) { ts.Layers.Remove(last); ts.SelectedLayer = 0; Up(); }
             tutSub = title;
             foreach (var x in ClickAt(TutCentre("relief:" + key))) yield return x;
-            last = ts.Current; Up();
+            last = ts.Current; last.TexHeightAmount = 0.75f; last.TileMetres = 0.8f; last.TexturesChanged(); Up();
             foreach (var x in Turn(55)) yield return x;
         }
         foreach (var x in Say("Tile size and strength", "Layers tab: the relief layer's Tile size and Relief strength", 10)) yield return x;
         paintTab = 1;
         if (last != null)
-            for (int i = 0; i <= 30; i++) { last.TexHeightAmount = 0.1f + 0.6f * i / 30f; last.TexturesChanged(); Up(); yield return Frames(2); }
+            for (int i = 0; i <= 30; i++) { last.TexHeightAmount = 0.15f + 0.85f * i / 30f; last.TexturesChanged(); Up(); yield return Frames(2); }
         foreach (var x in Turn(50)) yield return x;
         foreach (var x in Say("Give it a mask to keep it where you want", "Then straight to the GTA normal map", 50)) yield return x;
         Expect(ts.CHeight.Max() - ts.CHeight.Min() > 0.2f, "the relief shows in the height");
