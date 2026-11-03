@@ -61,6 +61,7 @@ public sealed partial class EditorApp
             var p = ImGui.GetCursorScreenPos();
             ImGui.PushID(key);
             bool click = ImGui.InvisibleButton("##tip", new Vector2(cell, cell));
+            TutRect("alpha:" + key);
             bool hov = ImGui.IsItemHovered();
             ImGui.PopID();
             dl.AddRectFilled(p, p + new Vector2(cell, cell), 0xFF1E1E1E, 4);
@@ -120,6 +121,7 @@ public sealed partial class EditorApp
             var p = ImGui.GetCursorScreenPos();
             ImGui.PushID(name);
             bool click = ImGui.InvisibleButton("##rl", new Vector2(cell, cell));
+            TutRect("relief:" + name);
             bool hov = ImGui.IsItemHovered();
             ImGui.PopID();
             var srv = renderer.Textures.Thumb(thumb);

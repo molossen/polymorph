@@ -214,6 +214,9 @@ public sealed partial class EditorApp
         T("TUTO 21 Molo Paint patterns, blend modes and filters (ArmorPaint)", TutPaintPatterns);
         T("TUTO 22 Molo Paint picked-parts mask and drips brush", TutPaintPartsDrips);
         T("TUTO 23 Molo Paint node material", TutPaintNodes);
+        T("TUTO 24 Molo Paint 1.6: the 80 alphas, scatter", TutPaintAlphas);
+        T("TUTO 25 Molo Paint 1.6: relief tab", TutPaintRelief);
+        T("TUTO 26 Molo Paint 1.6: radial symmetry and eyedropper", TutPaintRadialPick);
         T("TERRAIN SCOUT: game parking lots that use the 4-layer terrain shader", TerrainScout);
         T("TERRAIN 4 LAYERS: terrain material, PAINT TERRAIN LAYERS, paint texture 3 with the real mouse", TerrainLayerTest);
         T("PYTHON: embedded Python like bpy (import poly, objects, mesh tools, materials, lights, errors, undo, API, add-ons, editor window)", PythonTest);
