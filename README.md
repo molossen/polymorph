@@ -34,6 +34,11 @@ then export a FiveM resource that is ready to `ensure` — in one free program, 
 ## What's new
 
 - **1.6.0 — Molo Paint upgrade**: 80 brush alphas and 80 reliefs (CC0), eyedropper, radial symmetry, scatter, new masks and filters.
+
+  | 80 alphas + scatter | Relief tab | Radial symmetry + eyedropper |
+  |---|---|---|
+  | [![alphas](docs/media/paint16_alphas.gif)](docs/videos/24_paint_alphas.mp4) | [![relief](docs/media/paint16_relief.gif)](docs/videos/25_paint_relief.mp4) | [![radial](docs/media/paint16_radial.gif)](docs/videos/26_paint_radial_eyedropper.mp4) |
+
 - **1.5.3 — Line tool, round corners and profile sweep**: fillet / chamfer the corners, sweep a moulding section you drew.
 - **1.5.2 — Line tool**: click points snapped on vertices, edges and faces, then turn the line into a door frame casing, a beam, a pipe or an extrusion.
 - **1.5.0 — Node materials** in Molo Paint: noise, voronoi, bricks, warp, ramps and mixes wired in a node graph.
