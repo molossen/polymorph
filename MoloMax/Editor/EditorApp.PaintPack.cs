@@ -29,10 +29,10 @@ public sealed partial class EditorApp
         {
             reliefs = new();
             if (Directory.Exists(ReliefFolder))
-                foreach (var f in Directory.GetFiles(ReliefFolder, "*.png").Where(f => !f.EndsWith(".thumb.png", StringComparison.OrdinalIgnoreCase)).OrderBy(f => f))
+                foreach (var f in Directory.GetFiles(ReliefFolder, "*.jpg").Where(f => !f.EndsWith(".thumb.jpg", StringComparison.OrdinalIgnoreCase)).OrderBy(f => f))
                 {
                     var n = Path.GetFileNameWithoutExtension(f);
-                    var th = Path.Combine(ReliefFolder, n + ".thumb.png");
+                    var th = Path.Combine(ReliefFolder, n + ".thumb.jpg");
                     reliefs.Add((n, BrushTips.Spaced(n), f, File.Exists(th) ? th : f));
                 }
         }
