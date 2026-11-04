@@ -638,6 +638,21 @@ public sealed partial class EditorApp
         rep = lastReport ?? exportTask?.Result;
         Expect(rep != null && rep.Ok, "MLO resource exported " + (rep == null ? "" : string.Join(" ", rep.Errors)));
         if (rep != null) Note(rep.ToString().Replace("\n", " | "));
+        // issue #2: the interior collision is named after the MLO (its physics dictionary) and declared in _manifest.ymf
+        if (rep != null)
+        {
+            Expect(rep.Files.Any(f => f.EndsWith("zz_poly_mlo.ybn", StringComparison.OrdinalIgnoreCase)) && rep.Files.Any(f => f.EndsWith("_manifest.ymf", StringComparison.OrdinalIgnoreCase)),
+                "MLO collision named after the archetype + _manifest.ymf: " + string.Join(", ", rep.Files.Where(f => f.EndsWith(".ybn") || f.EndsWith(".ymf"))));
+            var ytypFile = rep.Files.FirstOrDefault(f => f.EndsWith(".ytyp"));
+            var full = ytypFile == null ? null : Path.Combine(root, "zz_poly_mlo", ytypFile);
+            if (full != null && File.Exists(full))
+            {
+                var y = new CodeWalker.GameFiles.YtypFile(); y.Load(File.ReadAllBytes(full));
+                var xml = CodeWalker.GameFiles.MetaXml.GetXml(y, out _);
+                Expect(xml.Contains("<physicsDictionary>zz_poly_mlo</physicsDictionary>"), "MLO archetype names its collision as physics dictionary");
+            }
+            else Note("ytyp not found at " + full);
+        }
         HubOpen = false;
     }
 

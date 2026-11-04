@@ -125,7 +125,7 @@ public static class GtaExporter
             var shellObjs = new List<SceneObject>(); var extObjs = new List<SceneObject>();
             var colObjs = new List<SceneObject>();
             var props = new Dictionary<string, PropModel>();
-            var reserved = new HashSet<string> { res, res + "_shell", res + "_ext", res + "_col", res + "_ext_col", res + "_milo_", res + "_exterior" };
+            var reserved = new HashSet<string> { res, res + "_shell", res + "_ext", res + "_ext_col", res + "_milo_", res + "_exterior" };
             var meshOfName = new Dictionary<string, PolyMeshRef>();
             var propOfInstance = new Dictionary<string, PropModel>();
             // hierarchy (GIMS style): a child mesh joins its parent's model, a child collision becomes its embedded collision
@@ -230,6 +230,7 @@ public static class GtaExporter
                     if (part == 2) // first shell model carries the MLO's free lights
                         foreach (var l in freeLights.Where(l => InsideMlo(layout, l.Position, st.PortalMaxGap)).ToList()) { model.Lights.Add(ModelLight.From(l, Matrix4x4.Identity)); freeLights.Remove(l); }
                     model.LodDist = AutoLod(model, 150);
+                    PivotShift(model);
                     WriteModel(model, mloDir, written, bank, st, archetypes, rep);
                     mloEntities.Add(new EntityDef
                     {
@@ -259,6 +260,7 @@ public static class GtaExporter
                 var manual = Enumerable.Range(1, 3).Select(lv => parts.Where(c => c.GtaType == GtaObjectType.Drawable && c.Gta.LodLevel == lv).Select(c => (c, c.World * toParent)).ToList()).ToList();
                 pm.Model.LodDist = pm.First.Gta.LodDist > 0 ? pm.First.Gta.LodDist : AutoLod(pm.Model, 100);
                 BuildLods(pm.Model, scene, meshes, manual, pm.First.Gta, rep);
+                if (shared) PivotShift(pm.Model);
                 foreach (var l in parts.Where(c => c.GtaType == GtaObjectType.Light)) pm.Model.Lights.Add(ModelLight.From(l, toParent));
                 int colType = Math.Clamp(pm.First.Gta.CollisionMaterial, 0, CollisionMaterials.Names.Length - 1);
                 var colChildren = parts.Where(c => c.GtaType == GtaObjectType.Collision).ToList();
@@ -410,7 +412,8 @@ public static class GtaExporter
                     ? $"Collision: automatic from the geometry + {colObjs.Count} Collision object(s)."
                     : "Collision generated from the geometry (mark decor 'No auto collision' in Object properties to leave it out).");
             }
-            if (!colMloMesh.IsEmpty) { written.Add((mloDir, res + "_col", CwXml.BoundsFile(colMloMesh), "ybn", null)); rep.CollisionTriangles += colMloMesh.TriangleCount; }
+            if (!colMloMesh.IsEmpty) { written.Add((mloDir, res, CwXml.BoundsFile(colMloMesh), "ybn", null)); // collision named after the MLO archetype (physicsDictionary) or the game crashes on entry
+                if (isMlo) written.Add((mloDir, "_manifest", MetaXml.ManifestYmf(res, res + "_milo_", new[] { res }), "ymf", null)); rep.CollisionTriangles += colMloMesh.TriangleCount; }
             else if (isMlo) rep.Warnings.Add("The MLO has no collision.");
             if (!colExtMesh.IsEmpty) { written.Add((extDir, res + "_ext_col", CwXml.BoundsFile(colExtMesh), "ybn", null)); rep.CollisionTriangles += colExtMesh.TriangleCount; }
 
@@ -505,8 +508,7 @@ public static class GtaExporter
             {
                 var txt = File.ReadAllText(manifestPath);
                 // left alone when the resource loads its ytyp another way (a .ymf manifest, or the line is already there)
-                if (!txt.Contains(Path.GetFileName(ytypRel), StringComparison.OrdinalIgnoreCase) && !txt.Contains(".ymf", StringComparison.OrdinalIgnoreCase)
-                    && !Directory.EnumerateFiles(root, "*.ymf", SearchOption.AllDirectories).Any())
+                if (!txt.Contains(Path.GetFileName(ytypRel), StringComparison.OrdinalIgnoreCase))
                 {
                     File.AppendAllText(manifestPath, $"\ndata_file 'DLC_ITYP_REQUEST' '{ytypRel}'\n");
                     rep.Info.Add($"fxmanifest.lua: added data_file 'DLC_ITYP_REQUEST' '{ytypRel}' (the game needs it to know the models).");
@@ -643,6 +645,7 @@ public static class GtaExporter
                 }
             case "ybn": return Cw.XmlYbn.GetYbn(doc).Save();
             case "ycd": return Cw.XmlYcd.GetYcd(doc).Save();
+            case "ymf": return Cw.XmlMeta.GetData(doc, Cw.MetaFormat.PSO, tmpDir) ?? throw new InvalidDataException("CodeWalker could not build the ymf.");
             case "ytyp":
             case "ymap":
                 return Cw.XmlMeta.GetData(doc, Cw.MetaFormat.RSC, tmpDir) ?? throw new InvalidDataException("CodeWalker could not build the file.");
@@ -675,7 +678,7 @@ description '{res} - exported with Polymorph'
 version '1.0.0'
 
 this_is_a_map 'yes'
-" + (ytypRel != null ? $"\ndata_file 'DLC_ITYP_REQUEST' '{ytypRel}'\n" : "");
+" + (ytypRel != null ? $"\nfiles {{ '{ytypRel}' }}\ndata_file 'DLC_ITYP_REQUEST' '{ytypRel}'\n" : "");
 
     static CollisionMesh MeshCollision(SceneObject o, Matrix4x4 m, int type)
     {
@@ -720,6 +723,16 @@ this_is_a_map 'yes'
         for (int i = last + 1; i < 4; i++) dists[i] = model.LodDist;
         model.LodDists = dists;
         rep.Info.Add($"{model.Name}: {model.Lods.Count} LOD level(s) ({(hasManual ? "your LOD meshes" : "generated")}), High up to {dists[0]:0} m.");
+    }
+
+    /// <summary>Shared pivot: the game measures the LOD distance from the entity origin (scene 0,0,0), not from the
+    /// geometry, so every distance grows by how far the geometry sits from the origin (else far rooms vanish).</summary>
+    static void PivotShift(GtaModel m)
+    {
+        float off = ((m.Min + m.Max) * 0.5f).Length();
+        if (off < 1f) return;
+        m.LodDist = MathF.Ceiling((m.LodDist + off) / 10f) * 10f;
+        if (m.LodDists != null) for (int i = 0; i < m.LodDists.Length; i++) m.LodDists[i] = MathF.Min(m.LodDists[i] + off, m.LodDist);
     }
 
     static float AutoLod(GtaModel m, float min) => MathF.Round(MathF.Max(min, m.Radius * 3f + 50f) / 10f) * 10f;

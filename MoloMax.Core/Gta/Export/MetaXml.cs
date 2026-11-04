@@ -97,10 +97,19 @@ public static class MetaXml
         x.Open("CMapTypes");
         x.Empty("extensions");
         x.Open("archetypes");
+        // plain archetypes first, the MLO archetype last (like CodeWalker / Sollumz interiors)
+        foreach (var a in archetypes)
+        {
+            x.Open("Item", "type=\"CBaseArchetypeDef\"");
+            ArchetypeCommon(x, a.LodDist, a.Flags, a.Min, a.Max, a.HdTextureDist, a.Name, a.TextureDictionary, "", a.AssetType, a.ClipDictionary);
+            x.Close("Item");
+        }
         if (mloName != null && layout != null)
         {
             x.Open("Item", "type=\"CMloArchetypeDef\"");
-            ArchetypeCommon(x, 200, 0, Vector3.Zero, Vector3.Zero, 100, mloName, "", "", "ASSET_TYPE_ASSETLESS"); // an MLO archetype must not name a physics dictionary (crashes the game)
+            // bounds = the limbo room (all rooms); physics dictionary = the MLO's own name, which is also the name of its collision .ybn
+            // (declared as the interior's bounds in _manifest.ymf). An MLO whose name matches no collision crashes the game on entry.
+            ArchetypeCommon(x, 200, 0, layout.Rooms[0].Min, layout.Rooms[0].Max, 100, mloName, "", mloName, "ASSET_TYPE_ASSETLESS");
             x.Value("mloFlags", 0);
             x.Open("entities");
             foreach (var e in mloEntities ?? new()) Entity(x, e, true);
@@ -112,9 +121,9 @@ public static class MetaXml
                 x.Text("name", r.Name);
                 x.Vec("bbMin", r.Min); x.Vec("bbMax", r.Max);
                 x.Value("blend", 1f);
-                x.Text("timecycleName", r.Timecycle);
+                x.Text("timecycleName", string.IsNullOrWhiteSpace(r.Timecycle) ? "int_gasstation" : r.Timecycle);
                 x.Empty("secondaryTimecycleName");
-                x.Value("flags", r.Flags);
+                x.Value("flags", r.Flags != 0 ? r.Flags : 96u);
                 x.Value("portalCount", r.PortalCount);
                 x.Value("floorId", 0);
                 x.Value("exteriorVisibiltyDepth", -1);
@@ -128,7 +137,7 @@ public static class MetaXml
             {
                 x.Open("Item");
                 x.Value("roomFrom", p.RoomFrom); x.Value("roomTo", p.RoomTo);
-                x.Value("flags", p.Flags);
+                x.Value("flags", p.Flags != 0 ? p.Flags : (p.RoomTo == 0 || p.RoomFrom == 0 ? 8192u : 0u));
                 x.Value("mirrorPriority", 0); x.Value("opacity", 0); x.Value("audioOcclusion", 0);
                 x.Open("corners");
                 foreach (var c in p.Corners) x.Text("Item", $"{Xw.F(c.X)}, {Xw.F(c.Y)}, {Xw.F(c.Z)}, 0");
@@ -158,17 +167,35 @@ public static class MetaXml
             x.Empty("timeCycleModifiers", "itemType=\"CMloTimeCycleModifier\"");
             x.Close("Item");
         }
-        foreach (var a in archetypes)
-        {
-            x.Open("Item", "type=\"CBaseArchetypeDef\"");
-            ArchetypeCommon(x, a.LodDist, a.Flags, a.Min, a.Max, a.HdTextureDist, a.Name, a.TextureDictionary, "", a.AssetType, a.ClipDictionary);
-            x.Close("Item");
-        }
         x.Close("archetypes");
         x.Text("name", name);
         x.Empty("dependencies");
         x.Empty("compositeEntityTypes", "itemType=\"CCompositeEntityType\"");
         x.Close("CMapTypes");
+        return x.ToString();
+    }
+
+    /// <summary>_manifest.ymf of an interior: imap / ityp dependencies (INTERIOR_DATA) and the interior's bounds files.</summary>
+    public static string ManifestYmf(string mloName, string miloYmap, IEnumerable<string> boundsFiles)
+    {
+        var x = new Xw();
+        x.Open("CPackFileMetaData");
+        x.Empty("MapDataGroups", "itemType=\"CMapDataGroup\"");
+        x.Empty("HDTxdBindingArray", "itemType=\"CHDTxdAssetBinding\"");
+        x.Empty("imapDependencies", "itemType=\"CImapDependency\"");
+        x.Open("imapDependencies_2", "itemType=\"CImapDependencies\"");
+        x.Open("Item"); x.Text("imapName", miloYmap); x.Text("manifestFlags", "INTERIOR_DATA");
+        x.Open("itypDepArray"); x.Text("Item", mloName); x.Close("itypDepArray"); x.Close("Item");
+        x.Close("imapDependencies_2");
+        x.Open("itypDependencies_2", "itemType=\"CItypDependencies\"");
+        x.Open("Item"); x.Text("itypName", mloName); x.Text("manifestFlags", "INTERIOR_DATA"); x.Empty("itypDepArray"); x.Close("Item");
+        x.Close("itypDependencies_2");
+        x.Open("Interiors", "itemType=\"CInteriorBoundsFiles\"");
+        x.Open("Item"); x.Text("Name", mloName);
+        x.Open("Bounds"); foreach (var b in boundsFiles) x.Text("Item", b); x.Close("Bounds");
+        x.Close("Item");
+        x.Close("Interiors");
+        x.Close("CPackFileMetaData");
         return x.ToString();
     }
 
@@ -242,19 +269,19 @@ public static class MetaXml
     {
         var x = new Xw();
         x.Open("CMapData");
-        MapHeader(x, name, 73, worldMin, worldMax, 1000);
+        MapHeader(x, name, 9, worldMin, worldMax, 100); // contentFlags 9 (HD + interior), streaming extents = entities +-100 m
         x.Open("entities");
         x.Open("Item", "type=\"CMloInstanceDef\"");
         x.Text("archetypeName", mloArchetype);
-        x.Value("flags", 1572864u);
+        x.Value("flags", 1572865u);
         x.Value("guid", Jenkins(name));
         x.Vec("position", position);
         x.Quat("rotation", Quaternion.Normalize(rotation));
         x.Value("scaleXY", 1f); x.Value("scaleZ", 1f);
         x.Value("parentIndex", -1);
-        x.Value("lodDist", 1000f);
+        x.Value("lodDist", 200f);
         x.Value("childLodDist", 0f);
-        x.Text("lodLevel", "LODTYPES_DEPTH_ORPHANHD");
+        x.Text("lodLevel", "LODTYPES_DEPTH_HD");
         x.Value("numChildren", 0);
         x.Text("priorityLevel", "PRI_REQUIRED");
         x.Empty("extensions");

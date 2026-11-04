@@ -159,6 +159,13 @@ public sealed class MloLayout
                     lay.Warnings.Add($"Rooms '{lay.Rooms[i].Name}' and '{lay.Rooms[j].Name}' are next to each other but have no opening between them: cut a doorway in both boxes or add a Portal object.");
         if (lay.ExitPortals == 0) lay.Warnings.Add("The MLO has no portal to the outside: the interior will not show from the street. Cut the entrance in a room box or add a Portal object.");
 
+        // ---- rooms with no portal path to the outside: the game hides them (and the limbo shells seen from inside)
+        {
+            var seen = new HashSet<int> { 0 }; bool grew = true;
+            while (grew) { grew = false; foreach (var q in lay.Portals) { if (seen.Contains(q.RoomFrom) != seen.Contains(q.RoomTo)) { seen.Add(q.RoomFrom); seen.Add(q.RoomTo); grew = true; } } }
+            for (int i2 = 1; i2 < lay.Rooms.Count; i2++)
+                if (!seen.Contains(i2)) lay.Warnings.Add($"Room '{lay.Rooms[i2].Name}' is not linked to the outside by any portal: it will be invisible in game. Add a Portal object to the outside (limbo).");
+        }
         if (lay.Rooms.Count > 32) lay.Warnings.Add($"{lay.Rooms.Count - 1} rooms: collision RoomID only goes up to 31.");
         foreach (var p in lay.Portals)
         {

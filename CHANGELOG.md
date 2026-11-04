@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.6.1](#161) | Fix: MLO exports crashed the FiveM client |
 | [1.6.0](#160) | Molo Paint: 80 alphas, 80 reliefs, eyedropper, radial symmetry |
 | [1.5.3](#153) | Line: rounded / chamfered corners, sweep your own profile |
 | [1.5.2](#152) | Line tool: draw door frames, beams, pipes and extrusions |
@@ -19,6 +20,20 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.2.0](#120) | C# scripting inside Polymorph |
 | [1.1.0](#110) | One-click updates, animation, Wall Opening, texture library |
 | [1.0.0](#100) | First public release |
+
+---
+
+## 1.6.1
+
+**Fix: exported MLOs crashed the FiveM client** ([#2](https://github.com/molossen/polymorph/issues/2))
+- The interior collision is now named after the MLO archetype, the archetype names it as its physics dictionary,
+  and the export writes a `_manifest.ymf` that declares it as the interior's bounds. Before, the game crashed a few
+  seconds after loading the interior.
+- The `_milo_.ymap` is written like the game's own interiors (HD instance, LOD 200 m, interior content flags), the
+  MLO archetype gets real bounds, and rooms / exit portals without settings get working defaults.
+- New warning: a room with no portal path to the outside (it would be invisible in game).
+- Tip: the interior goes where **Placement on the map > Position** says (GTA export settings, with Heading and "Paste coords"); left at 0, 0, 0
+  the rooms keep their scene coordinates.
 
 ---
 
