@@ -607,9 +607,10 @@ public sealed partial class EditorApp
         Scene.GtaOrigin = new Vector3(197f, -931f, 29.7f);
         Scene.Gta.OutputFolder = root; Scene.Gta.ResourceName = "zz_poly_prop";
         StartExport();
-        yield return Until(() => exportTask == null || exportTask.IsCompleted, 120);
+        var task1 = exportTask; // read this export's own result (lastReport can still hold an earlier test's export)
+        yield return Until(() => task1 == null || task1.IsCompleted, 120);
         yield return Frames(3);
-        var rep = lastReport ?? exportTask?.Result;
+        var rep = task1 != null && task1.IsCompletedSuccessfully ? task1.Result : lastReport;
         Expect(rep != null && rep.Ok, "prop resource exported " + (rep == null ? "" : string.Join(" ", rep.Errors)));
         if (rep != null) Note(rep.ToString().Replace("\n", " | "));
         HubOpen = false;
@@ -633,9 +634,10 @@ public sealed partial class EditorApp
         var issues = MoloMax.Core.Gta.Check.GtaChecker.Run(Scene);
         Note("GTA check before export: " + string.Join(" | ", issues.Where(i => i.Level != MoloMax.Core.Gta.Check.CheckLevel.Info).Select(i => i.Level + ": " + i.Message)));
         StartExport();
-        yield return Until(() => exportTask == null || exportTask.IsCompleted, 120);
+        var task2 = exportTask;
+        yield return Until(() => task2 == null || task2.IsCompleted, 120);
         yield return Frames(3);
-        rep = lastReport ?? exportTask?.Result;
+        rep = task2 != null && task2.IsCompletedSuccessfully ? task2.Result : lastReport;
         Expect(rep != null && rep.Ok, "MLO resource exported " + (rep == null ? "" : string.Join(" ", rep.Errors)));
         if (rep != null) Note(rep.ToString().Replace("\n", " | "));
         // issue #2: the interior collision is named after the MLO (its physics dictionary) and declared in _manifest.ymf
