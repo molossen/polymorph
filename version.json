@@ -1,7 +1,7 @@
 {
-  "version": "1.6.0",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.6.0.exe",
-  "size": 70497495,
-  "sha256": "90d3cbaaf2eec322128a158b7e8d17c9cc6a075d06d7a45ae2eb0ed5ee5b6cc2",
-  "notes": "- Molo Paint: 80 new brush alphas (scratches, chips, cracks, bullet impacts, grime...) and your own with Import alphas\n- Molo Paint: Relief tab with 80 tileable reliefs (bricks, diamond plate, corrugated metal, planks...), one click = relief layer\n- Eyedropper (I), radial symmetry, scatter\n- New masks (dirt, speckles, pores) and filters (directional blur, highpass, threshold, clamp, outline)"
+  "version": "1.6.1",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.6.1.exe",
+  "size": 70514771,
+  "sha256": "883b12bdd3720cbdde36f63b568b477cae1043c5e7ccc5b0396aa316bcca8db3",
+  "notes": "- Fix: exported MLOs no longer crash the FiveM client (interior collision named after the MLO, declared in _manifest.ymf; interior ymap written like the game's own)\n- New warning when a room has no portal path to the outside"
 }
