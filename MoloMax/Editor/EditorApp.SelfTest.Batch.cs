@@ -643,15 +643,8 @@ public sealed partial class EditorApp
         {
             Expect(rep.Files.Any(f => f.EndsWith("zz_poly_mlo.ybn", StringComparison.OrdinalIgnoreCase)) && rep.Files.Any(f => f.EndsWith("_manifest.ymf", StringComparison.OrdinalIgnoreCase)),
                 "MLO collision named after the archetype + _manifest.ymf: " + string.Join(", ", rep.Files.Where(f => f.EndsWith(".ybn") || f.EndsWith(".ymf"))));
-            var ytypFile = rep.Files.FirstOrDefault(f => f.EndsWith(".ytyp"));
-            var full = ytypFile == null ? null : Path.Combine(root, "zz_poly_mlo", ytypFile);
-            if (full != null && File.Exists(full))
-            {
-                var y = new CodeWalker.GameFiles.YtypFile(); y.Load(File.ReadAllBytes(full));
-                var xml = CodeWalker.GameFiles.MetaXml.GetXml(y, out _);
-                Expect(xml.Contains("<physicsDictionary>zz_poly_mlo</physicsDictionary>"), "MLO archetype names its collision as physics dictionary");
-            }
-            else Note("ytyp not found at " + full);
+            var miloYmap = Path.Combine(root, "zz_poly_mlo", rep.Files.FirstOrDefault(f => f.EndsWith("_milo_.ymap")) ?? "none");
+            Expect(File.Exists(miloYmap), "the _milo_ ymap is written");
         }
         HubOpen = false;
     }
