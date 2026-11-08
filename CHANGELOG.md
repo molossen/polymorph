@@ -6,7 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
-| [1.6.2](#162) | QuickSlice, faster Wall Opening on big rooms, edge clicks in X-ray |
+| [1.6.2](#162) | QuickSlice, no see-through wires when zoomed out, faster Wall Opening, edge clicks |
 | [1.6.1](#161) | Fix: MLO exports crashed the FiveM client |
 | [1.6.0](#160) | Molo Paint: 80 alphas, 80 reliefs, eyedropper, radial symmetry |
 | [1.5.3](#153) | Line: rounded / chamfered corners, sweep your own profile |
@@ -32,6 +32,9 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 - **Wall Opening is much faster on big rooms**: the hole is now cut only in the part of the mesh around the opening,
   not on the whole room, and when the holes are already in the mesh the modifier costs nothing. On a 200k-polygon
   interior every edit redid the boolean and copied the whole room (0.1 to 0.8 s each), which made the scene lag.
+- **No more seeing through the mesh when you zoom out**: the edit wires, edges and the red of selected polygons were
+  pulled towards the camera by an amount that grew with the square of the distance (several metres on a big room), so
+  the back walls showed through. The pull is now a small fixed part of the distance, like 3ds Max.
 - **Edge and vertex clicks on big meshes**: a click picks the edge you see in front, not a hidden one behind it that
   was a few pixels closer to the mouse, and it no longer tests every triangle of the mesh (up to 1 s per click on a
   200k-polygon room, which also made some clicks miss).

@@ -330,6 +330,7 @@ public sealed partial class EditorApp : IDisposable
         var cam = vp.Camera;
         drawCam = cam; drawViewport = vp;
         var viewProj = cam.ViewProj(vp.Aspect);
+        lines.SetView(cam.Ortho, cam.Near, cam.Far, cam.OrthoHeight);
         var blendCol = new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0);
 
         // background (3ds Max 2016: gradient in perspective, flat grey in orthographic views)

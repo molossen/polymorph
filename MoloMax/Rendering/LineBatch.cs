@@ -69,10 +69,26 @@ public sealed class LineBatch : IDisposable
 
     public void Clear() { Lines.Clear(); Tris.Clear(); }
 
+    /// <summary>How the "pull towards the camera" of wires and selection overlays is done for the current view
+    /// (set once per viewport): (per-unit fraction of the distance, B term of the projection, ortho NDC per unit).
+    /// A fixed NDC offset grew with the square of the distance (metres when zoomed out: the back of the room showed
+    /// through); now it is a fixed fraction of the distance, like 3ds Max.</summary>
+    public Vector3 View;
+
+    public void SetView(bool ortho, float near, float far, float orthoHeight)
+    {
+        const float k = 20f; // bias 0.0004 = 0.8 % of the distance (of the view height in orthographic views)
+        View = ortho
+            ? new Vector3(0, 0, k * MathF.Max(orthoHeight, 0.1f) / far) // the orthographic depth range is "far" metres
+            : new Vector3(k, near * far / (near - far), 0);
+    }
+
+    Vector4 Bias(float b) => new(b, View.X, View.Y, View.Z);
+
     /// <summary>Draws and clears the queued primitives with the given camera and states.</summary>
     public void Flush(Matrix4x4 viewProj, float depthBias = 0f)
     {
-        var vars = new LineVars { ViewProj = viewProj, DepthBias = new Vector4(depthBias, 0, 0, 0), Tint = Vector4.One };
+        var vars = new LineVars { ViewProj = viewProj, DepthBias = Bias(depthBias), Tint = Vector4.One };
         ctx.UpdateSubresource(ref vars, cb);
         ctx.InputAssembler.InputLayout = layout;
         ctx.VertexShader.Set(vs); ctx.VertexShader.SetConstantBuffer(0, cb);
@@ -104,7 +120,7 @@ public sealed class LineBatch : IDisposable
     public void DrawStatic(Buffer buffer, int vertexCount, Matrix4x4 worldViewProj, Vector4 tint, float depthBias)
     {
         if (buffer == null || vertexCount == 0) return;
-        var vars = new LineVars { ViewProj = worldViewProj, DepthBias = new Vector4(depthBias, 0, 0, 0), Tint = tint };
+        var vars = new LineVars { ViewProj = worldViewProj, DepthBias = Bias(depthBias), Tint = tint };
         ctx.UpdateSubresource(ref vars, cb);
         ctx.InputAssembler.InputLayout = layout;
         ctx.VertexShader.Set(vs); ctx.VertexShader.SetConstantBuffer(0, cb);
@@ -119,7 +135,7 @@ public sealed class LineBatch : IDisposable
     public void DrawStaticTris(Buffer buffer, int vertexCount, Matrix4x4 worldViewProj, Vector4 tint, float depthBias)
     {
         if (buffer == null || vertexCount == 0) return;
-        var vars = new LineVars { ViewProj = worldViewProj, DepthBias = new Vector4(depthBias, 0, 0, 0), Tint = tint };
+        var vars = new LineVars { ViewProj = worldViewProj, DepthBias = Bias(depthBias), Tint = tint };
         ctx.UpdateSubresource(ref vars, cb);
         ctx.InputAssembler.InputLayout = layout;
         ctx.VertexShader.Set(vs); ctx.VertexShader.SetConstantBuffer(0, cb);
