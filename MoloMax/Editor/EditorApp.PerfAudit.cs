@@ -192,6 +192,12 @@ public sealed partial class EditorApp
         }
         Note($"edge clicks that took an edge: {ok}/10, slowest {worst:0} ms");
         yield return Shot("perf_user_edges");
+        // zoomed out with polygons selected: the wires and the red must not show through the walls
+        Lv(SubObject.Polygon); SubSel(o).Faces = new HashSet<int>(Enumerable.Range(0, Math.Min(3000, o.Mesh.Faces.Count)));
+        cam.Distance *= 2.5f; yield return Frames(6);
+        yield return Shot("perf_user_zoomed_out");
+        cam.Distance *= 2f; yield return Frames(6);
+        yield return Shot("perf_user_far");
         Lv(SubObject.Object);
         UI.ImGuiBackend.SyntheticInput = false;
         File.WriteAllLines(Path.Combine(SelfTestDir, "perf_user.txt"), perfLines);
