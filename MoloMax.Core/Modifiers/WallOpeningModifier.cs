@@ -115,10 +115,78 @@ public sealed class WallOpeningModifier : Modifier
         return m;
     }
 
-    /// <summary>One opening cut into the mesh (the mesh comes back unchanged when it can't be cut).</summary>
+    /// <summary>One opening cut into the mesh (the mesh comes back unchanged when it can't be cut).
+    /// On a big mesh (a whole GTA room) only the faces around the opening go through the boolean: the rest is kept as it is,
+    /// so a 200k-polygon room is cut in milliseconds instead of a second at every edit.</summary>
     public static PolyMesh Cut(PolyMesh m, OpeningRect op)
     {
         if (op.Width < 0.01f || op.Height < 0.01f || m.Faces.Count == 0) return m;
+        if (m.Faces.Count > 2000 && LocalRegion(m, op) is { } region)
+        {
+            if (region.Count == 0) return m; // no wall where the opening is
+            if (region.Count < m.Faces.Count * 0.7f) return CutLocal(m, op, region);
+        }
+        return CutAll(m, op);
+    }
+
+    /// <summary>Faces whose box meets the opening pushed through a wall up to 3 m thick (or its own depth).</summary>
+    static List<int> LocalRegion(PolyMesh m, OpeningRect op)
+    {
+        var (right, up, n) = op.Axes();
+        float back = (op.Depth > 0 ? op.Depth : 3f) + 0.1f, front = 0.1f;
+        var mn = new Vector3(float.MaxValue); var mx = new Vector3(float.MinValue);
+        foreach (var p in op.Outline())
+            foreach (var d in new[] { front, -back })
+            {
+                var w = op.Origin + right * p.X + up * p.Y + n * d;
+                mn = Vector3.Min(mn, w); mx = Vector3.Max(mx, w);
+            }
+        mn -= new Vector3(0.05f); mx += new Vector3(0.05f);
+        var res = new List<int>();
+        var verts = m.Verts;
+        for (int fi = 0; fi < m.Faces.Count; fi++)
+        {
+            var f = m.Faces[fi].V;
+            var fmn = verts[f[0]]; var fmx = fmn;
+            for (int i = 1; i < f.Length; i++) { fmn = Vector3.Min(fmn, verts[f[i]]); fmx = Vector3.Max(fmx, verts[f[i]]); }
+            if (fmx.X < mn.X || fmn.X > mx.X || fmx.Y < mn.Y || fmn.Y > mx.Y || fmx.Z < mn.Z || fmn.Z > mx.Z) continue;
+            res.Add(fi);
+        }
+        return res;
+    }
+
+    /// <summary>The boolean on the faces around the opening only, then put back with the untouched rest.</summary>
+    static PolyMesh CutLocal(PolyMesh m, OpeningRect op, List<int> region)
+    {
+        var sub = MeshOps.Extract(m, region);
+        var cutSub = CutAll(sub, op);
+        if (ReferenceEquals(cutSub, sub)) return m; // nothing cut
+        var inRegion = new HashSet<int>(region);
+        var res = new PolyMesh();
+        res.Verts.AddRange(m.Verts);
+        var seam = new HashSet<int>();
+        for (int fi = 0; fi < m.Faces.Count; fi++)
+        {
+            if (inRegion.Contains(fi)) { foreach (var v in m.Faces[fi].V) seam.Add(v); continue; }
+            res.Faces.Add(m.Faces[fi]);
+        }
+        int off = res.Verts.Count;
+        res.Verts.AddRange(cutSub.Verts);
+        for (int i = 0; i < cutSub.Verts.Count; i++) seam.Add(off + i);
+        foreach (var f in cutSub.Faces)
+        {
+            var c = f.Clone();
+            for (int i = 0; i < c.V.Length; i++) c.V[i] += off;
+            res.Faces.Add(c);
+        }
+        // the cut piece is joined back to the rest (and to itself) where the vertices meet
+        MeshOps.WeldByDistance(res, 1e-4f, seam);
+        res.RemoveUnusedVertices();
+        return res;
+    }
+
+    static PolyMesh CutAll(PolyMesh m, OpeningRect op)
+    {
         var (right, up, n) = op.Axes();
         var centre = op.At((op.Left + op.Right) * 0.5f, (op.Bottom + op.Top) * 0.5f);
         float depth = op.Depth > 0 ? op.Depth : Thickness(m, centre, n);

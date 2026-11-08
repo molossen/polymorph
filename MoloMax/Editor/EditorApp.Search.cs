@@ -109,6 +109,7 @@ public sealed partial class EditorApp
             new("UV Editor (move islands, pack, texel density)", "UV", OpenUvEditor, HasObj),
             new("Chamfer / Bevel edges", "Mesh", () => BeginModal(ModalKind.Chamfer), HasObj, () => "Ctrl+B"),
             new("Knife (cut along a line)", "Mesh", () => BeginModal(ModalKind.Knife), HasObj, () => K("K", "Shift+K")),
+            new("QuickSlice (slice the whole mesh along a line)", "Mesh", () => BeginModal(ModalKind.QuickSlice), HasObj, () => ""),
             new("Bridge (2 faces or 2 edge loops)", "Mesh", Bridge, HasObj),
             new("Boolean Union", "Object", () => Boolean(MoloMax.Core.Mesh.Csg.Op.Union), () => Selected.Count > 1),
             new("Boolean Subtract (cut the others out of the active)", "Object", () => Boolean(MoloMax.Core.Mesh.Csg.Op.Subtract), () => Selected.Count > 1),

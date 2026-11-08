@@ -471,6 +471,27 @@ public sealed partial class EditorApp
             foreach (var f in m.Faces)
                 foreach (var (a, b, c) in Triangulator.Triangulate(m, f)) Tris.Add((f.V[a], f.V[b], f.V[c]));
         }
+
+        /// <summary>Only the vertices of these edges in world space (no triangles): enough for <see cref="VisibleThroughXRay"/>.</summary>
+        public Occluder(SceneObject o, IEnumerable<EdgeKey> edges)
+        {
+            var m = o.Mesh; var w = o.World;
+            Wv = new Vector3[m.Verts.Count];
+            foreach (var e in edges) { Wv[e.A] = Vector3.Transform(m.Verts[e.A], w); Wv[e.B] = Vector3.Transform(m.Verts[e.B], w); }
+            Obj = o;
+        }
+        public SceneObject Obj;
+    }
+
+    /// <summary>The point is the first thing of its mesh met by the view ray (a pick through the mesh's own BVH, fast on 200k faces).</summary>
+    bool VisibleThroughXRay(Viewport vp, Occluder oc, Vector3 wp)
+    {
+        if (oc.Obj == null || !vp.Camera.Project(wp, vp.W, vp.H, out var sp, out _)) return false;
+        var ray = vp.Camera.ScreenRay(sp.X, sp.Y, vp.W, vp.H);
+        var hit = Picking.PickFace(oc.Obj, ray, cullBack: false);
+        if (hit is not { } h) return true;
+        float target = Vector3.Distance(ray.Origin, wp), got = Vector3.Distance(ray.Origin, h.Point);
+        return got >= target - MathF.Max(1e-3f, target * 2e-3f);
     }
 
     /// <summary>True when nothing of the mesh is in front of this world point, seen from the viewport camera.</summary>
@@ -507,7 +528,21 @@ public sealed partial class EditorApp
         }
         if (near.Count == 0) return null;
         near.Sort((x, y) => x.D.CompareTo(y.D));
-        if (!visibleOnly || XRay || vp.WireframeOnly) return near[0].E;
+        if (!visibleOnly || vp.WireframeOnly) return near[0].E;
+        if (XRay)
+        {
+            // selection goes through the mesh, but on a dense mesh an edge hidden behind often lands a pixel nearer the
+            // mouse than the one you see: among the edges as near as the nearest (+3 px), the one you can see wins
+            var close = near.Where(n => n.D <= near[0].D + 3f).Take(24).ToList();
+            if (close.Count == 1) return near[0].E;
+            var occ = new Occluder(o, close.Select(c => c.E));
+            foreach (var (_, e, a, b) in close)
+            {
+                var ab = b - a; float t = ab.LengthSquared() < 1e-6f ? 0.5f : Math.Clamp(Vector2.Dot(local - a, ab) / ab.LengthSquared(), 0.02f, 0.98f);
+                if (VisibleThroughXRay(vp, occ, Vector3.Lerp(occ.Wv[e.A], occ.Wv[e.B], t))) return e;
+            }
+            return near[0].E;
+        }
         var oc = new Occluder(o);
         foreach (var (_, e, a, b) in near)
         {

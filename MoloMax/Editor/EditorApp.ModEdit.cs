@@ -80,6 +80,8 @@ public sealed partial class EditorApp
             if (ImGui.Button("Chamfer##ep", new Vector2(w2, 0))) BeginModal(ModalKind.Chamfer);
             if (ImGui.Button("Connect##ep", new Vector2(w2, 0))) ConnectEdges(); ImGui.SameLine(0, 4);
             if (ImGui.Button("Cut##ep", new Vector2(w2, 0))) BeginModal(ModalKind.Knife);
+            if (ImGui.Button("QuickSlice##ep", new Vector2(-1, 0))) BeginModal(ModalKind.QuickSlice);
+            Theme.Tip("Two clicks: slices the whole object (or the selected polygons) along the line, like 3ds Max QuickSlice.");
             if (ImGui.Button("Weld##ep", new Vector2(w2, 0))) Weld(0.01f); ImGui.SameLine(0, 4);
             if (ImGui.Button("Collapse##ep", new Vector2(w2, 0))) Collapse();
             MakePlanarUi();

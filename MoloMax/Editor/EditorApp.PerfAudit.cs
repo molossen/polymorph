@@ -136,4 +136,65 @@ public sealed partial class EditorApp
         File.WriteAllLines(Path.Combine(SelfTestDir, "perf.txt"), perfLines);
         Expect(perfLines.Count > 10, $"{perfLines.Count} measures written to perf.txt");
     }
+
+    /// <summary>"PERF USER": the same measures on a real scene (POLYMORPH_PERF_FILE, a copy of the user's file): the active
+    /// object (or the heaviest visible one) in edit mode, with its modifiers.</summary>
+    IEnumerable<object> PerfUser()
+    {
+        perfLines.Clear();
+        var file = Environment.GetEnvironmentVariable("POLYMORPH_PERF_FILE");
+        if (string.IsNullOrEmpty(file) || !File.Exists(file)) { Note("POLYMORPH_PERF_FILE not set: skipped"); yield break; }
+        UI.ImGuiBackend.SyntheticInput = true;
+        PerfTime("open the scene", () => OpenFile(file));
+        yield return Frames(20);
+        var o = Current is { Mesh: not null, Hidden: false } c ? c
+            : Scene.Objects.Where(x => !x.Hidden && x.Mesh != null).OrderByDescending(x => x.Mesh.Faces.Count).FirstOrDefault();
+        if (o == null) { Note("no visible mesh"); yield break; }
+        Note($"object {o.Name}: {o.Mesh.Verts.Count:N0} verts, {o.Mesh.Faces.Count:N0} polys, modifiers: {string.Join(", ", o.Modifiers?.Select(m => m.TypeName) ?? Array.Empty<string>())}");
+        Note($"scene: {Scene.Objects.Count} objects, {Scene.Objects.Count(x => !x.Hidden)} visible, {Scene.Objects.Sum(x => (long)(x.Mesh?.Faces.Count ?? 0)):N0} polys in all");
+        var vp = Viewports[ActiveViewport]; var cam = vp.Camera;
+        if (o.Modifiers is { Count: > 0 })
+            PerfTime("modifiers evaluated once", () => global::MoloMax.Core.Modifiers.ModifierStack.Evaluate(o.Mesh, o.Modifiers, false, false));
+        SelectOnly(o); FrameSelection(); yield return Frames(10);
+        var center = new Vector2(vp.X + vp.W / 2, vp.Y + vp.H / 2);
+        foreach (var x in PerfMeasure("object mode, camera turning", 60, i => cam.Orbit(2, 0))) yield return x;
+        Lv(SubObject.Polygon); yield return Frames(5);
+        foreach (var x in PerfMeasure("polygon mode, idle", 40)) yield return x;
+        foreach (var x in PerfMeasure("polygon mode, mouse moving", 60, i => PostMouse(0x200, center + new Vector2(i % 20 * 3, i % 7 * 3), 0))) yield return x;
+        foreach (var x in PerfMeasure("polygon mode, camera turning", 60, i => cam.Orbit(2, 0))) yield return x;
+        PerfTime("click select a face", () => ClickSelect(vp, center));
+        yield return Frames(5);
+        Note($"faces selected: {SubSel(o).Faces.Count}");
+        foreach (var x in PerfMeasure("polygon mode, 1 face selected, mouse moving", 40, i => PostMouse(0x200, center + new Vector2(i % 20 * 3, 0), 0))) yield return x;
+        // moving the selected face with the gizmo (each drag step re-evaluates the modifiers)
+        Tool = Tool.Move; yield return Frames(3);
+        if (SubSel(o).Faces.Count > 0)
+        {
+            var g = GizmoGrip(vp, GizmoHandle.Z);
+            foreach (var x in MouseTo(g, 6)) yield return x;
+            PostMouse(0x201, g, 1); yield return Frames(2);
+            foreach (var x in PerfMeasure("dragging one face", 30, i => PostMouse(0x200, g + new Vector2(0, -i), 1))) yield return x;
+            PostMouse(0x202, g + new Vector2(0, -30), 0); yield return Frames(4);
+            PerfTime("undo the move", () => DoUndo());
+            yield return Frames(5);
+        }
+        Lv(SubObject.Edge); yield return Frames(5);
+        foreach (var x in PerfMeasure("edge mode, mouse moving", 60, i => PostMouse(0x200, center + new Vector2(i % 20 * 3, i % 7 * 3), 0))) yield return x;
+        int ok = 0;
+        double worst = 0;
+        for (int i = 0; i < 10; i++)
+        {
+            var at = center + new Vector2(-150 + i * 33, (i % 3 - 1) * 60);
+            var t = PerfTime($"click select an edge #{i}", () => ClickSelect(vp, at));
+            worst = Math.Max(worst, t);
+            if (SubSel(o).Edges.Count > 0) ok++;
+            yield return Frames(2);
+        }
+        Note($"edge clicks that took an edge: {ok}/10, slowest {worst:0} ms");
+        yield return Shot("perf_user_edges");
+        Lv(SubObject.Object);
+        UI.ImGuiBackend.SyntheticInput = false;
+        File.WriteAllLines(Path.Combine(SelfTestDir, "perf_user.txt"), perfLines);
+        Expect(perfLines.Count > 5, $"{perfLines.Count} measures written to perf_user.txt");
+    }
 }

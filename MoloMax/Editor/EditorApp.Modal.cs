@@ -8,7 +8,7 @@ using MoloMax.UI;
 
 namespace MoloMax.Editor;
 
-public enum ModalKind { None, Translate, Rotate, Scale, Extrude, Inset, LoopCut, Wall, Chamfer, Knife, Opening, Connect, Line }
+public enum ModalKind { None, Translate, Rotate, Scale, Extrude, Inset, LoopCut, Wall, Chamfer, Knife, Opening, Connect, Line, QuickSlice }
 
 /// <summary>
 /// Blender-style modal tools: G / R / S with X Y Z constraints (twice = local, Shift = plane),
@@ -117,6 +117,13 @@ public sealed partial class EditorApp
                 knifeA = null;
                 KnifeHeader();
                 SetStatus("Knife: click two points to cut along the line. Shift = straight (45° steps), options in the panel. Esc to cancel.");
+                break;
+            case ModalKind.QuickSlice:
+                if (cur == null) { SetStatus("Select one object to slice."); return; }
+                StartModalCommon(kind, vp, Vector3.Zero);
+                knifeA = null;
+                modal.Header = "QuickSlice: click two points (Shift = 45°)";
+                SetStatus("QuickSlice: click two points, the whole object (or the selected polygons) is sliced along the line. Right click / Esc to stop.");
                 break;
             case ModalKind.Wall:
                 StartModalCommon(kind, vp, Vector3.Zero);
@@ -235,6 +242,7 @@ public sealed partial class EditorApp
         if (modal.Kind == ModalKind.Opening) { OpeningMouse(hv); return; }
         if (modal.Kind == ModalKind.LoopCut) { LoopCutMouse(hv); return; }
         if (modal.Kind == ModalKind.Knife) { KnifeMouse(hv); return; }
+        if (modal.Kind == ModalKind.QuickSlice) { QuickSliceMouse(hv); return; }
         UpdateModal();
         // started by dragging the extrude arrow: releasing the button confirms (Blender's tool gizmo)
         if (extrudeDragging && modal.Kind == ModalKind.Extrude && !Input.Down(MouseButtons.Left)) { extrudeDragging = false; ConfirmModal(); }
@@ -453,6 +461,30 @@ public sealed partial class EditorApp
         SetStatus($"Knife: {cut?.Count ?? 0} new edge(s). Click two more points, or Esc / right click to stop.");
     }
 
+    /// <summary>3ds Max QuickSlice: two clicks, the object (or its selected polygons) is cut by the plane through that
+    /// line and the view, across the whole mesh, not only where the line is. Stays on for more slices.</summary>
+    void QuickSliceMouse(Viewport hv)
+    {
+        if (Input.Pressed(MouseButtons.Right)) { CancelModal(); return; }
+        if (hv == null || !Input.Pressed(MouseButtons.Left) || ImGui.GetIO().WantCaptureMouse) return;
+        if (knifeA == null) { knifeA = Input.Mouse; return; }
+        var cur = Current; var a = knifeA.Value; var b = KnifeEnd();
+        knifeA = null;
+        if (cur == null || Vector2.Distance(a, b) < 3) return;
+        var ra = RayAt(hv, a); var rb = RayAt(hv, b);
+        var pa = ra.Origin + ra.Direction * 10; var pb = rb.Origin + rb.Direction * 10;
+        var n = Vector3.Cross(pb - pa, hv.Camera.Ortho ? hv.Camera.Forward : (pa - hv.Camera.Eye));
+        if (n.LengthSquared() < 1e-10f) return;
+        Matrix4x4.Invert(cur.World, out var inv);
+        var lp = Vector3.Transform(pa, inv); var ln = Vector3.Normalize(Vector3.TransformNormal(n, Matrix4x4.Transpose(cur.World)));
+        var faces = Level is SubObject.Polygon or SubObject.Element && SubSel(cur).Faces.Count > 0 ? new HashSet<int>(SubSel(cur).Faces) : null;
+        HashSet<EdgeKey> cut = null;
+        DoMesh("QuickSlice", (o, mm, s) => { cut = MeshOps.Slice(mm, lp, ln, faces); });
+        if (cut == null || cut.Count == 0) { SetStatus("QuickSlice: the line does not cross the mesh."); return; }
+        if (Level is SubObject.Edge or SubObject.Border) SubSel(cur).Edges = cut;
+        SetStatus($"QuickSlice: {cut.Count} new edge(s){(faces != null ? " in the selected polygons" : "")}. Click two more points, or Esc / right click to stop.");
+    }
+
     static bool InsidePolygon(Vector2 p, Vector2[] poly)
     {
         bool inside = false;
@@ -597,7 +629,7 @@ public sealed partial class EditorApp
         if (k == ModalKind.Line) { FinishLine(false); return; }
         if (k == ModalKind.Opening) { ConfirmOpening(); return; }
         if (k == ModalKind.LoopCut) { if (modal.Hover.HasValue) { } CancelModal(); return; }
-        if (k == ModalKind.Knife) { modal.Kind = ModalKind.None; return; }
+        if (k is ModalKind.Knife or ModalKind.QuickSlice) { modal.Kind = ModalKind.None; return; }
         if (k is ModalKind.Extrude or ModalKind.Inset or ModalKind.Chamfer) RememberMeshOp();
         modal.Kind = ModalKind.None;
         FinishPointsOnly();
@@ -685,6 +717,19 @@ public sealed partial class EditorApp
         if (modal.Kind is ModalKind.Rotate or ModalKind.Scale or ModalKind.Inset or ModalKind.Chamfer)
             dl.AddLine(modal.PivotScreen, Input.Mouse, 0x80FFFFFF, 1f);
         if (modal.Kind == ModalKind.Knife && knifeA.HasValue) dl.AddLine(knifeA.Value, KnifeEnd(), 0xFF40E0FF, 2f);
+        if (modal.Kind == ModalKind.QuickSlice && knifeA.HasValue)
+        {
+            // the slice goes right through: the line is drawn across the whole view, the two clicks marked
+            var a = knifeA.Value; var b = KnifeEnd(); var d = b - a;
+            if (d.LengthSquared() > 1)
+            {
+                d = Vector2.Normalize(d) * (vp.W + vp.H) * 2;
+                dl.PushClipRect(new Vector2(vp.X, vp.Y), new Vector2(vp.X + vp.W, vp.Y + vp.H), true);
+                dl.AddLine(a - d, b + d, 0xC040E0FF, 1.5f);
+                dl.PopClipRect();
+            }
+            dl.AddCircleFilled(a, 4, 0xFF40E0FF); dl.AddCircleFilled(b, 4, 0xFF40E0FF);
+        }
         WallOverlay(dl, vp);
         LineOverlay(dl, vp);
     }

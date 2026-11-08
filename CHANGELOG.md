@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.6.2](#162) | QuickSlice, faster Wall Opening on big rooms, edge clicks in X-ray |
 | [1.6.1](#161) | Fix: MLO exports crashed the FiveM client |
 | [1.6.0](#160) | Molo Paint: 80 alphas, 80 reliefs, eyedropper, radial symmetry |
 | [1.5.3](#153) | Line: rounded / chamfered corners, sweep your own profile |
@@ -20,6 +21,19 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.2.0](#120) | C# scripting inside Polymorph |
 | [1.1.0](#110) | One-click updates, animation, Wall Opening, texture library |
 | [1.0.0](#100) | First public release |
+
+---
+
+## 1.6.2
+
+- **QuickSlice** (Modify > Edit, under Knife, or search "QuickSlice"): click two points and the whole object is cut by
+  that line, straight through, like a saw. With polygons selected only those are cut. It stays on for the next cut;
+  right click or Esc to stop.
+- **Wall Opening is much faster on big rooms**: the hole is now cut only in the part of the mesh around the opening,
+  not on the whole room. On a 200k-polygon interior every edit redid the boolean on everything (about 0.8 s each),
+  which made the whole scene lag.
+- **Edge clicks in X-ray**: a click picks the edge you see in front, not a hidden one behind it that was a few pixels
+  closer to the mouse.
 
 ---
 

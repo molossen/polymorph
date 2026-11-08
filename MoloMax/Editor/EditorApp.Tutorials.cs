@@ -206,6 +206,7 @@ public sealed partial class EditorApp
         T("DENSE OPENING: door + window on a very dense wall (photos)", TutDenseOpening);
         T("BEVEL CONNECT: bevel sides with the wheel, connect segments, gothic arch, material editor of the selection (photos)", TutBevelConnect);
         T("PERF FULL: frame and action times on heavy scenes (490k-polygon mesh, 3000 objects)", PerfFull);
+        T("PERF USER: frame and action times on the scene in POLYMORPH_PERF_FILE", PerfUser);
         T("UPDATE E2E: check the feed, download, install over this copy and restart (POLYMORPH_UPDATE_FEED only)", UpdateE2E);
         T("SPLATS: Gaussian splat scans (.ply / .spz) import upright, draw sorted, keep their look, save and reload", SplatTest);
         T("PHOTO: photo render of the office scene (path traced in the background, simple settings, picture shown)", PhotoTest);

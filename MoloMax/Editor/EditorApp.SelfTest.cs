@@ -333,6 +333,21 @@ public sealed partial class EditorApp
         yield return Shot("knife_modal");
         CancelModal();
         yield return Frames(2);
+        // QuickSlice with two real clicks across the middle of the view: the whole cylinder is cut, the mesh stays closed
+        UI.ImGuiBackend.SyntheticInput = true;
+        var vp = Viewports[ActiveViewport]; FrameSelection(vp); yield return Frames(4);
+        int f1 = c.Mesh.Faces.Count;
+        BeginModal(ModalKind.QuickSlice); yield return Frames(2);
+        Expect(modal.Kind == ModalKind.QuickSlice, "QuickSlice modal started");
+        var mid = ScreenOf(vp, Vector3.Transform((mn + mx) / 2, c.World));
+        foreach (var x in UClick(mid + new Vector2(-30, -8))) yield return x;
+        foreach (var x in UClick(mid + new Vector2(30, 8))) yield return x;
+        yield return Frames(3);
+        Expect(c.Mesh.Faces.Count > f1 && c.Mesh.IsClosedManifold(out _), $"QuickSlice by clicks: {f1} -> {c.Mesh.Faces.Count} faces, closed");
+        Expect(modal.Kind == ModalKind.QuickSlice, "QuickSlice stays on for the next cut");
+        yield return Shot("quickslice");
+        CancelModal(); UI.ImGuiBackend.SyntheticInput = false;
+        yield return Frames(2);
     }
 
     IEnumerable<object> Uv()

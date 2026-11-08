@@ -617,6 +617,8 @@ public sealed partial class EditorApp
             if (ImGui.Button("Dissolve", new Vector2(w2, 0))) MaxRemove();
             if (ImGui.Button("Chamfer (Ctrl+B)", new Vector2(w2, 0))) BeginModal(ModalKind.Chamfer); ImGui.SameLine();
             if (ImGui.Button("Knife (" + K("K", "Shift+K") + ")", new Vector2(w2, 0))) BeginModal(ModalKind.Knife);
+            if (ImGui.Button("QuickSlice", new Vector2(-1, 0))) BeginModal(ModalKind.QuickSlice);
+            Theme.Tip("3ds Max QuickSlice: two clicks slice the whole object (or the selected polygons) along the line. Shift = 45°.");
             if (ImGui.Button("Bridge", new Vector2(w2, 0))) Bridge(); ImGui.SameLine();
             if (ImGui.Button("UV Editor##uvmaps", new Vector2(w2, 0))) OpenUvEditor();
             ImGui.SetNextItemWidth(w2); ImGui.DragFloat("##weldt", ref weldT, 0.001f, 0.0001f, 10f, "%.4f m"); ImGui.SameLine();
