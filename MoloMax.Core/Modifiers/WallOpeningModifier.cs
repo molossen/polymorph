@@ -115,6 +115,24 @@ public sealed class WallOpeningModifier : Modifier
         return m;
     }
 
+    /// <summary>On a big mesh, every opening is tried on the few faces around it only: when none of them cuts anything
+    /// (the holes are already in the mesh, or the openings are off the wall) the whole modifier is skipped.</summary>
+    public override bool IsNoOp(PolyMesh m, bool render)
+    {
+        if (Openings.Count == 0) return true;
+        if (m.Faces.Count <= 2000) return false;
+        foreach (var op in Openings)
+        {
+            if (op.Width < 0.01f || op.Height < 0.01f) continue;
+            var region = LocalRegion(m, op);
+            if (region.Count == 0) continue;
+            if (region.Count >= m.Faces.Count * 0.7f) return false;
+            var sub = MeshOps.Extract(m, region);
+            if (!ReferenceEquals(CutAll(sub, op), sub)) return false;
+        }
+        return true;
+    }
+
     /// <summary>One opening cut into the mesh (the mesh comes back unchanged when it can't be cut).
     /// On a big mesh (a whole GTA room) only the faces around the opening go through the boolean: the rest is kept as it is,
     /// so a 200k-polygon room is cut in milliseconds instead of a second at every edit.</summary>

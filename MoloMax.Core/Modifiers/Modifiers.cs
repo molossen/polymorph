@@ -41,6 +41,10 @@ public abstract class Modifier
     /// <summary>Returns the modified mesh. <paramref name="m"/> is a private copy and may be changed in place.</summary>
     public abstract PolyMesh Apply(PolyMesh m, bool render);
 
+    /// <summary>Cheap check that <see cref="Apply"/> would give the mesh back unchanged (the stack then skips it, and the copy
+    /// of a big mesh it would need). False when not sure.</summary>
+    public virtual bool IsNoOp(PolyMesh m, bool render) => false;
+
     public virtual Modifier Clone() => (Modifier)MemberwiseClone();
 
     public static readonly (string Name, ModifierCategory Cat, Func<Modifier> Make)[] Catalog =
@@ -73,8 +77,12 @@ public static class ModifierStack
         foreach (var mod in mods)
         {
             if (render ? !mod.ShowRender : (!mod.ShowViewport || (editMode && !mod.ShowInEditMode))) continue;
-            m ??= baseMesh.Clone();
-            try { m = mod.Apply(m, render); }
+            try
+            {
+                if (mod.IsNoOp(m ?? baseMesh, render)) continue;
+                m ??= baseMesh.Clone();
+                m = mod.Apply(m, render);
+            }
             catch { /* a broken modifier is skipped, like a disabled one */ }
         }
         return m ?? baseMesh;

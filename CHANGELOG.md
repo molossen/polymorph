@@ -30,10 +30,11 @@ Download the latest version from the [website](https://molossen.github.io/polymo
   that line, straight through, like a saw. With polygons selected only those are cut. It stays on for the next cut;
   right click or Esc to stop.
 - **Wall Opening is much faster on big rooms**: the hole is now cut only in the part of the mesh around the opening,
-  not on the whole room. On a 200k-polygon interior every edit redid the boolean on everything (about 0.8 s each),
-  which made the whole scene lag.
-- **Edge clicks in X-ray**: a click picks the edge you see in front, not a hidden one behind it that was a few pixels
-  closer to the mouse.
+  not on the whole room, and when the holes are already in the mesh the modifier costs nothing. On a 200k-polygon
+  interior every edit redid the boolean and copied the whole room (0.1 to 0.8 s each), which made the scene lag.
+- **Edge and vertex clicks on big meshes**: a click picks the edge you see in front, not a hidden one behind it that
+  was a few pixels closer to the mouse, and it no longer tests every triangle of the mesh (up to 1 s per click on a
+  200k-polygon room, which also made some clicks miss).
 
 ---
 

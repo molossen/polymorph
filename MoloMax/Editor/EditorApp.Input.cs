@@ -462,37 +462,52 @@ public sealed partial class EditorApp
 
     sealed class Occluder
     {
-        public Vector3[] Wv; public List<(int A, int B, int C)> Tris = new();
+        public Vector3[] Wv; public SceneObject Obj;
+        List<(int A, int B, int C)> tris;
+        /// <summary>Triangles in world space, built only when needed (box select with "Visible only").</summary>
+        public List<(int A, int B, int C)> Tris
+        {
+            get
+            {
+                if (tris != null) return tris;
+                tris = new();
+                var m = Obj.Mesh;
+                foreach (var f in m.Faces)
+                    foreach (var (a, b, c) in Triangulator.Triangulate(m, f)) tris.Add((f.V[a], f.V[b], f.V[c]));
+                return tris;
+            }
+        }
         public Occluder(SceneObject o)
         {
-            var m = o.Mesh; var w = o.World;
+            var m = o.Mesh; var w = o.World; Obj = o;
             Wv = new Vector3[m.Verts.Count];
-            for (int i = 0; i < Wv.Length; i++) Wv[i] = Vector3.Transform(m.Verts[i], w);
-            foreach (var f in m.Faces)
-                foreach (var (a, b, c) in Triangulator.Triangulate(m, f)) Tris.Add((f.V[a], f.V[b], f.V[c]));
+            if (Wv.Length < 20000) for (int i = 0; i < Wv.Length; i++) Wv[i] = Vector3.Transform(m.Verts[i], w);
+            else System.Threading.Tasks.Parallel.For(0, (Wv.Length + 8191) / 8192, b =>
+            {
+                int e = Math.Min(Wv.Length, (b + 1) * 8192);
+                for (int i = b * 8192; i < e; i++) Wv[i] = Vector3.Transform(m.Verts[i], w);
+            });
         }
-
-        /// <summary>Only the vertices of these edges in world space (no triangles): enough for <see cref="VisibleThroughXRay"/>.</summary>
-        public Occluder(SceneObject o, IEnumerable<EdgeKey> edges)
-        {
-            var m = o.Mesh; var w = o.World;
-            Wv = new Vector3[m.Verts.Count];
-            foreach (var e in edges) { Wv[e.A] = Vector3.Transform(m.Verts[e.A], w); Wv[e.B] = Vector3.Transform(m.Verts[e.B], w); }
-            Obj = o;
-        }
-        public SceneObject Obj;
     }
 
-    /// <summary>The point is the first thing of its mesh met by the view ray (a pick through the mesh's own BVH, fast on 200k faces).</summary>
-    bool VisibleThroughXRay(Viewport vp, Occluder oc, Vector3 wp)
+    /// <summary>Depth (along the view) of the first surface of this mesh under the mouse, both sides; null when the mouse
+    /// is off the mesh. One pick for the whole click instead of one ray per candidate against every triangle.</summary>
+    float? FrontDepth(Viewport vp, SceneObject o, Vector2 local)
     {
-        if (oc.Obj == null || !vp.Camera.Project(wp, vp.W, vp.H, out var sp, out _)) return false;
-        var ray = vp.Camera.ScreenRay(sp.X, sp.Y, vp.W, vp.H);
-        var hit = Picking.PickFace(oc.Obj, ray, cullBack: false);
-        if (hit is not { } h) return true;
-        float target = Vector3.Distance(ray.Origin, wp), got = Vector3.Distance(ray.Origin, h.Point);
-        return got >= target - MathF.Max(1e-3f, target * 2e-3f);
+        var ray = vp.Camera.ScreenRay(local.X, local.Y, vp.W, vp.H);
+        var hit = Picking.PickFace(o, ray, cullBack: false);
+        return hit is { } h ? ViewDepth(vp, h.Point) : null;
     }
+
+    static float ViewDepth(Viewport vp, Vector3 wp)
+    {
+        var eye = vp.Camera.ScreenRay(vp.W * 0.5f, vp.H * 0.5f, vp.W, vp.H).Origin;
+        return Vector3.Dot(wp - eye, Vector3.Normalize(vp.Camera.Forward));
+    }
+
+    /// <summary>The point is not behind the surface met under the mouse (with a little tolerance for points on that surface).</summary>
+    static bool NotBehind(Viewport vp, Vector3 wp, float? front)
+        => front is not { } f || ViewDepth(vp, wp) <= f + MathF.Max(0.02f, MathF.Abs(f) * 0.01f);
 
     /// <summary>True when nothing of the mesh is in front of this world point, seen from the viewport camera.</summary>
     bool PointVisible(Viewport vp, Occluder oc, Vector3 wp)
@@ -529,28 +544,26 @@ public sealed partial class EditorApp
         if (near.Count == 0) return null;
         near.Sort((x, y) => x.D.CompareTo(y.D));
         if (!visibleOnly || vp.WireframeOnly) return near[0].E;
+        // the point of each edge nearest to the mouse, in world space
+        Vector3 Wp(EdgeKey e, Vector2 a, Vector2 b)
+        {
+            var ab = b - a; float t = ab.LengthSquared() < 1e-6f ? 0.5f : Math.Clamp(Vector2.Dot(local - a, ab) / ab.LengthSquared(), 0.02f, 0.98f);
+            return Vector3.Transform(Vector3.Lerp(m.Verts[e.A], m.Verts[e.B], t), w);
+        }
+        var front = FrontDepth(vp, o, local);
         if (XRay)
         {
             // selection goes through the mesh, but on a dense mesh an edge hidden behind often lands a pixel nearer the
             // mouse than the one you see: among the edges as near as the nearest (+3 px), the one you can see wins
-            var close = near.Where(n => n.D <= near[0].D + 3f).Take(24).ToList();
-            if (close.Count == 1) return near[0].E;
-            var occ = new Occluder(o, close.Select(c => c.E));
-            foreach (var (_, e, a, b) in close)
+            foreach (var (d, e, a, b) in near)
             {
-                var ab = b - a; float t = ab.LengthSquared() < 1e-6f ? 0.5f : Math.Clamp(Vector2.Dot(local - a, ab) / ab.LengthSquared(), 0.02f, 0.98f);
-                if (VisibleThroughXRay(vp, occ, Vector3.Lerp(occ.Wv[e.A], occ.Wv[e.B], t))) return e;
+                if (d > near[0].D + 3f) break;
+                if (NotBehind(vp, Wp(e, a, b), front)) return e;
             }
             return near[0].E;
         }
-        var oc = new Occluder(o);
         foreach (var (_, e, a, b) in near)
-        {
-            // the point of the edge nearest to the mouse must be visible
-            var ab = b - a; float t = ab.LengthSquared() < 1e-6f ? 0.5f : Math.Clamp(Vector2.Dot(local - a, ab) / ab.LengthSquared(), 0.02f, 0.98f);
-            var wp = Vector3.Lerp(oc.Wv[e.A], oc.Wv[e.B], t);
-            if (PointVisible(vp, oc, wp)) return e;
-        }
+            if (NotBehind(vp, Wp(e, a, b), front)) return e;
         return null;
     }
 
@@ -660,9 +673,11 @@ public sealed partial class EditorApp
             if (d <= 12f) near.Add((d, i));
         }
         near.Sort((x, y) => x.D.CompareTo(y.D));
-        var oc = near.Count > 0 && !XRay && !vp.WireframeOnly ? new Occluder(o) : null;
+        if (near.Count == 0) return -1;
+        if (XRay || vp.WireframeOnly) return near[0].I;
+        var front = FrontDepth(vp, o, local);
         foreach (var (_, i) in near)
-            if (oc == null || PointVisible(vp, oc, oc.Wv[i])) return i;
+            if (NotBehind(vp, Vector3.Transform(o.Mesh.Verts[i], o.World), front)) return i;
         return -1;
     }
 
