@@ -1,7 +1,7 @@
 {
-  "version": "1.6.1",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.6.1.exe",
-  "size": 70514771,
-  "sha256": "883b12bdd3720cbdde36f63b568b477cae1043c5e7ccc5b0396aa316bcca8db3",
-  "notes": "- Fix: exported MLOs no longer crash the FiveM client (interior collision named after the MLO, declared in _manifest.ymf; interior ymap written like the game's own)\n- New warning when a room has no portal path to the outside"
+  "version": "1.6.2",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.6.2.exe",
+  "size": 70512604,
+  "sha256": "a3cb00f0051e180b7fb3862d3f1d61c65e2b11e8386144066e2e53dd01292c89",
+  "notes": "- QuickSlice: two clicks cut the whole object (or the selected polygons) along a line\n- No more seeing the back walls through the wires and the selection when you zoom out\n- Wall Opening much faster on big rooms (no lag on a 200k-polygon interior)\n- Edge and vertex clicks instant on big meshes, and they pick the edge you see"
 }
