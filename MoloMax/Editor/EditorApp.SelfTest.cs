@@ -158,6 +158,7 @@ public sealed partial class EditorApp
         T("bridge", BridgeTest);
         T("boolean subtract + undo / redo", BooleanTest);
         T("knife / slice", Knife);
+        T("scale box: drag a side, a corner, in edit mode", ScaleBoxTest);
         T("smart UV + UV editor", Uv);
         T("selection: edit-mode picking keeps working with X-Ray", XRayTest);
         T("vertex selection goes through the mesh by default, Visible only limits it", SelectThroughTest);
@@ -315,6 +316,71 @@ public sealed partial class EditorApp
         Expect(Scene.Find(box.Id).Mesh.Faces.Count == f0 && !Scene.Find(cutter.Id).Hidden, "undo restores the box and shows the cutter");
         DoRedo();
         Expect(Scene.Find(box.Id).Mesh.Faces.Count == after.Mesh.Faces.Count, "redo");
+        yield return Frames(2);
+    }
+
+    /// <summary>Scale box with real mouse drags: a side handle stretches one axis from the opposite side, a corner with
+    /// Shift keeps the proportions, and the same on selected polygons in edit mode.</summary>
+    IEnumerable<object> ScaleBoxTest()
+    {
+        Fresh();
+        UI.ImGuiBackend.SyntheticInput = true;
+        var c = Prim(CreateKind.Box, Vector3.Zero);
+        SelectOnly(c); Tool = Tool.Scale; ScaleCage = true;
+        var vp = Viewports[ActiveViewport]; FrameSelection(vp); yield return Frames(6);
+        Expect(SelectionCage(out var b0), "the box is around the selection");
+        var size0 = b0.Half * 2; var min0 = Vector3.Dot(b0.Point(new Vector3(-1, 0, 0)), Vector3.UnitX);
+        // the +X side handle, dragged outward along X on screen
+        int hx = Array.IndexOf(CageDirs, new Vector3(1, 0, 0));
+        var p0 = ScreenOf(vp, b0.Point(CageDirs[hx]));
+        var p1 = ScreenOf(vp, b0.Point(CageDirs[hx]) + Vector3.UnitX * size0.X * 0.5f);
+        foreach (var x in MouseTo(p0, 6)) yield return x;
+        yield return Frames(2);
+        Expect(cageHover == hx, $"the mouse is on the +X side handle (hover {cageHover})");
+        PostMouse(0x201, p0, 1); yield return Frames(3);
+        foreach (var x in MouseTo(p1, 10, 1)) yield return x;
+        yield return Shot("scale_box_side");
+        PostMouse(0x202, p1, 0); yield return Frames(4);
+        c = Scene.Find(c.Id);
+        SelectionCage(out var b1);
+        var size1 = b1.Half * 2; var min1 = Vector3.Dot(b1.Point(new Vector3(-1, 0, 0)), Vector3.UnitX);
+        Expect(size1.X > size0.X * 1.3f && MathF.Abs(size1.Y - size0.Y) < 1e-3f && MathF.Abs(size1.Z - size0.Z) < 1e-3f,
+            $"side handle: only X grows ({size0.X:0.00} -> {size1.X:0.00}, Y {size1.Y:0.00}, Z {size1.Z:0.00})");
+        Expect(MathF.Abs(min1 - min0) < 1e-3f, $"the opposite side stays where it was ({min0:0.000} / {min1:0.000})");
+        DoUndo(); yield return Frames(3); c = Scene.Find(c.Id);
+        // a corner with Shift: the three sizes grow together
+        SelectionCage(out b0); size0 = b0.Half * 2;
+        int hc = Array.IndexOf(CageDirs, new Vector3(1, -1, 1));
+        p0 = ScreenOf(vp, b0.Point(CageDirs[hc]));
+        p1 = ScreenOf(vp, b0.Point(CageDirs[hc]) + Vector3.Normalize(new Vector3(1, -1, 1)) * size0.X * 0.6f);
+        foreach (var x in MouseTo(p0, 6)) yield return x;
+        yield return Frames(2);
+        Expect(cageHover >= 0, $"a corner handle under the mouse ({cageHover})");
+        PostKey(System.Windows.Forms.Keys.ShiftKey, true); yield return Frames(2);
+        PostMouse(0x201, p0, 1 | 4); yield return Frames(3);
+        foreach (var x in MouseTo(p1, 10, 1 | 4)) yield return x;
+        PostMouse(0x202, p1, 4); yield return Frames(4);
+        PostKey(System.Windows.Forms.Keys.ShiftKey, false); yield return Frames(2);
+        SelectionCage(out b1); size1 = b1.Half * 2;
+        var k = size1 / size0;
+        Expect(k.X > 1.15f && MathF.Abs(k.X - k.Y) < 0.02f && MathF.Abs(k.X - k.Z) < 0.02f, $"corner + Shift keeps the proportions ({k.X:0.00} {k.Y:0.00} {k.Z:0.00})");
+        DoUndo(); yield return Frames(3); c = Scene.Find(c.Id);
+        // edit mode: the top polygon only, its box is flat in Z, the X side stretches it
+        SetLevel(SubObject.Polygon); SubSel(c).Clear(); SubSel(c).Faces.Add(FaceToward(c, Vector3.UnitZ)); yield return Frames(4);
+        Expect(SelectionCage(out b0) && b0.Half.Z < 1e-4f, "edit mode: the box is around the selected polygon");
+        size0 = b0.Half * 2;
+        p0 = ScreenOf(vp, b0.Point(CageDirs[hx]));
+        p1 = ScreenOf(vp, b0.Point(CageDirs[hx]) + Vector3.UnitX * size0.X * 0.5f);
+        foreach (var x in MouseTo(p0, 6)) yield return x;
+        yield return Frames(2);
+        PostMouse(0x201, p0, 1); yield return Frames(3);
+        foreach (var x in MouseTo(p1, 10, 1)) yield return x;
+        PostMouse(0x202, p1, 0); yield return Frames(4);
+        SelectionCage(out b1); size1 = b1.Half * 2;
+        Expect(size1.X > size0.X * 1.3f && MathF.Abs(size1.Y - size0.Y) < 1e-3f, $"edit mode: the top polygon is stretched in X ({size0.X:0.00} -> {size1.X:0.00})");
+        yield return Shot("scale_box_edit");
+        DoUndo(); SetLevel(SubObject.Object); Tool = Tool.Move;
+        UI.ImGuiBackend.SyntheticInput = false;
         yield return Frames(2);
     }
 

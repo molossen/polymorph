@@ -3,7 +3,7 @@ namespace MoloMax;
 /// <summary>Version shown in the app, the About box, the scripting API and the release zip name.</summary>
 public static class AppInfo
 {
-    public const string Version = "1.6.2";
+    public const string Version = "1.6.3";
     public const string Name = "Polymorph";
     public const string Tagline = "3D modelling for GTA V & FiveM";
 }

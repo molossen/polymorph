@@ -656,6 +656,7 @@ public sealed partial class EditorApp : IDisposable
             Prof("ov stats");
             ViewCube.Draw(dl, vp);
             var layout = GizmoLayout(vp);
+            DrawCage(dl, vp);
             if (Tool != Tool.Select && layout.Valid && !ModalActive) gizmo.Draw(dl, vp, layout, Tool);
             Prof("ov gizmo");
             SnapDotsOverlay(dl, vp);

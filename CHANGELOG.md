@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.6.3](#163) | Scale box: stretch the selection from a side, an edge or a corner |
 | [1.6.2](#162) | QuickSlice, no see-through wires when zoomed out, faster Wall Opening, edge clicks |
 | [1.6.1](#161) | Fix: MLO exports crashed the FiveM client |
 | [1.6.0](#160) | Molo Paint: 80 alphas, 80 reliefs, eyedropper, radial symmetry |
@@ -21,6 +22,15 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.2.0](#120) | C# scripting inside Polymorph |
 | [1.1.0](#110) | One-click updates, animation, Wall Opening, texture library |
 | [1.0.0](#100) | First public release |
+
+---
+
+## 1.6.3
+
+- **Scale box** (Scale tool, "Box" next to it in the toolbar, on by default): a box with handles is drawn around the
+  selection. Drag a side to stretch only that way, an edge for two axes, a corner for all three; the opposite side
+  stays where it is. Shift keeps the proportions, snapping rounds the size to the grid, and the size in metres shows
+  next to the handle. Works on objects and on vertices / edges / polygons in edit mode.
 
 ---
 

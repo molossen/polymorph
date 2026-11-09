@@ -33,6 +33,7 @@ then export a FiveM resource that is ready to `ensure` — in one free program, 
 
 ## What's new
 
+- **1.6.3 — Scale box**: drag a side, an edge or a corner of the box around the selection to scale it only that way.
 - **1.6.2 — QuickSlice**: cut a whole object along a line in two clicks; Wall Opening much faster on big rooms; edge clicks fixed in X-ray.
 - **1.6.1 — MLO fix**: exported interiors no longer crash the FiveM client.
 - **1.6.0 — Molo Paint upgrade**: 80 brush alphas and 80 reliefs (CC0), eyedropper, radial symmetry, scatter, new masks and filters.

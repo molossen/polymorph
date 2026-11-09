@@ -261,6 +261,8 @@ public sealed partial class EditorApp
         ImGui.SameLine(); if (Theme.Toggle("Move", Tool == Tool.Move, sz)) Tool = Tool.Move; Theme.Tip(K("Move tool with gizmo (or G anytime)", "Move tool (W)"));
         ImGui.SameLine(); if (Theme.Toggle("Rotate", Tool == Tool.Rotate, sz)) Tool = Tool.Rotate; Theme.Tip(K("Rotate tool with gizmo (or R anytime)", "Rotate tool (E)"));
         ImGui.SameLine(); if (Theme.Toggle("Scale", Tool == Tool.Scale, sz)) Tool = Tool.Scale; Theme.Tip(K("Scale tool with gizmo (or S anytime)", "Scale tool (R)"));
+        ImGui.SameLine(0, 2); if (Theme.Toggle("Box##scalecage", ScaleCage, new Vector2(0, sz.Y))) { ScaleCage = !ScaleCage; if (ScaleCage) Tool = Tool.Scale; }
+        Theme.Tip("Scale box: with the Scale tool, a box with handles around the selection. Drag a side, an edge or a corner: it stretches from the opposite side, only that way. Shift keeps the proportions, snapping rounds the size to the grid.");
         ImGui.SameLine(); ImGui.SetNextItemWidth(72);
         int coord = LocalCoords ? 1 : 0;
         if (ImGui.Combo("##coord", ref coord, new[] { "World", "Local" }, 2)) LocalCoords = coord == 1;

@@ -243,6 +243,8 @@ public sealed partial class EditorApp
         if (!busy && hv != null && !uiMouse && Tool != Tool.Select)
             gizmo.Hover = gizmo.HitTest(hv, GizmoLayout(hv), Tool, Input.Mouse);
         else if (!transforming) gizmo.Hover = GizmoHandle.None;
+        // the scale box: its handles take the click when the gizmo is not under the mouse
+        cageHover = !busy && hv != null && !uiMouse && gizmo.Hover == GizmoHandle.None ? CageHit(hv, Input.Mouse) : cageDrag ? cageHover : -1;
         UpdateSnapHover(!busy && !uiMouse ? hv : null);
 
         // ---- view cube held: drag turns the view (the cube: free orbit, the ring: around the vertical), a click picks a face
@@ -274,6 +276,13 @@ public sealed partial class EditorApp
             {
                 // edit mode, snap on, the mouse on a selected vertex (even where the gizmo sits): a drag carries that vertex
                 pendingGrab = vgrab; pendingGrabVp = hv; pendingGrabStart = Input.Mouse; lmbDouble = Input.DoubleClick;
+            }
+            else if (cageHover >= 0 && Tool == Tool.Scale)
+            {
+                // a handle of the scale box: stretches the selection from the opposite side
+                shiftClone = false;
+                BeginCage(hv, cageHover);
+                xfButton = MouseButtons.Left;
             }
             else if (Tool != Tool.Select && gizmo.Hover != GizmoHandle.None)
             {
@@ -944,6 +953,7 @@ public sealed partial class EditorApp
 
     void UpdateTransform()
     {
+        if (cageDrag) { UpdateCage(); return; }
         var vp = xfViewport; var h = gizmo.Active; var ray = RayAt(vp, Input.Mouse);
         int ax = AxisIndex(h);
         if (Tool == Tool.Move)
@@ -1046,7 +1056,7 @@ public sealed partial class EditorApp
 
     void EndTransform()
     {
-        transforming = false; gizmo.Active = GizmoHandle.None; Dirty = true;
+        transforming = false; gizmo.Active = GizmoHandle.None; Dirty = true; EndCage();
         FinishPointsOnly();
         AutoKeyAfterTransform();
         if (shiftClone)
@@ -1064,7 +1074,7 @@ public sealed partial class EditorApp
         RestoreOriginals();
         FinishPointsOnly();
         Undo.DropLast();
-        transforming = false; gizmo.Active = GizmoHandle.None;
+        transforming = false; gizmo.Active = GizmoHandle.None; EndCage();
         SetStatus("Transform cancelled");
     }
 }
