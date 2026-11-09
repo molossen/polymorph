@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.6.4](#164) | Edges easier to click inside a room |
 | [1.6.3](#163) | Scale box: stretch the selection from a side, an edge or a corner |
 | [1.6.2](#162) | QuickSlice, no see-through wires when zoomed out, faster Wall Opening, edge clicks |
 | [1.6.1](#161) | Fix: MLO exports crashed the FiveM client |
@@ -25,13 +26,21 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 ---
 
+## 1.6.4
+
+- **Edges easier to click inside a room**: an edge whose far end is behind the camera (close up inside a room, most
+  of the walls' long edges) was skipped and could not be clicked. It is now cut where it enters the view.
+- **The click stays on the mesh you edit**: when another piece of the room lies on the same wall, a click on an edge
+  or vertex of the edited mesh takes it, instead of jumping to edit the other piece.
+
+---
+
 ## 1.6.3
 
 - **Scale box** (Scale tool, "Box" next to it in the toolbar, on by default): a box with handles is drawn around the
   selection. Drag a side to stretch only that way, an edge for two axes, a corner for all three; the opposite side
   stays where it is. Shift keeps the proportions, snapping rounds the size to the grid, and the size in metres shows
   next to the handle. Works on objects and on vertices / edges / polygons in edit mode.
-
 ---
 
 ## 1.6.2

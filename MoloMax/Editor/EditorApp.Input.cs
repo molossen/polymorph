@@ -541,10 +541,25 @@ public sealed partial class EditorApp
         var m = o.Mesh; var w = o.World;
         var near = new List<(float D, EdgeKey E, Vector2 A, Vector2 B)>();
         var sc = ScreenVerts(vp, o); var P = sc.P; var Ok = sc.Ok; int nv = P.Length;
+        var cam = vp.Camera; var eye = cam.Eye; var fwd = Vector3.Normalize(cam.Forward);
         foreach (var e in candidates ?? Edges(o))
         {
-            if (e.A >= nv || e.B >= nv || !Ok[e.A] || !Ok[e.B]) continue;
-            var a = P[e.A]; var b = P[e.B];
+            if (e.A >= nv || e.B >= nv) continue;
+            Vector2 a, b;
+            if (Ok[e.A] && Ok[e.B]) { a = P[e.A]; b = P[e.B]; }
+            else if (Ok[e.A] || Ok[e.B])
+            {
+                // one end behind the camera (inside a room, close up): the edge is cut where it enters the view, so it can
+                // still be clicked (before, such edges were skipped and many walls' edges could not be taken)
+                if (cam.Ortho) continue;
+                var pa = Vector3.Transform(m.Verts[e.A], w); var pb = Vector3.Transform(m.Verts[e.B], w);
+                float da = Vector3.Dot(pa - eye, fwd), db = Vector3.Dot(pb - eye, fwd), dn = cam.Near * 2;
+                if (MathF.Abs(db - da) < 1e-6f) continue;
+                var pc = Vector3.Lerp(pa, pb, Math.Clamp((dn - da) / (db - da), 0, 1));
+                if (!cam.Project(pc, vp.W, vp.H, out var cs, out _)) continue;
+                if (Ok[e.A]) { a = P[e.A]; b = cs; } else { a = cs; b = P[e.B]; }
+            }
+            else continue;
             // quick reject: the mouse is far outside the edge's box
             if (local.X < MathF.Min(a.X, b.X) - maxPx || local.X > MathF.Max(a.X, b.X) + maxPx || local.Y < MathF.Min(a.Y, b.Y) - maxPx || local.Y > MathF.Max(a.Y, b.Y) + maxPx) continue;
             float d = SegDist(local, a, b);
@@ -553,11 +568,15 @@ public sealed partial class EditorApp
         if (near.Count == 0) return null;
         near.Sort((x, y) => x.D.CompareTo(y.D));
         if (!visibleOnly || vp.WireframeOnly) return near[0].E;
-        // the point of each edge nearest to the mouse, in world space
+        // the point of each edge nearest to the mouse ray, in world space
+        var mray = cam.ScreenRay(local.X, local.Y, vp.W, vp.H);
         Vector3 Wp(EdgeKey e, Vector2 a, Vector2 b)
         {
-            var ab = b - a; float t = ab.LengthSquared() < 1e-6f ? 0.5f : Math.Clamp(Vector2.Dot(local - a, ab) / ab.LengthSquared(), 0.02f, 0.98f);
-            return Vector3.Transform(Vector3.Lerp(m.Verts[e.A], m.Verts[e.B], t), w);
+            var pa = Vector3.Transform(m.Verts[e.A], w); var pb = Vector3.Transform(m.Verts[e.B], w);
+            var dir = pb - pa; float len = dir.Length();
+            if (len < 1e-6f) return pa;
+            float t = Picking.RayLineParam(mray, pa, dir / len);
+            return pa + dir / len * Math.Clamp(t, 0, len);
         }
         var front = FrontDepth(vp, o, local);
         if (XRay)
@@ -594,8 +613,26 @@ public sealed partial class EditorApp
             {
                 var mine = Picking.PickFace(cur, ray, cullBack: CulledFor(cur));
                 bool vertsNear = false;
-                if (Level is SubObject.Vertex or SubObject.Edge or SubObject.Border && !mine.HasValue)
-                    vertsNear = Level == SubObject.Vertex ? NearestVisibleVertex(vp, cur, local) >= 0 : EdgeUnder(vp, cur, local, 9f, null, visibleOnly: true).HasValue;
+                // an edge / vertex of the mesh being edited under the mouse keeps the click on it, even when another mesh's
+                // face lies on top (pieces of a room overlap on their borders): the edit doesn't jump to the other mesh
+                if (Level is SubObject.Vertex or SubObject.Edge or SubObject.Border)
+                {
+                    // ... as long as that edge / vertex is not hidden behind the other mesh's face
+                    float tol = MathF.Max(0.02f, other.Value.Distance * 0.01f);
+                    var cw = cur.World;
+                    if (Level == SubObject.Vertex)
+                    {
+                        int vi = NearestVisibleVertex(vp, cur, local);
+                        vertsNear = vi >= 0 && Vector3.Distance(ray.Origin, Vector3.Transform(cur.Mesh.Verts[vi], cw)) <= other.Value.Distance + tol;
+                    }
+                    else if (EdgeUnder(vp, cur, local, 9f, Level == SubObject.Border ? MeshOps.BorderEdges(cur.Mesh) : null, visibleOnly: true) is { } ek)
+                    {
+                        var pa = Vector3.Transform(cur.Mesh.Verts[ek.A], cw); var pb = Vector3.Transform(cur.Mesh.Verts[ek.B], cw);
+                        var dir = pb - pa; float len = dir.Length();
+                        var pt = len < 1e-6f ? pa : pa + dir / len * Math.Clamp(Picking.RayLineParam(ray, pa, dir / len), 0, len);
+                        vertsNear = Vector3.Dot(pt - ray.Origin, Vector3.Normalize(ray.Direction)) <= other.Value.Distance + tol;
+                    }
+                }
                 if (!vertsNear && (!mine.HasValue || other.Value.Distance < mine.Value.Distance - 1e-3f))
                 {
                     var lv = Level;

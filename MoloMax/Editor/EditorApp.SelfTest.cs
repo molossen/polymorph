@@ -159,6 +159,7 @@ public sealed partial class EditorApp
         T("boolean subtract + undo / redo", BooleanTest);
         T("knife / slice", Knife);
         T("scale box: drag a side, a corner, in edit mode", ScaleBoxTest);
+        T("edge click inside a room: edges with one end behind the camera, overlapping piece", EdgeInsideTest);
         T("smart UV + UV editor", Uv);
         T("selection: edit-mode picking keeps working with X-Ray", XRayTest);
         T("vertex selection goes through the mesh by default, Visible only limits it", SelectThroughTest);
@@ -380,6 +381,48 @@ public sealed partial class EditorApp
         Expect(size1.X > size0.X * 1.3f && MathF.Abs(size1.Y - size0.Y) < 1e-3f, $"edit mode: the top polygon is stretched in X ({size0.X:0.00} -> {size1.X:0.00})");
         yield return Shot("scale_box_edit");
         DoUndo(); SetLevel(SubObject.Object); Tool = Tool.Move;
+        UI.ImGuiBackend.SyntheticInput = false;
+        yield return Frames(2);
+    }
+
+    /// <summary>Inside a long room, close to a wall: an edge whose far end is behind the camera must still take the click
+    /// (it was skipped before), and another piece lying on the same wall must not steal the click from the edited mesh.</summary>
+    IEnumerable<object> EdgeInsideTest()
+    {
+        Fresh();
+        UI.ImGuiBackend.SyntheticInput = true;
+        Scene.Objects.Clear();
+        var room = Scene.Add("room", Core.Mesh.Primitives.Box(10, 2, 1), Vector3.Zero);
+        var piece = Scene.Add("piece", Core.Mesh.Primitives.Plane(10, 1, 4, 4), new Vector3(0, 0, 0.002f)); // lies on the floor
+        SelectOnly(room); SetLevel(SubObject.Edge); XRay = true; yield return Frames(3);
+        var vp = Viewports[ActiveViewport]; var cam = vp.Camera;
+        cam.Ortho = false; cam.Target = new Vector3(0, 0, 0.5f); cam.Distance = 0.3f; cam.Yaw = 0; cam.Pitch = -0.15f;
+        yield return Frames(4);
+        var eye = cam.Eye; var fwd = Vector3.Normalize(cam.Forward);
+        var m = room.Mesh; var w = room.World;
+        int tried = 0, ok = 0;
+        foreach (var e in Edges(room))
+        {
+            var pa = Vector3.Transform(m.Verts[e.A], w); var pb = Vector3.Transform(m.Verts[e.B], w);
+            float da = Vector3.Dot(pa - eye, fwd), db = Vector3.Dot(pb - eye, fwd);
+            if (da > 0 == db > 0) continue; // only edges crossing the camera plane
+            var front = da > 0 ? pa : pb; var back = da > 0 ? pb : pa;
+            // a point 2.5 m in front of the camera on that edge
+            float t = (2.5f - Vector3.Dot(back - eye, fwd)) / Vector3.Dot(front - back, fwd);
+            if (t <= 0 || t >= 1) continue;
+            var q = Vector3.Lerp(back, front, t);
+            if (!cam.Project(q, vp.W, vp.H, out var sl, out _) || sl.X < 20 || sl.Y < 20 || sl.X > vp.W - 20 || sl.Y > vp.H - 20) continue;
+            tried++;
+            SubSel(room).Edges.Clear();
+            foreach (var x in UClick(new Vector2(vp.X + sl.X, vp.Y + sl.Y))) yield return x;
+            yield return Frames(2);
+            bool got = SubSel(room).Edges.Contains(e) && Current == room;
+            if (got) ok++; else Note($"edge {e.A}-{e.B} not taken (current {Current?.Name}, {SubSel(Current).Edges.Count} edges)");
+            if (tried >= 4) break;
+        }
+        yield return Shot("edge_inside_room");
+        Expect(tried > 0 && ok == tried, $"edges running behind the camera are clicked: {ok}/{tried}");
+        SetLevel(SubObject.Object);
         UI.ImGuiBackend.SyntheticInput = false;
         yield return Frames(2);
     }
