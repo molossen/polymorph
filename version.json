@@ -1,7 +1,7 @@
 {
-  "version": "1.6.3",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.6.3.exe",
-  "size": 70525496,
-  "sha256": "39f63b1970418087ca4f5f066bbc16550fabfc6cfc1ec2247cb6cc34756cc654",
-  "notes": "- Scale box: with the Scale tool, drag a side, an edge or a corner of the box around the selection to scale it only that way (the opposite side stays put)\n- Shift keeps the proportions, snapping rounds the size to the grid, the size in metres shows next to the handle\n- Works on objects and in edit mode"
+  "version": "1.6.4",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.6.4.exe",
+  "size": 70512064,
+  "sha256": "05ef3c583f8d330643db26b3bcfdb2f9ea846dfd8ac5144b38b29abcb937d4e5",
+  "notes": "- Edges easier to click inside a room: edges running behind the camera can be clicked\n- A room seen from outside (Backface Cull): the far walls' edges take the click\n- The click stays on the mesh you edit when another piece lies on the same wall\n- Scale box (1.6.3): drag a side, an edge or a corner of the box around the selection"
 }
