@@ -422,6 +422,31 @@ public sealed partial class EditorApp
         }
         yield return Shot("edge_inside_room");
         Expect(tried > 0 && ok == tried, $"edges running behind the camera are clicked: {ok}/{tried}");
+        // a room with its faces turned inwards (MLO), seen from outside with Backface Cull and "Visible only": the near
+        // wall is not drawn, so the far wall's edges seen through it must take the click
+        XRay = false; BackfaceCull = true;
+        MeshOps.FlipAll(room.Mesh); room.Touch(); piece.Hidden = true;
+        cam.Target = new Vector3(0, 0, 0.5f); cam.Distance = 8f; cam.Yaw = -1.2f; cam.Pitch = 0.5f;
+        yield return Frames(4);
+        eye = cam.Eye; fwd = Vector3.Normalize(cam.Forward);
+        var centre = Vector3.Dot(new Vector3(0, 0, 0.5f) - eye, fwd);
+        int farTried = 0, farOk = 0;
+        foreach (var e in Edges(room))
+        {
+            var pa = Vector3.Transform(m.Verts[e.A], w); var pb = Vector3.Transform(m.Verts[e.B], w);
+            var mid = (pa + pb) / 2;
+            if (Vector3.Dot(mid - eye, fwd) < centre + 0.3f) continue; // far side only
+            if (!cam.Project(mid, vp.W, vp.H, out var sl, out _)) continue;
+            farTried++;
+            SubSel(room).Edges.Clear();
+            foreach (var x in UClick(new Vector2(vp.X + sl.X, vp.Y + sl.Y))) yield return x;
+            yield return Frames(2);
+            if (SubSel(room).Edges.Count > 0) farOk++; else Note($"far edge {e.A}-{e.B} not taken");
+            if (farTried >= 4) break;
+        }
+        yield return Shot("edge_room_from_outside");
+        Expect(farTried > 0 && farOk == farTried, $"room seen from outside: far wall edges clicked {farOk}/{farTried}");
+        MeshOps.FlipAll(room.Mesh); room.Touch(); XRay = true;
         SetLevel(SubObject.Object);
         UI.ImGuiBackend.SyntheticInput = false;
         yield return Frames(2);

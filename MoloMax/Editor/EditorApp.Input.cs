@@ -499,12 +499,13 @@ public sealed partial class EditorApp
         }
     }
 
-    /// <summary>Depth (along the view) of the first surface of this mesh under the mouse, both sides; null when the mouse
-    /// is off the mesh. One pick for the whole click instead of one ray per candidate against every triangle.</summary>
+    /// <summary>Depth (along the view) of the first surface of this mesh under the mouse, only the sides that are drawn (a
+    /// room's walls face inwards: seen from outside, the near wall is not drawn and must not hide the far one's edges);
+    /// null when the mouse is off the mesh. One pick for the whole click instead of one ray per candidate against every triangle.</summary>
     float? FrontDepth(Viewport vp, SceneObject o, Vector2 local)
     {
         var ray = vp.Camera.ScreenRay(local.X, local.Y, vp.W, vp.H);
-        var hit = Picking.PickFace(o, ray, cullBack: false);
+        var hit = Picking.PickFace(o, ray, cullBack: CulledFor(o));
         return hit is { } h ? ViewDepth(vp, h.Point) : null;
     }
 

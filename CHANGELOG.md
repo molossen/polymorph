@@ -30,6 +30,8 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 - **Edges easier to click inside a room**: an edge whose far end is behind the camera (close up inside a room, most
   of the walls' long edges) was skipped and could not be clicked. It is now cut where it enters the view.
+- **Edges of a room seen from outside**: with Backface Cull on, the near wall of a room (its faces turned inwards) is
+  not drawn, but it still hid the far walls' edges from the click. Only what is drawn hides edges now.
 - **The click stays on the mesh you edit**: when another piece of the room lies on the same wall, a click on an edge
   or vertex of the edited mesh takes it, instead of jumping to edit the other piece.
 
