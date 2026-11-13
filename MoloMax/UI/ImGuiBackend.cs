@@ -88,7 +88,7 @@ float4 PSMain(PS_INPUT i) : SV_Target { return i.col * texture0.Sample(sampler0,
 
     void CreateObjects()
     {
-        using (var b = SharpDX.D3DCompiler.ShaderBytecode.Compile(Hlsl, "VSMain", "vs_4_0").Bytecode)
+        using (var b = SharpDX.D3DCompiler.ShaderBytecode.Compile(MoloMax.Rendering.ShaderLoader.AsciiSource(Hlsl), "VSMain", "vs_4_0").Bytecode)
         {
             vs = new VertexShader(device, b);
             layout = new InputLayout(device, b, new[]
@@ -98,7 +98,7 @@ float4 PSMain(PS_INPUT i) : SV_Target { return i.col * texture0.Sample(sampler0,
                 new InputElement("COLOR", 0, Format.R8G8B8A8_UNorm, 16, 0),
             });
         }
-        using (var b = SharpDX.D3DCompiler.ShaderBytecode.Compile(Hlsl, "PSMain", "ps_4_0").Bytecode) ps = new PixelShader(device, b);
+        using (var b = SharpDX.D3DCompiler.ShaderBytecode.Compile(MoloMax.Rendering.ShaderLoader.AsciiSource(Hlsl), "PSMain", "ps_4_0").Bytecode) ps = new PixelShader(device, b);
         cb = new Buffer(device, 64, ResourceUsage.Dynamic, BindFlags.ConstantBuffer, CpuAccessFlags.Write, ResourceOptionFlags.None, 0);
         var bd = new BlendStateDescription();
         bd.RenderTarget[0] = new RenderTargetBlendDescription

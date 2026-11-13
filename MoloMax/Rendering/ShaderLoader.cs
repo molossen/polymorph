@@ -16,9 +16,19 @@ public static class ShaderLoader
         return r.ReadToEnd();
     }
 
+    /// <summary>The source as plain ASCII bytes. Passed as a string, the source was turned into the system's ANSI code page:
+    /// on Chinese / Japanese / Korean Windows, a non-ASCII character in a comment (an em dash, a degree sign) could swallow
+    /// the line break after it, and the shader failed with "unexpected end of file". Comments don't need those characters.</summary>
+    public static byte[] AsciiSource(string src)
+    {
+        var b = new byte[src.Length];
+        for (int i = 0; i < src.Length; i++) b[i] = src[i] < 128 ? (byte)src[i] : (byte)' ';
+        return b;
+    }
+
     public static ShaderBytecode Compile(string name, string entry, string profile)
     {
-        var src = Source(name);
+        var src = AsciiSource(Source(name));
         var res = ShaderBytecode.Compile(src, entry, profile, ShaderFlags.OptimizationLevel3 | ShaderFlags.PackMatrixRowMajor, EffectFlags.None, name);
         if (res.Bytecode == null || res.HasErrors)
             throw new InvalidOperationException($"Shader {name}:{entry} failed to compile:\n{res.Message}");

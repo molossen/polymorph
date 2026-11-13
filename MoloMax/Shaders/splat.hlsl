@@ -1,4 +1,4 @@
-// MoloMax — 3D Gaussian splats (scans). Each splat is a screen-facing quad shaped by its projected 3D covariance
+// MoloMax - 3D Gaussian splats (scans). Each splat is a screen-facing quad shaped by its projected 3D covariance
 // (EWA splatting, as in "3D Gaussian Splatting", Kerbl et al. 2023). Drawn back to front, premultiplied alpha.
 cbuffer SplatVars : register(b0)
 {

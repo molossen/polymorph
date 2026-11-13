@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.6.5](#165) | Fix: start-up crash on Chinese / Japanese / Korean Windows (shader "unexpected end of file") |
 | [1.6.4](#164) | Edges easier to click inside a room |
 | [1.6.3](#163) | Scale box: stretch the selection from a side, an edge or a corner |
 | [1.6.2](#162) | QuickSlice, no see-through wires when zoomed out, faster Wall Opening, edge clicks |
@@ -23,6 +24,15 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.2.0](#120) | C# scripting inside Polymorph |
 | [1.1.0](#110) | One-click updates, animation, Wall Opening, texture library |
 | [1.0.0](#100) | First public release |
+
+---
+
+## 1.6.5
+
+- **Fix: Polymorph closed at start-up on Windows set to Chinese, Japanese or Korean** with "gta_basic.hlsl(389,1):
+  error X3000: syntax error: unexpected end of file". The shaders were handed to the compiler in the system's code
+  page, and a non-ASCII character in a comment could swallow the line break after it. They are now passed as plain
+  ASCII, and the shader files no longer contain any non-ASCII character.
 
 ---
 

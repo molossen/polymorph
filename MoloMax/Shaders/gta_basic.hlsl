@@ -1,4 +1,4 @@
-// MoloMax — GTA V basic surface shader (forward).
+// MoloMax - GTA V basic surface shader (forward).
 // Lighting reproduces CodeWalker's BasicPS (the reference viewer for GTA V drawables):
 //  * diffuse with opaque alpha test at 0.33 (decals/glass blend instead)
 //  * normal map decoded from RG, Z rebuilt from the unscaled XY, bumpiness scales only XY

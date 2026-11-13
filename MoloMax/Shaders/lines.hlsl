@@ -1,4 +1,4 @@
-// MoloMax — coloured lines and flat overlay triangles (grid, wireframe, gizmo, selection tint).
+// MoloMax - coloured lines and flat overlay triangles (grid, wireframe, gizmo, selection tint).
 cbuffer LineVars : register(b0)
 {
     row_major float4x4 ViewProj;

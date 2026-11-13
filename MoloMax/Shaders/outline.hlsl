@@ -1,4 +1,4 @@
-// MoloMax — selection outline (Blender style): the selected object is stamped into the stencil,
+// MoloMax - selection outline (Blender style): the selected object is stamped into the stencil,
 // then drawn again pushed outwards by a few pixels; only the ring outside the stamp gets coloured.
 cbuffer OutlineVars : register(b0)
 {
