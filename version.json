@@ -1,7 +1,7 @@
 {
-  "version": "1.6.4",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.6.4.exe",
-  "size": 70512064,
-  "sha256": "05ef3c583f8d330643db26b3bcfdb2f9ea846dfd8ac5144b38b29abcb937d4e5",
-  "notes": "- Edges easier to click inside a room: edges running behind the camera can be clicked\n- A room seen from outside (Backface Cull): the far walls' edges take the click\n- The click stays on the mesh you edit when another piece lies on the same wall\n- Scale box (1.6.3): drag a side, an edge or a corner of the box around the selection"
+  "version": "1.6.5",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.6.5.exe",
+  "size": 70537010,
+  "sha256": "e5fc419545079c9dabd65419998bd574dee7e293834fbf34eccce72caa1a80a8",
+  "notes": "- Fix: Polymorph closed at start-up on some Windows language settings (\"gta_basic.hlsl(389,1): unexpected end of file\")\n- Includes 1.6.3 (scale box) and 1.6.4 (easier edge clicks)"
 }
