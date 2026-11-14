@@ -38,11 +38,11 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 - **ProOptimizer** (Add Modifier > Generate): fewer polygons, same look. Keeps UVs, vertex colours, materials and
   smoothing exact, never moves open borders, UV seams or material borders. Made for LODs: put it on the HD model,
   lower the %. A 200 000-polygon room is halved in about 2 s, then the result is kept.
-- **UV editor selection like Blender**: Vertex / Edge / Face / Island modes (buttons or 1 2 3 4). What the mouse is
+- **Easier UV editor selection**: Vertex / Edge / Face / Island modes (buttons or 1 2 3 4). What the mouse is
   over is highlighted, a click takes the nearest point / edge / face (no need to hit inside a tiny face; stacked faces:
   the smallest one), Shift adds or removes, Ctrl removes, drag on empty space box-selects, L takes the island under
   the mouse, A all, Alt+A nothing. Moving, rotating, scaling and the buttons work on points and edges too.
-- **Shapes**: Create > Rectangle / Circle / Arc with editable sizes (like 3ds Max), "Make it a line" to edit the
+- **Shapes**: Create > Rectangle / Circle / Arc with editable sizes, "Make it a line" to edit the
   points. "Smooth curve" makes any line pass through its points as a curve. New render **Lathe**: draw half the outline
   of a vase, a column or a lamp, it turns around an axis (segments, degrees), closed and facing outward.
 - **Bones, Skin and weight paint**: Create > Bone (with a bone selected: continues the chain). Add a Skin modifier to
