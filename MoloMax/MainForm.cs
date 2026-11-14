@@ -60,9 +60,11 @@ public sealed class MainForm : Form
 
     protected override void OnPaintBackground(PaintEventArgs e) { }
 
-    protected override void OnMouseDown(MouseEventArgs e) { base.OnMouseDown(e); app?.Input.MouseDown(e); }
-    protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); app?.Input.MouseUp(e); }
-    protected override void OnMouseMove(MouseEventArgs e) { base.OnMouseMove(e); app?.Input.MouseMove(e); }
+    // during a self test only the test's own mouse messages count (Windows also sends moves at the real cursor)
+    static bool Foreign(MouseEventArgs e) => ImGuiBackend.ForeignMouse(e.X, e.Y);
+    protected override void OnMouseDown(MouseEventArgs e) { if (Foreign(e)) return; base.OnMouseDown(e); app?.Input.MouseDown(e); }
+    protected override void OnMouseUp(MouseEventArgs e) { if (Foreign(e)) return; base.OnMouseUp(e); app?.Input.MouseUp(e); }
+    protected override void OnMouseMove(MouseEventArgs e) { if (Foreign(e)) return; base.OnMouseMove(e); app?.Input.MouseMove(e); }
     protected override void OnMouseWheel(MouseEventArgs e) { base.OnMouseWheel(e); app?.Input.MouseWheel(e); }
     protected override void OnKeyDown(KeyEventArgs e)
     {

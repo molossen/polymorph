@@ -238,6 +238,10 @@ float4 PSMain(PS_INPUT i) : SV_Target { return i.col * texture0.Sample(sampler0,
 
     /// <summary>Self test: modifier keys come from posted window messages, not from the physical keyboard state.</summary>
     public static bool SyntheticInput;
+    /// <summary>Recent mouse positions a self test posted (other mouse messages are ignored while SyntheticInput is on).</summary>
+    static readonly System.Collections.Generic.Queue<System.Drawing.Point> synMouse = new();
+    public static void PostedMouse(int x, int y) { lock (synMouse) { synMouse.Enqueue(new(x, y)); while (synMouse.Count > 16) synMouse.Dequeue(); } }
+    public static bool ForeignMouse(int x, int y) { if (!SyntheticInput) return false; lock (synMouse) return synMouse.Count > 0 && !synMouse.Contains(new(x, y)); }
     static bool synCtrl, synShift, synAlt;
 
     static void Key(KeyEventArgs e, bool down)

@@ -791,7 +791,7 @@ public sealed partial class EditorApp
 
     // ---- real window messages (what a mouse / keyboard sends), so the whole input path is tested
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, int msg, IntPtr w, IntPtr l);
-    void PostMouse(int msg, Vector2 p, int buttons) => PostMessage(form.Handle, msg, (IntPtr)buttons, (IntPtr)(((int)p.Y << 16) | ((int)p.X & 0xFFFF)));
+    void PostMouse(int msg, Vector2 p, int buttons) { UI.ImGuiBackend.PostedMouse((int)p.X, (int)p.Y); PostMessage(form.Handle, msg, (IntPtr)buttons, (IntPtr)(((int)p.Y << 16) | ((int)p.X & 0xFFFF))); }
     void PostKey(System.Windows.Forms.Keys k, bool down)
     {
         // arrows, Page Up / Down, Home / End, Insert / Delete come with the "extended" bit like a real keyboard (without it they read as the numpad)
