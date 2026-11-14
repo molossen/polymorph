@@ -243,6 +243,8 @@ public sealed partial class EditorApp
         Expect(moved == uvCorn.Count && wrong == 0, $"the drag moves exactly the selected point ({moved} corner(s))");
         DoUndo(); yield return Frames(3); m = Scene.Find(c.Id).Mesh;
         // ---- edge mode: a click near the middle of a UV edge takes its two ends
+        PostMouse(0x200, UvToScreen(new Vector2(0.5f, 0.5f)), 0); yield return Frames(2);
+        Note($"before 2: canvas under mouse {UvCanvasUnderMouse}, hover {uvHover}, imgui mouse {ImGuiNET.ImGui.GetIO().MousePos}, canvas {uvC0} {uvCanvasSize}, current {Current?.Name}, open {uvOpen}");
         PostKey(Keys.D2, true); yield return Frames(1); PostKey(Keys.D2, false); yield return Frames(2);
         uvCorn.Clear();
         var ea = m.Faces[1].UV[0]; var eb = m.Faces[1].UV[1];

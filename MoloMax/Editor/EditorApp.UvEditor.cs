@@ -352,7 +352,7 @@ public sealed partial class EditorApp
     /// <summary>Top-left of the UV canvas on screen (tests aim at UV points with it).</summary>
     Vector2 uvC0, uvCanvasSize;
     /// <summary>The mouse is on the UV canvas (last frame's place): its keys (1-4, A, L, G R S...) are the UV editor's, not the 3D view's.</summary>
-    bool UvCanvasUnderMouse => uvOpen && uvCanvasSize.X > 0 && Input.Mouse.X >= uvC0.X && Input.Mouse.Y >= uvC0.Y && Input.Mouse.X < uvC0.X + uvCanvasSize.X && Input.Mouse.Y < uvC0.Y + uvCanvasSize.Y;
+    bool UvCanvasUnderMouse { get { var mp = ImGui.GetIO().MousePos; return uvOpen && uvCanvasSize.X > 0 && mp.X >= uvC0.X && mp.Y >= uvC0.Y && mp.X < uvC0.X + uvCanvasSize.X && mp.Y < uvC0.Y + uvCanvasSize.Y; } }
     Vector2 UvToScreen(Vector2 uv) => uvC0 + uvPan + uv * uvZoom;
     (int Ver, PolyMesh M, int Hash) uvIslKey; List<List<int>> uvIsl;
     /// <summary>Islands of the current mesh, kept while the UVs don't change (hover would rebuild them every frame).</summary>
