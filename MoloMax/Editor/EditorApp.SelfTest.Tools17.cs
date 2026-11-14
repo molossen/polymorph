@@ -225,8 +225,9 @@ public sealed partial class EditorApp
         var target = m.Faces[0].UV[0];
         foreach (var x in UClick(UvToScreen(target) + new Vector2(2, 1))) yield return x;
         Note($"vertex click: mode {uvMode}, hot {uvHot}, {uvCorn.Count} corner(s), first {(uvCorn.Count > 0 ? uvCorn.First() : -1)}");
-        bool allAtPoint = uvCorn.Count > 0 && uvCorn.All(k => Vector2.Distance(m.Faces[(int)(k >> 8)].UV[(int)(k & 0xFF)], target) < 1e-5f);
-        Expect(allAtPoint && uvCorn.Contains(CK(0, 0)), $"a click near the point takes it ({uvCorn.Count} corner(s) at that place)");
+        // islands packed edge to edge can have another point on the same spot: the one taken must be there (3 px)
+        bool allAtPoint = uvCorn.Count > 0 && uvCorn.All(k => Vector2.Distance(UvToScreen(m.Faces[(int)(k >> 8)].UV[(int)(k & 0xFF)]), UvToScreen(target)) < 3);
+        Expect(allAtPoint, $"a click near the point takes the point there ({uvCorn.Count} corner(s) at that place)");
         // drag it: only those corners move
         var before = m.Faces.Select(f => (Vector2[])f.UV.Clone()).ToList();
         var s0 = UvToScreen(target);

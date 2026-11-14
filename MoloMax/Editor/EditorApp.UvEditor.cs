@@ -113,7 +113,8 @@ public sealed partial class EditorApp
             uvPan += (ToS(before) - io.MousePos) * -1;
         }
         if (active && (ImGui.IsMouseDragging(ImGuiMouseButton.Middle) || ImGui.IsMouseDragging(ImGuiMouseButton.Right))) uvPan += io.MouseDelta;
-        if (hov && ImGui.IsKeyPressed(ImGuiKey.F, false)) { var (a, b) = CornerBounds(m, TargetCorners()); var sz = MathF.Max(b.X - a.X, b.Y - a.Y); if (sz > 1e-5f) { uvZoom = MathF.Min(size.X, size.Y) * 0.85f / sz; uvPan = size * 0.5f - (a + b) * 0.5f * uvZoom; } }
+        bool keys = (hov || UvCanvasUnderMouse) && !io.WantTextInput; // keys: also right after a key press (ImGui stops the hover until the mouse moves)
+        if (keys && ImGui.IsKeyPressed(ImGuiKey.F, false)) { var (a, b) = CornerBounds(m, TargetCorners()); var sz = MathF.Max(b.X - a.X, b.Y - a.Y); if (sz > 1e-5f) { uvZoom = MathF.Min(size.X, size.Y) * 0.85f / sz; uvPan = size * 0.5f - (a + b) * 0.5f * uvZoom; } }
 
         // texture (diffuse of the first selected face's material, else the object's first)
         int matId = sel.Count > 0 ? m.Faces[sel.First()].MatId : m.Faces[0].MatId;
@@ -191,7 +192,7 @@ public sealed partial class EditorApp
             }
             if (uvXfMode < 0 && hov && ImGui.IsMouseClicked(ImGuiMouseButton.Left) && hoverAxis >= 0)
             { Begin(uvTool, hoverAxis == 3 ? -1 : hoverAxis == 2 ? -1 : hoverAxis, false); gizmoTook = true; }
-            if (uvXfMode < 0 && hov && !io.WantTextInput)
+            if (uvXfMode < 0 && keys)
             {
                 if (ImGui.IsKeyPressed(ImGuiKey.G, false)) Begin(0, -1, true);
                 else if (ImGui.IsKeyPressed(ImGuiKey.R, false)) Begin(1, -1, true);
@@ -252,7 +253,7 @@ public sealed partial class EditorApp
         // ---- interaction: a click takes what is highlighted (nearest point / edge / face, not only inside a face),
         // Shift adds or removes, Ctrl removes, a drag on a selected thing moves it, a drag on empty space box-selects,
         // L picks the island under the mouse, A all, Alt+A nothing, 1 2 3 4 the selection mode
-        if (hov && !io.WantTextInput && uvXfMode < 0)
+        if (keys && uvXfMode < 0)
         {
             for (int mi = 0; mi < 4; mi++) if (ImGui.IsKeyPressed(ImGuiKey._1 + mi, false)) SetUvMode(mi, m, sel);
             if (ImGui.IsKeyPressed(ImGuiKey.A, false))
@@ -261,6 +262,7 @@ public sealed partial class EditorApp
                 else if (uvMode < 2) foreach (var k in AllCorners(m)) uvCorn.Add(k);
                 else for (int fi = 0; fi < m.Faces.Count; fi++) sel.Add(fi);
             }
+            if (ImGui.IsKeyPressed(ImGuiKey.L, false) && uvHot.F < 0) uvHot = UvHit(m, io.MousePos, ToS);
             if (ImGui.IsKeyPressed(ImGuiKey.L, false) && uvHot.F >= 0)
             {
                 var isl = UvIslands(m).First(i => i.Contains(uvHot.F));

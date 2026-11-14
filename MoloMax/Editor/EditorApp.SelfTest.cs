@@ -388,6 +388,13 @@ public sealed partial class EditorApp
 
     /// <summary>Inside a long room, close to a wall: an edge whose far end is behind the camera must still take the click
     /// (it was skipped before), and another piece lying on the same wall must not steal the click from the edited mesh.</summary>
+    string MeshOpsHits(Viewport vp, SceneObject o, Vector2 local)
+    {
+        var r = vp.Camera.ScreenRay(local.X, local.Y, vp.W, vp.H);
+        var a = Picking.PickFace(o, r, cullBack: false); var b = Picking.PickFace(o, r, cullBack: true);
+        return $"hit both sides f{a?.Face} d{(a is { } x ? ViewDepth(vp, x.Point) : float.NaN):0.000}, drawn side f{b?.Face} d{(b is { } y ? ViewDepth(vp, y.Point) : float.NaN):0.000}";
+    }
+
     IEnumerable<object> EdgeInsideTest()
     {
         Fresh();
@@ -442,7 +449,13 @@ public sealed partial class EditorApp
             SubSel(room).Edges.Clear();
             foreach (var x in UClick(new Vector2(vp.X + sl.X, vp.Y + sl.Y))) yield return x;
             yield return Frames(2);
-            if (SubSel(room).Edges.Count > 0) farOk++; else Note($"far edge {e.A}-{e.B} not taken");
+            if (SubSel(room).Edges.Count > 0) farOk++;
+            else
+            {
+                var lp = new Vector2(sl.X, sl.Y); var fd = FrontDepth(vp, room, lp);
+                var hits = MeshOpsHits(vp, room, lp);
+                Note($"far edge {e.A}-{e.B} not taken: front depth {fd}, edge depth {ViewDepth(vp, mid)}, mouse {lp}, culled {CulledFor(room)}, {hits}");
+            }
             if (farTried >= 4) break;
         }
         yield return Shot("edge_room_from_outside");
