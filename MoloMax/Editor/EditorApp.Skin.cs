@@ -132,6 +132,8 @@ public sealed partial class EditorApp
             string[] mn = { "Add", "Remove", "Smooth" };
             for (int i = 0; i < 3; i++) { if (i > 0) ImGui.SameLine(0, 2); if (Theme.Toggle(mn[i] + "##skm", wpMode == i, new Vector2(w3, 0))) wpMode = i; }
         }
+        Ui.TextDisabled("GTA export: skinned model with its bones, in the bind pose.");
+        Theme.Tip("The export takes the mesh as it was when bound, with a skeleton (a root + these bones) and the weights. Keep Skin as the last modifier. Child meshes of this object are not exported with it.");
         return c;
     }
 

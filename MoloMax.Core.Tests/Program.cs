@@ -4,6 +4,43 @@ using MoloMax.Core.Gta;
 using MoloMax.Core.Mesh;
 using MoloMax.Core.Scenes;
 if (args.Length > 1 && args[0] == "types") { foreach (var t in typeof(CodeWalker.GameFiles.YtdFile).Assembly.GetTypes().Where(t => t.Name.Contains(args[1]))) { Console.WriteLine(t.FullName); foreach (var m in t.GetMembers().Where(m => m.DeclaringType == t)) Console.WriteLine("   " + m.MemberType + " " + m); } return 0; }
+if (args.Length > 0 && args[0] == "skin") {
+    // a tube with two bones, skinned, exported as a .ydr: skeleton + weights read back through CodeWalker
+    var sc = new Scene();
+    var tube = sc.Add("tube", Primitives.Cylinder(0.2f, 2f, 12, 8), Vector3.Zero);
+    var b1 = sc.Add("bone_a", Primitives.Box(0.05f, 0.05f, 0.05f), Vector3.Zero); b1.IsBone = true; b1.BoneLength = 1; b1.Gta.Role = GtaRole.Ignore;
+    var b2 = sc.Add("bone_b", Primitives.Box(0.05f, 0.05f, 0.05f), new Vector3(0, 0, 1)); b2.IsBone = true; b2.BoneLength = 1; b2.Gta.Role = GtaRole.Ignore; b2.ParentId = b1.Id;
+    tube.Position = new Vector3(3, 1, 0); b1.Position += tube.Position; b2.Position += tube.Position;
+    var sk = new MoloMax.Core.Modifiers.SkinModifier();
+    sk.Bind(tube.Mesh, tube.World, new[] { (b1.Id, b1.World, 1f), (b2.Id, b2.World, 1f) });
+    sk.OwnerId = tube.Id; tube.Modifiers.Add(sk);
+    var path = "/tmp/skin_test/tube_skin.ydr";
+    Console.WriteLine(MoloMax.Core.Gta.Export.GtaExporter.ExportModelFile(sc, new[] { tube }, path, _ => null));
+    var data = File.ReadAllBytes(path);
+    var e = CodeWalker.GameFiles.RpfFile.CreateResourceFileEntry(ref data, 0);
+    data = CodeWalker.GameFiles.ResourceBuilder.Decompress(data);
+    var y = new CodeWalker.GameFiles.YdrFile(); y.Load(data, e);
+    var d = y.Drawable;
+    var bones = d.Skeleton?.Bones?.Items;
+    Console.WriteLine($"bones {bones?.Length}: " + string.Join(" | ", bones.Select(b => $"{b.Name} tag {b.Tag} parent {b.ParentIndex} t {b.Translation}")));
+    var m0 = d.DrawableModels.High[0];
+    Console.WriteLine($"model HasSkin {m0.HasSkin} BoneIndex {m0.BoneIndex} geoms {m0.Geometries.Length} decl {m0.Geometries[0].VertexBuffer.Info.Flags:X} stride {m0.Geometries[0].VertexBuffer.VertexStride} boneids {m0.Geometries[0].BoneIds?.Length}");
+    var xml = CodeWalker.GameFiles.YdrXml.GetXml(y, "");
+    File.WriteAllText("/tmp/skin_test/back.xml", xml);
+    // weights: points at the bottom on bone 1, top on bone 2
+    var lines = xml.Split('\n').SkipWhile(l => !l.Contains("<Data>")).Skip(1).TakeWhile(l => !l.Contains("</Data>")).ToList();
+    int lowOk = 0, low = 0, highOk = 0, high = 0;
+    foreach (var l in lines)
+    {
+        var parts = l.Trim().Split("   ");
+        var pos = parts[0].Split(' ').Select(float.Parse).ToArray(); var w = parts[1].Split(' ').Select(int.Parse).ToArray(); var ix = parts[2].Split(' ').Select(int.Parse).ToArray();
+        int top = Enumerable.Range(0, 4).OrderByDescending(k => w[k]).First();
+        if (pos[2] < 0.3f) { low++; if (ix[top] == 1 && w.Sum() == 255) lowOk++; }
+        if (pos[2] > 1.7f) { high++; if (ix[top] == 2 && w.Sum() == 255) highOk++; }
+    }
+    Console.WriteLine($"bottom on bone_a {lowOk}/{low}, top on bone_b {highOk}/{high}");
+    return lowOk == low && highOk == high && low > 0 && high > 0 && bones.Length == 3 ? 0 : 1;
+}
 if (args.Length > 0 && args[0] == "chamfer") {
     float V(PolyMesh m) => MoloMax.Core.Mesh.CsgClean.Volume(m);
     void Run(string name, Func<PolyMesh, List<EdgeKey>> pick, float amt, int seg)

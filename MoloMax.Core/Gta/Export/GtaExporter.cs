@@ -86,10 +86,13 @@ public static class GtaExporter
     public static ExportReport Export(Scene scene, string outputFolder, Func<string, RgbaImage> imageLoader, IEnumerable<string> textureFolders = null, Action<string> progress = null)
     {
         var rep = new ExportReport();
-        // modifier stacks are evaluated with their render settings (Blender: what F12 / export sees), on a copy
+        // modifier stacks are evaluated with their render settings (what a render / export sees), on a copy;
+        // a Skin modifier at the end of a stack is taken off: the model goes out in the bind pose with its bones
+        var skins = new Dictionary<int, SkinExport.Source>();
         if (scene.Objects.Any(o => o.Modifiers?.Count > 0))
         {
             scene = scene.Clone();
+            skins = SkinExport.Take(scene, rep.Warnings);
             foreach (var o in scene.Objects) o.BakeModifiers(render: true);
         }
         var st = scene.Gta ?? new GtaProjectSettings();
@@ -152,7 +155,7 @@ public static class GtaExporter
             }
             var isChild = childParts.Values.SelectMany(l => l).ToHashSet();
             // a Drawable node (GIMS) is its own model unless its role is set otherwise
-            GtaRole NodeRole(SceneObject n) => n.GtaType == GtaObjectType.Model ? (n.Gta.Role == GtaRole.Auto ? GtaRole.Prop : n.Gta.Role) : ResolveRole(n, layout, st.PortalMaxGap, scene);
+            GtaRole NodeRole(SceneObject n) => skins.ContainsKey(n.Id) && n.Gta.Role is GtaRole.Auto or GtaRole.Shell or GtaRole.Exterior ? GtaRole.Prop : n.GtaType == GtaObjectType.Model ? (n.Gta.Role == GtaRole.Auto ? GtaRole.Prop : n.Gta.Role) : ResolveRole(n, layout, st.PortalMaxGap, scene);
             var freeLights = new List<SceneObject>();
             foreach (var o in objs)
             {
@@ -246,20 +249,28 @@ public static class GtaExporter
             {
                 // shared pivot (Molo rule): every model keeps the scene origin, so the files import aligned in Blender;
                 // doors (they swing), fragments (physics) and models placed several times keep their own pivot
-                bool shared = st.SharedPivot && !pm.Door && !pm.First.Gta.Fragment && pm.Instances.Count == 1;
+                var skinSrc = skins.TryGetValue(pm.First.Id, out var ss) ? ss : null;
+                bool shared = st.SharedPivot && !pm.Door && !pm.First.Gta.Fragment && pm.Instances.Count == 1 && skinSrc == null;
                 var s = shared ? pm.First.World : Matrix4x4.CreateScale(pm.First.Scale);
                 // children of the parent, in the parent's space (the entity carries its position / rotation)
                 Matrix4x4.Invert(Matrix4x4.CreateFromQuaternion(pm.First.Rotation) * Matrix4x4.CreateTranslation(pm.First.Position), out var toParent);
                 if (shared) toParent = Matrix4x4.Identity;
                 var parts = childParts.TryGetValue(pm.First, out var cp) ? cp : new List<SceneObject>();
                 var meshes = new List<(SceneObject, Matrix4x4)> { (pm.First, s) };
-                meshes.AddRange(parts.Where(c => c.GtaType == GtaObjectType.Drawable && c.Gta.LodLevel == 0).Select(c => (c, c.World * toParent)));
+                if (skinSrc == null) meshes.AddRange(parts.Where(c => c.GtaType == GtaObjectType.Drawable && c.Gta.LodLevel == 0).Select(c => (c, c.World * toParent)));
+                else if (parts.Any(c => c.GtaType == GtaObjectType.Drawable && c.Gta.LodLevel == 0)) rep.Warnings.Add($"{pm.Name}: child meshes of a skinned object are not exported (attach them to it first).");
                 pm.Model = GtaModel.Build(pm.Name, scene, meshes);
                 if (pm.Model.IsEmpty) continue;
                 // LODs: meshes tagged Med / Low / Very low under the Drawable (GIMS), else generated
                 var manual = Enumerable.Range(1, 3).Select(lv => parts.Where(c => c.GtaType == GtaObjectType.Drawable && c.Gta.LodLevel == lv).Select(c => (c, c.World * toParent)).ToList()).ToList();
                 pm.Model.LodDist = pm.First.Gta.LodDist > 0 ? pm.First.Gta.LodDist : AutoLod(pm.Model, 100);
                 BuildLods(pm.Model, scene, meshes, manual, pm.First.Gta, rep);
+                if (skinSrc != null)
+                {
+                    pm.Model.Skin = SkinExport.Make(scene, pm.First, skinSrc, s, pm.Name);
+                    pm.Model.Skin.Assign(pm.Model);
+                    rep.Info.Add($"{pm.Name}: skinned, {pm.Model.Skin.Bones.Count - 1} bone(s) + root, bind pose.");
+                }
                 if (shared) PivotShift(pm.Model);
                 foreach (var l in parts.Where(c => c.GtaType == GtaObjectType.Light)) pm.Model.Lights.Add(ModelLight.From(l, toParent));
                 int colType = Math.Clamp(pm.First.Gta.CollisionMaterial, 0, CollisionMaterials.Names.Length - 1);
@@ -307,7 +318,8 @@ public static class GtaExporter
                         extEntities.Add(e);
                     }
                 }
-                if (pm.First.Gta.Fragment) WriteFragment(pm.Model, pm.First, anyInMlo ? mloDir : extDir, written, bank, st, archetypes, rep);
+                if (pm.First.Gta.Fragment && pm.Model.Skin != null) rep.Warnings.Add($"{pm.Name}: a skinned model is exported as a drawable (.ydr), not a fragment.");
+                if (pm.First.Gta.Fragment && pm.Model.Skin == null) WriteFragment(pm.Model, pm.First, anyInMlo ? mloDir : extDir, written, bank, st, archetypes, rep);
                 else WriteModel(pm.Model, anyInMlo ? mloDir : extDir, written, bank, st, archetypes, rep);
 
                 // UV animation keyed on the timeline: one clip per shader that can animate UVs
@@ -575,24 +587,30 @@ public static class GtaExporter
         if (objects.Count == 0) throw new InvalidOperationException("Nothing selected.");
         // a parent exports with its whole hierarchy (child meshes + collision), like GIMS
         objects = objects.Concat(objects.SelectMany(scene.Descendants)).Distinct().ToList();
+        objects = objects.Where(o => !o.IsBone && o.Gta.Role != GtaRole.Ignore || o == objects[0]).ToList();
+        var skins = new Dictionary<int, SkinExport.Source>();
+        var skinNotes = new List<string>();
         if (scene.Objects.Any(o => o.Modifiers?.Count > 0))
         {
-            var ids = objects.Select(o => o.Id).ToHashSet();
+            var ids = objects.Select(o => o.Id).ToList();
             scene = scene.Clone();
+            skins = SkinExport.Take(scene, skinNotes);
             foreach (var o in scene.Objects) o.BakeModifiers(render: true);
-            objects = scene.Objects.Where(o => ids.Contains(o.Id)).ToList();
+            objects = ids.Select(scene.Find).Where(o => o != null).ToList();
         }
         bool fragment = path.EndsWith(".yft", StringComparison.OrdinalIgnoreCase);
         var name = SafeName(Path.GetFileNameWithoutExtension(path));
         var first = objects[0];
         Matrix4x4.Invert(Matrix4x4.CreateFromQuaternion(first.Rotation) * Matrix4x4.CreateTranslation(first.Position), out var toLocal);
-        var highItems = objects.Where(o => o.GtaType == GtaObjectType.Drawable && o.Gta.LodLevel == 0).Select(o => (o, o.World * toLocal)).ToList();
+        var skinSrc = !fragment && skins.TryGetValue(first.Id, out var ss) ? ss : null;
+        var highItems = objects.Where(o => o.GtaType == GtaObjectType.Drawable && o.Gta.LodLevel == 0 && (skinSrc == null || o == first)).Select(o => (o, o.World * toLocal)).ToList();
         var model = GtaModel.Build(name, scene, highItems);
         if (model.IsEmpty) throw new InvalidOperationException("The selection has no polygons.");
         model.Lights.AddRange(objects.Where(o => o.GtaType == GtaObjectType.Light).Select(o => ModelLight.From(o, toLocal)));
         var manualLods = Enumerable.Range(1, 3).Select(lv => objects.Where(o => o.GtaType == GtaObjectType.Drawable && o.Gta.LodLevel == lv).Select(o => (o, o.World * toLocal)).ToList()).ToList();
         model.LodDist = first.Gta.LodDist > 0 ? first.Gta.LodDist : AutoLod(model, 100);
         if (!fragment) BuildLods(model, scene, highItems, manualLods, first.Gta, new ExportReport());
+        if (skinSrc != null) { model.Skin = SkinExport.Make(scene, first, skinSrc, first.World * toLocal, name); model.Skin.Assign(model); }
         int colType = Math.Clamp(first.Gta.CollisionMaterial, 0, CollisionMaterials.Names.Length - 1);
         var col = new CollisionMesh();
         if (collisions)
@@ -620,7 +638,8 @@ public static class GtaExporter
             File.WriteAllBytes(path, data);
         }
         finally { try { Directory.Delete(tmp, true); } catch { } }
-        return $"{Path.GetFileName(path)}: {model.VertexCount:N0} vertices, {tex.Count} texture(s) embedded{(col.IsEmpty ? "" : $", {col.TriangleCount} collision triangle(s)")}";
+        return $"{Path.GetFileName(path)}: {model.VertexCount:N0} vertices, {tex.Count} texture(s) embedded{(col.IsEmpty ? "" : $", {col.TriangleCount} collision triangle(s)")}"
+            + (model.Skin != null ? $", skinned ({model.Skin.Bones.Count - 1} bone(s), bind pose)" : "") + string.Concat(skinNotes.Select(w => "\n" + w));
     }
 
     internal static byte[] Compile(string xml, string kind, List<ExportTexture> textures, string tmpDir)

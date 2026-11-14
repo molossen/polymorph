@@ -15,8 +15,8 @@
     <Product>Polymorph</Product>
     <Company>Molo Modding</Company>
     <ApplicationIcon>Assets\polymorph.ico</ApplicationIcon>
-    <Version>1.7.0</Version>
-    <InformationalVersion>1.7.0</InformationalVersion>
+    <Version>1.7.1</Version>
+    <InformationalVersion>1.7.1</InformationalVersion>
     <NoWarn>$(NoWarn);CS0618;CA1416</NoWarn>
   </PropertyGroup>
 

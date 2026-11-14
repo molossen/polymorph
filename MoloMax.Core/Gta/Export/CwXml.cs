@@ -133,17 +133,20 @@ public static class CwXml
         }
         x.Close("Shaders");
         x.Close("ShaderGroup");
+        if (model.Skin != null) Skeleton(x, model.Skin, model.Name);
+        int boneCount = model.Skin?.Bones.Count ?? 0;
 
         void Level(string tag, List<ModelPart> parts)
         {
             x.Open(tag);
             x.Open("Item");
-            x.Value("RenderMask", 255); x.Value("Flags", 0); x.Value("HasSkin", 0); x.Value("BoneIndex", 0); x.Value("Unknown1", 0);
+            if (boneCount > 0) { x.Value("RenderMask", 255); x.Value("Flags", 1); x.Value("HasSkin", 1); x.Value("BoneIndex", 0); x.Value("Unknown1", boneCount); }
+            else { x.Value("RenderMask", 255); x.Value("Flags", 0); x.Value("HasSkin", 0); x.Value("BoneIndex", 0); x.Value("Unknown1", 0); }
             x.Open("Geometries");
             foreach (var part in parts)
             {
                 var (index, s) = setups[part.Material.Id];
-                Geometry(x, part, index, s.Def.Layout);
+                Geometry(x, part, index, s.Def.Layout, boneCount);
             }
             x.Close("Geometries");
             x.Close("Item");
@@ -232,21 +235,57 @@ public static class CwXml
         return x.ToString();
     }
 
-    static void Geometry(Xw x, ModelPart part, int shaderIndex, List<string> layout)
+    /// <summary>The skeleton of a skinned drawable, like the game's cutscene props: a root bone (tag 0) and the bones.</summary>
+    static void Skeleton(Xw x, ModelSkin skin, string name)
+    {
+        var bones = skin.Bones;
+        x.Open("Skeleton");
+        x.Value("Unknown1C", 16777216);
+        x.Value("Unknown50", MetaXml.Jenkins(name + "_skel")); x.Value("Unknown54", MetaXml.Jenkins(name + "_bones")); x.Value("Unknown58", MetaXml.Jenkins(name + "_tags"));
+        x.Open("Bones");
+        for (int i = 0; i < bones.Count; i++)
+        {
+            var b = bones[i];
+            int sib = -1;
+            for (int j = i + 1; j < bones.Count; j++) if (bones[j].Parent == b.Parent) { sib = j; break; }
+            bool kids = bones.Any(o => o.Parent == i);
+            x.Open("Item");
+            x.Text("Name", b.Name);
+            x.Value("Tag", b.Tag); x.Value("Index", i); x.Value("ParentIndex", b.Parent); x.Value("SiblingIndex", b.Parent < 0 ? -1 : sib);
+            x.Text("Flags", "RotX, RotY, RotZ, TransX, TransY, TransZ" + (kids ? ", Unk0" : ""));
+            x.Vec("Translation", b.Translation);
+            x.Empty("Rotation", $"x=\"{F(b.Rotation.X)}\" y=\"{F(b.Rotation.Y)}\" z=\"{F(b.Rotation.Z)}\" w=\"{F(b.Rotation.W)}\"");
+            x.Vec("Scale", Vector3.One);
+            x.Empty("TransformUnk", "x=\"0\" y=\"4\" z=\"-3\" w=\"0\"");
+            x.Close("Item");
+        }
+        x.Close("Bones");
+        x.Close("Skeleton");
+    }
+
+    static void Geometry(Xw x, ModelPart part, int shaderIndex, List<string> layout, int boneCount = 0)
     {
         if (layout == null || layout.Count == 0) layout = new List<string> { "Position", "Normal", "Colour0", "TexCoord0" };
+        bool skinned = boneCount > 0 && part.Blend != null;
+        if (skinned && !layout.Contains("BlendWeights"))
+        {
+            layout = new List<string>(layout);
+            int at = Math.Max(0, layout.IndexOf("Position")) + 1;
+            layout.Insert(at, "BlendIndices"); layout.Insert(at, "BlendWeights");
+        }
         var mn = new Vector3(float.MaxValue); var mx = new Vector3(float.MinValue);
         foreach (var v in part.Verts) { mn = Vector3.Min(mn, v.Position); mx = Vector3.Max(mx, v.Position); }
         x.Open("Item");
         x.Value("ShaderIndex", shaderIndex);
         x.Vec("BoundingBoxMin", new Vector4(mn, mn.X));
         x.Vec("BoundingBoxMax", new Vector4(mx, mx.X));
+        if (skinned) x.Text("BoneIDs", string.Join(", ", Enumerable.Range(0, boneCount)));
         x.Open("VertexBuffer");
         x.Value("Flags", 0);
         x.Open("Layout", "type=\"GTAV1\"");
         foreach (var e in layout) x.Empty(e);
         x.Close("Layout");
-        x.Lines("Data", part.Verts.Select(v => VertexLine(v, layout)));
+        x.Lines("Data", part.Verts.Select((v, i) => VertexLine(v, layout, skinned ? part.Blend : null, i)));
         x.Close("VertexBuffer");
         x.Open("IndexBuffer");
         var lines = new List<string>();
@@ -265,7 +304,7 @@ public static class CwXml
 
     static string B(float f) => ((int)Math.Clamp(f * 255f + 0.5f, 0, 255)).ToString(ci);
 
-    static string VertexLine(RenderVertex v, List<string> layout)
+    static string VertexLine(RenderVertex v, List<string> layout, byte[] blend = null, int vi = 0)
     {
         var sb = new StringBuilder();
         foreach (var e in layout)
@@ -279,6 +318,14 @@ public static class CwXml
                     sb.Append(B(v.Colour.X)).Append(' ').Append(B(v.Colour.Y)).Append(' ').Append(B(v.Colour.Z)).Append(' ').Append(B(v.Colour.W)); break;
                 case "Colour1":
                     sb.Append(v.Colour1 & 255).Append(' ').Append(v.Colour1 >> 8 & 255).Append(' ').Append(v.Colour1 >> 16 & 255).Append(' ').Append(v.Colour1 >> 24); break;
+                case "BlendWeights":
+                    if (blend != null) sb.Append(blend[vi * 8]).Append(' ').Append(blend[vi * 8 + 1]).Append(' ').Append(blend[vi * 8 + 2]).Append(' ').Append(blend[vi * 8 + 3]);
+                    else sb.Append("255 0 0 0");
+                    break;
+                case "BlendIndices":
+                    if (blend != null) sb.Append(blend[vi * 8 + 4]).Append(' ').Append(blend[vi * 8 + 5]).Append(' ').Append(blend[vi * 8 + 6]).Append(' ').Append(blend[vi * 8 + 7]);
+                    else sb.Append("0 0 0 0");
+                    break;
                 case "Tangent": sb.Append(F(v.Tangent.X)).Append(' ').Append(F(v.Tangent.Y)).Append(' ').Append(F(v.Tangent.Z)).Append(' ').Append(F(v.Tangent.W)); break;
                 default:
                     if (e.StartsWith("TexCoord")) sb.Append(F(v.UV.X)).Append(' ').Append(F(v.UV.Y));

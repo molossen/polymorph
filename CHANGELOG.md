@@ -6,7 +6,8 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
-| [1.7.0](#170) | Target Weld, FFD, ProOptimizer, UV selection like Blender, shapes + Lathe, bones / Skin / weight paint |
+| [1.7.1](#171) | Skinned GTA export: bones + weights in the .ydr |
+| [1.7.0](#170) | Target Weld, FFD, ProOptimizer, easier UV selection, shapes + Lathe, bones / Skin / weight paint |
 | [1.6.5](#165) | Fix: start-up crash on Chinese / Japanese / Korean Windows (shader "unexpected end of file") |
 | [1.6.4](#164) | Edges easier to click inside a room |
 | [1.6.3](#163) | Scale box: stretch the selection from a side, an edge or a corner |
@@ -25,6 +26,14 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.2.0](#120) | C# scripting inside Polymorph |
 | [1.1.0](#110) | One-click updates, animation, Wall Opening, texture library |
 | [1.0.0](#100) | First public release |
+
+---
+
+## 1.7.1
+
+- **Skinned GTA export**: an object with a Skin modifier (last in its stack) is exported as a skinned .ydr, like the
+  game's cutscene props: the mesh in its bind pose, a skeleton (a root bone + your bones, with the game's bone tags)
+  and up to 4 weights per vertex. Works in the full export and in "Export selected" (.ydr).
 
 ---
 
@@ -48,8 +57,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 - **Bones, Skin and weight paint**: Create > Bone (with a bone selected: continues the chain). Add a Skin modifier to
   the mesh, "Bind" makes the weights from the distance to the bones. Turning or moving a bone bends the mesh.
   "Paint weights" shows the chosen bone's weights in colour (blue 0 ... red 1); left button adds, Ctrl removes, Shift
-  smooths, [ ] radius. Bones are never exported to GTA. Skinned (rigged) GTA export is not there yet: apply the Skin
-  modifier to export the posed mesh.
+  smooths, [ ] radius.
 
 ---
 

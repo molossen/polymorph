@@ -10,6 +10,8 @@ public sealed class ModelPart
     public GtaMaterial Material;
     public List<RenderVertex> Verts = new();
     public List<int> Indices = new();
+    /// <summary>Skinned models: per vertex 4 weights (bytes adding up to 255) then 4 bone indices.</summary>
+    public byte[] Blend;
 }
 
 /// <summary>A model to export as one .ydr: its parts, bounds, LOD and optional embedded collision.</summary>
@@ -45,6 +47,8 @@ public sealed class GtaModel
     public float[] LodDists;
     /// <summary>Lights carried by this drawable (model space).</summary>
     public List<ModelLight> Lights = new();
+    /// <summary>Skeleton and weights when the model is skinned (Skin modifier), else null.</summary>
+    public ModelSkin Skin;
     public int VertexCount => Parts.Sum(p => p.Verts.Count);
     public bool IsEmpty => Parts.Count == 0;
     public Vector3 Center => IsEmpty ? Vector3.Zero : (Min + Max) * 0.5f;

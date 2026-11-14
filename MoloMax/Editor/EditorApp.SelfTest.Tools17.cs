@@ -200,6 +200,13 @@ public sealed partial class EditorApp
         var t2 = back.Objects.First(x => x.Name == tube.Name);
         var s2 = t2.Modifiers.OfType<SkinModifier>().FirstOrDefault();
         Expect(s2 != null && s2.HasWeights(n) && MathF.Abs(s2.Weight(midI, 0) - w1) < 1e-5f && back.Objects.Count(x => x.IsBone) == 2, "save / open keeps the bones, the binding and the painted weights");
+        // GTA: a skinned .ydr with a root + the two bones, read back by the game file reader
+        var ydr = Path.Combine(SelfTestDir, "skin_tube.ydr");
+        string info = null; Exception gex = null;
+        try { info = MoloMax.Core.Gta.Export.GtaExporter.ExportModelFile(Scene, new[] { tube }, ydr, _ => null); } catch (Exception ex) { gex = ex; }
+        var gb = gex == null ? MoloMax.Core.Gta.Forge.ForgeCommon.YdrBones(File.ReadAllBytes(ydr)) : new();
+        Expect(gex == null && gb.Count == 3 && gb[2].Parent == 1 && Vector3.Distance(gb[2].Position, new Vector3(0, 0, 1)) < 1e-3f,
+            $"GTA export: skinned .ydr, root + 2 bones, chain kept ({info ?? gex?.Message}; {string.Join(", ", gb.Select(x => x.Name + "@" + x.Position))})");
         DoUndo(); yield return Frames(3);
         Expect(Scene.Find(tube.Id).Modifiers.OfType<SkinModifier>().First().Weight(midI, 0) < w1 - 0.05f, "Ctrl+Z undoes the stroke");
         UI.ImGuiBackend.SyntheticInput = false;
