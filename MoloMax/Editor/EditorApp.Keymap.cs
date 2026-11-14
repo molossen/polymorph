@@ -67,7 +67,7 @@ public sealed partial class EditorApp
         if (ModalActive) { ModalKeys(); return; }
         if (transforming) { if (ImGui.IsKeyPressed(ImGuiKey.Escape, false)) CancelTransform(); return; }
         bool ctrl = io.KeyCtrl, shift = io.KeyShift, alt = io.KeyAlt;
-        if (uvHover && !ctrl) return; // the UV editor uses the letters and arrows itself
+        if ((uvHover || UvCanvasUnderMouse) && !ctrl) return; // the UV editor uses the letters, digits and arrows itself
         if (PaintKeys(ctrl)) return;
         if (!SculptMode && !paintMode && AnimKeys(ctrl, io.KeyShift, io.KeyAlt)) return;
         // menu search: F3 (Standard), Space (Industry Compatible: Tab is the edit mode toggle there too); preferences: Ctrl+,
