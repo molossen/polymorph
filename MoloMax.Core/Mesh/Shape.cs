@@ -5,7 +5,7 @@ namespace MoloMax.Core.Mesh;
 
 /// <summary>How a line (3ds Max spline) shows: the bare line, a renderable section swept along it (rectangle, round),
 /// a door / window casing profile swept along it, or an extrusion of the shape.</summary>
-public enum ShapeRender { Line, Rectangular, Round, DoorFrame, Extrude, Sweep }
+public enum ShapeRender { Line, Rectangular, Round, DoorFrame, Extrude, Sweep, Lathe }
 
 /// <summary>
 /// A line drawn point by point (3ds Max Create > Shapes > Line): its points in object space, open or closed, and how it
@@ -34,6 +34,14 @@ public sealed class ShapeData
     /// <summary>Sweep: the section drawn as another line (x across this line, y out of its plane, metres; its first
     /// point rides on the line), and its scale.</summary>
     public List<Vector2> Profile = new(); public float ProfileScale = 1f; public string ProfileName;
+    /// <summary>3ds Max shape type: 0 line (its own points), 1 rectangle, 2 circle, 3 arc. Rectangle / circle / arc keep
+    /// their sizes editable and make their points from them (in the shape's plane: X right, Y up of that plane).</summary>
+    public int Kind;
+    public float RectWidth = 1, RectLength = 1, Radius = 0.5f, ArcFrom = 0, ArcTo = 180;
+    /// <summary>Smooth: the line passes through its points as a curve (3ds Max "Smooth" vertices), Steps points per segment.</summary>
+    public bool Smooth; public int Steps = 6;
+    /// <summary>Lathe: turns the line around an axis through the shape's origin (0 X, 1 Y, 2 Z of the object).</summary>
+    public int LatheAxis = 2, LatheSegs = 16; public float LatheDegrees = 360;
 
     public ShapeData Copy()
     {
@@ -66,6 +74,7 @@ public static class ShapeBuilder
     /// <summary>The mesh of a shape (object space). The bare line keeps only its points (they still snap).</summary>
     public static PolyMesh Build(ShapeData s)
     {
+        Generate(s);
         var raw = Clean(s.Points, s.Closed);
         var m = new PolyMesh();
         if (raw.Count < 2 || s.Render == ShapeRender.Line) { foreach (var p in raw) m.AddVertex(p); return m; }
@@ -98,6 +107,7 @@ public static class ShapeBuilder
                     break;
                 }
             case ShapeRender.Extrude: Extrude(m, pts, closed, n * s.Amount); break;
+            case ShapeRender.Lathe: Lathe(m, pts, closed, s); break;
             case ShapeRender.Sweep:
                 {
                     var prof = (s.Profile ?? new()).Select(q => q * s.ProfileScale).ToList();
@@ -112,11 +122,108 @@ public static class ShapeBuilder
         return m;
     }
 
+    /// <summary>Rectangle / circle / arc: their points from their sizes (lines keep theirs).</summary>
+    public static void Generate(ShapeData s)
+    {
+        if (s.Kind == 0) return;
+        var p = new List<Vector3>();
+        if (s.Kind == 1)
+        {
+            float w = MathF.Max(s.RectWidth, 1e-4f) / 2, l = MathF.Max(s.RectLength, 1e-4f) / 2;
+            p.AddRange(new[] { new Vector3(-w, -l, 0), new Vector3(w, -l, 0), new Vector3(w, l, 0), new Vector3(-w, l, 0) });
+            s.Closed = true;
+        }
+        else
+        {
+            float r = MathF.Max(s.Radius, 1e-4f);
+            bool arc = s.Kind == 3;
+            float a0 = arc ? s.ArcFrom : 0, a1 = arc ? s.ArcTo : 360;
+            int segs = Math.Clamp((int)MathF.Ceiling(MathF.Abs(a1 - a0) / 360f * Math.Max(8, s.Sides * 4)), 3, 256);
+            int n = arc ? segs + 1 : segs;
+            for (int i = 0; i < n; i++)
+            {
+                float a = (a0 + (a1 - a0) * i / segs) * MathF.PI / 180;
+                p.Add(new Vector3(MathF.Cos(a) * r, MathF.Sin(a) * r, 0));
+            }
+            s.Closed = !arc;
+        }
+        s.Points = p;
+    }
+
+    /// <summary>Catmull-Rom curve through the points (3ds Max smooth vertices), steps points per segment.</summary>
+    static List<Vector3> SmoothCurve(List<Vector3> p, bool closed, int steps)
+    {
+        int n = p.Count; steps = Math.Clamp(steps, 1, 64);
+        if (n < 3) return p;
+        var r = new List<Vector3>();
+        int segs = closed ? n : n - 1;
+        Vector3 P(int i) => closed ? p[((i % n) + n) % n] : p[Math.Clamp(i, 0, n - 1)];
+        for (int i = 0; i < segs; i++)
+        {
+            var p0 = P(i - 1); var p1 = P(i); var p2 = P(i + 1); var p3 = P(i + 2);
+            for (int k = 0; k < steps; k++)
+            {
+                float t = k / (float)steps, t2 = t * t, t3 = t2 * t;
+                r.Add(0.5f * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3));
+            }
+        }
+        if (!closed) r.Add(p[^1]);
+        return r;
+    }
+
+    /// <summary>3ds Max Lathe: the line turned around the axis (through the shape's origin), closed caps where it touches the axis.</summary>
+    static void Lathe(PolyMesh m, List<Vector3> pts, bool closed, ShapeData s)
+    {
+        var axis = s.LatheAxis == 0 ? Vector3.UnitX : s.LatheAxis == 1 ? Vector3.UnitY : Vector3.UnitZ;
+        int segs = Math.Clamp(s.LatheSegs, 3, 128);
+        float deg = Math.Clamp(s.LatheDegrees, 1, 360);
+        bool full = deg >= 359.999f;
+        int rings = full ? segs : segs + 1;
+        int np = pts.Count;
+        var idx = new int[rings, np];
+        for (int j = 0; j < np; j++)
+        {
+            var p = pts[j];
+            float along = Vector3.Dot(p, axis); var radial = p - axis * along;
+            bool onAxis = radial.Length() < 1e-5f;
+            int shared = onAxis ? m.AddVertex(axis * along) : -1;
+            for (int k = 0; k < rings; k++)
+            {
+                if (onAxis) { idx[k, j] = shared; continue; }
+                var q = Quaternion.CreateFromAxisAngle(axis, deg * MathF.PI / 180 * k / segs);
+                idx[k, j] = m.AddVertex(Vector3.Transform(p, q));
+            }
+        }
+        int nseg = closed ? np : np - 1;
+        for (int k = 0; k < segs; k++)
+        {
+            int k1 = full ? (k + 1) % rings : k + 1;
+            for (int j = 0; j < nseg; j++)
+            {
+                int j1 = (j + 1) % np;
+                var quad = new[] { idx[k, j], idx[k, j1], idx[k1, j1], idx[k1, j] };
+                var f = quad.Distinct().ToArray();
+                if (f.Length >= 3) m.AddFace(f);
+            }
+        }
+        // faces outward: a full lathe encloses a volume, its sign tells the winding
+        if (m.Faces.Count > 0)
+        {
+            double vol = 0;
+            foreach (var f in m.Faces)
+                for (int i = 1; i + 1 < f.V.Length; i++)
+                    vol += Vector3.Dot(m.Verts[f.V[0]], Vector3.Cross(m.Verts[f.V[i]], m.Verts[f.V[i + 1]]));
+            if ((vol < 0) != s.Flip) foreach (var f in m.Faces) f.Flip();
+        }
+    }
+
     /// <summary>The line as it is built: cleaned, with its corners rounded (or chamfered) by Fillet.</summary>
     public static List<Vector3> Path(ShapeData s)
     {
+        Generate(s);
         var pts = Clean(s.Points, s.Closed);
         bool closed = s.Closed && pts.Count >= 3;
+        if (s.Smooth && pts.Count >= 3) pts = SmoothCurve(pts, closed, s.Steps);
         if (s.Fillet <= 1e-5f || pts.Count < 3) return pts;
         int np = pts.Count, segs = Math.Clamp(s.FilletSegs, 1, 32);
         var r = new List<Vector3>();

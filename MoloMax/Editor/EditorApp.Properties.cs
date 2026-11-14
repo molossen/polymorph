@@ -527,6 +527,9 @@ public sealed partial class EditorApp
                 c |= ImGui.Checkbox("Keep material borders", ref m.KeepMaterialBorders);
                 if (Current is { } po) { var ev = po.Evaluated(); Ui.TextDisabled($"{po.Mesh.Faces.Count:N0} -> {ev.Faces.Count:N0} polygons"); }
                 break;
+            case SkinModifier m:
+                c |= SkinFields(m, L);
+                break;
             case FfdModifier m:
                 c |= FfdFields(m, L);
                 break;

@@ -29,6 +29,7 @@ public enum ModifierCategory { Edit, Generate, Deform, Normals }
 [JsonDerivedType(typeof(WallOpeningModifier), "wall_opening")]
 [JsonDerivedType(typeof(FfdModifier), "ffd")]
 [JsonDerivedType(typeof(ProOptimizerModifier), "pro_optimizer")]
+[JsonDerivedType(typeof(SkinModifier), "skin")]
 public abstract class Modifier
 {
     public string Name;
@@ -64,6 +65,7 @@ public abstract class Modifier
         ("Subdivision Surface", ModifierCategory.Generate, () => new SubdivisionModifier()),
         ("Triangulate", ModifierCategory.Generate, () => new TriangulateModifier()),
         ("Cast", ModifierCategory.Deform, () => new CastModifier()),
+        ("Skin", ModifierCategory.Deform, () => new SkinModifier()),
         ("FFD 2x2x2", ModifierCategory.Deform, () => { var f = new FfdModifier(); f.SetResolution(2, 2, 2); return f; }),
         ("FFD 3x3x3", ModifierCategory.Deform, () => { var f = new FfdModifier(); f.SetResolution(3, 3, 3); return f; }),
         ("FFD 4x4x4", ModifierCategory.Deform, () => { var f = new FfdModifier(); f.SetResolution(4, 4, 4); return f; }),

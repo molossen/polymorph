@@ -8,7 +8,7 @@ using MoloMax.UI;
 
 namespace MoloMax.Editor;
 
-public enum ModalKind { None, Translate, Rotate, Scale, Extrude, Inset, LoopCut, Wall, Chamfer, Knife, Opening, Connect, Line, QuickSlice, TargetWeld, FfdPoints }
+public enum ModalKind { None, Translate, Rotate, Scale, Extrude, Inset, LoopCut, Wall, Chamfer, Knife, Opening, Connect, Line, QuickSlice, TargetWeld, FfdPoints, WeightPaint }
 
 /// <summary>
 /// Blender-style modal tools: G / R / S with X Y Z constraints (twice = local, Shift = plane),
@@ -163,6 +163,7 @@ public sealed partial class EditorApp
         if (P(ImGuiKey.Enter) || P(ImGuiKey.KeypadEnter)) { ConfirmModal(); return; }
         if (modal.Kind == ModalKind.Opening) { OpeningKeys(); return; }
         if (modal.Kind == ModalKind.FfdPoints) { FfdKeys(); return; }
+        if (modal.Kind == ModalKind.WeightPaint) { WeightPaintKeys(); return; }
 
         if (modal.Kind == ModalKind.Line) { LineKeys(); return; }
         if (modal.Kind == ModalKind.Wall)
@@ -254,6 +255,7 @@ public sealed partial class EditorApp
         if (modal.Kind == ModalKind.QuickSlice) { QuickSliceMouse(hv); return; }
         if (modal.Kind == ModalKind.TargetWeld) { TargetWeldMouse(hv); return; }
         if (modal.Kind == ModalKind.FfdPoints) { FfdMouse(hv); return; }
+        if (modal.Kind == ModalKind.WeightPaint) { WeightPaintMouse(hv); return; }
         UpdateModal();
         // started by dragging the extrude arrow: releasing the button confirms (Blender's tool gizmo)
         if (extrudeDragging && modal.Kind == ModalKind.Extrude && !Input.Down(MouseButtons.Left)) { extrudeDragging = false; ConfirmModal(); }
@@ -659,7 +661,7 @@ public sealed partial class EditorApp
         if (k == ModalKind.Line) { FinishLine(false); return; }
         if (k == ModalKind.Opening) { ConfirmOpening(); return; }
         if (k == ModalKind.LoopCut) { if (modal.Hover.HasValue) { } CancelModal(); return; }
-        if (k is ModalKind.Knife or ModalKind.QuickSlice or ModalKind.TargetWeld or ModalKind.FfdPoints) { modal.Kind = ModalKind.None; twSrc = -1; ffdDragging = false; return; }
+        if (k is ModalKind.Knife or ModalKind.QuickSlice or ModalKind.TargetWeld or ModalKind.FfdPoints or ModalKind.WeightPaint) { modal.Kind = ModalKind.None; twSrc = -1; ffdDragging = false; wpStroke = false; return; }
         if (k is ModalKind.Extrude or ModalKind.Inset or ModalKind.Chamfer) RememberMeshOp();
         modal.Kind = ModalKind.None;
         FinishPointsOnly();
@@ -774,6 +776,7 @@ public sealed partial class EditorApp
             if (twHover >= 0 && twHover < sc.P.Length && sc.Ok[twHover]) dl.AddCircle(S(twHover), 8, ImGui.ColorConvertFloat4ToU32(Theme.Gold), 16, 2f);
         }
         FfdOverlay(dl, vp);
+        WeightPaintOverlay(dl, vp);
         WallOverlay(dl, vp);
         LineOverlay(dl, vp);
     }

@@ -126,6 +126,11 @@ public sealed partial class EditorApp
                 if (k != CreateKind.None && ImGui.MenuItem(KindLabel(k))) { AddPrimitive(k); lastCreateKind = k; }
             ImGui.Separator();
             if (ImGui.MenuItem("Line (shape)")) BeginLine();
+            if (ImGui.MenuItem("Rectangle (shape)")) CreateShapeKind(1);
+            if (ImGui.MenuItem("Circle (shape)")) CreateShapeKind(2);
+            if (ImGui.MenuItem("Arc (shape)")) CreateShapeKind(3);
+            ImGui.Separator();
+            if (ImGui.MenuItem("Bone")) AddBone();
             ImGui.Separator();
             if (ImGui.MenuItem("Light (point)")) AddLight(GtaLightKind.Point);
             if (ImGui.MenuItem("Light (spot)")) AddLight(GtaLightKind.Spot);

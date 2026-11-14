@@ -14,6 +14,8 @@ public sealed partial class EditorApp
         T("TOOLS17: Target Weld by two clicks: the first vertex goes onto the second, the mesh stays closed, undo", TargetWeldTest);
         T("TOOLS17: FFD 3x3x3: drag the top middle point up, the box bulges smoothly, undo, save / open keeps it", FfdTest);
         T("TOOLS17: ProOptimizer: fewer polygons, UVs from the source, closed, in the GTA export mesh, save / open", ProOptimizerTest);
+        T("TOOLS17: shapes: rectangle extrude, circle pipe, smooth curve, lathe of a half outline (closed, outward)", ShapesTest);
+        T("TOOLS17: bones + Skin: bind with automatic weights, turn a bone (the top bends, the bottom stays), paint weights with the mouse, save / open", SkinTest);
         T("TOOLS17: UV editor selection: vertex near the point, edge, face from its edge, island, box, L, drag moves", UvSelectTest);
     }
 
@@ -115,6 +117,92 @@ public sealed partial class EditorApp
         SceneIO.Save(Scene, path);
         var o2 = SceneIO.Load(path).Objects.First(x => x.Name == c.Name);
         Expect(o2.Modifiers.OfType<ProOptimizerModifier>().FirstOrDefault()?.Percent == 30 && o2.Evaluated().Faces.Count == ev.Faces.Count, "save / open keeps it");
+    }
+
+    IEnumerable<object> ShapesTest()
+    {
+        Fresh();
+        Cursor3D = Vector3.Zero;
+        var r = CreateShapeKind(1);
+        Expect(r?.Shape is { Kind: 1, Closed: true } && r.Shape.Points.Count == 4, "rectangle: 4 points, closed");
+        var sr = r.Shape.Copy(); sr.RectWidth = 2; sr.RectLength = 1; sr.Render = ShapeRender.Extrude; sr.Amount = 0.5f;
+        Do("rect", () => { r.Shape = sr; r.Mesh = ShapeBuilder.Build(sr); r.Touch(); });
+        var (mn, mx) = r.Mesh.Bounds();
+        Expect(r.Mesh.IsClosedManifold(out _) && MathF.Abs(mx.X - mn.X - 2) < 1e-3f && MathF.Abs(mx.Y - mn.Y - 1) < 1e-3f && MathF.Abs(mx.Z - mn.Z - 0.5f) < 1e-3f,
+            $"rectangle 2 x 1 extruded 0.5: a closed box of that size ({mx - mn})");
+        Cursor3D = new Vector3(4, 0, 0);
+        var c = CreateShapeKind(2);
+        var sc = c.Shape.Copy(); sc.Radius = 1; sc.Render = ShapeRender.Round; sc.Thickness = 0.2f;
+        Do("circle", () => { c.Shape = sc; c.Mesh = ShapeBuilder.Build(sc); c.Touch(); });
+        Expect(c.Mesh.IsClosedManifold(out _), $"circle as a pipe: a closed ring ({c.Mesh.Faces.Count} faces)");
+        // smooth curve: more points along the path, passing through the clicked ones
+        var line = CreateLine(new[] { new Vector3(0, 4, 0), new Vector3(1, 5, 0), new Vector3(2, 4, 0), new Vector3(3, 5, 0) }, false, ShapeRender.Line);
+        var sl = line.Shape.Copy(); sl.Smooth = true; sl.Steps = 8;
+        var path = ShapeBuilder.Path(sl);
+        Expect(path.Count > 20 && sl.Points.All(p => path.Any(q => Vector3.Distance(p, q) < 1e-4f)), $"smooth curve: {path.Count} points, through every clicked point");
+        // lathe: half outline of a cylinder (axis Z through the pivot) turns into a closed solid facing outward
+        var half = CreateLine(new[] { new Vector3(0, 8, 0), new Vector3(0.5f, 8, 0), new Vector3(0.5f, 8, 1), new Vector3(0, 8, 1) }, false, ShapeRender.Line);
+        var sh = half.Shape.Copy(); sh.Render = ShapeRender.Lathe; sh.LatheAxis = 2; sh.LatheSegs = 24;
+        Do("lathe", () => { half.Shape = sh; half.Mesh = ShapeBuilder.Build(sh); half.Touch(); });
+        var lm = half.Mesh;
+        double vol = 0; foreach (var f in lm.Faces) for (int i = 1; i + 1 < f.V.Length; i++) vol += Vector3.Dot(lm.Verts[f.V[0]], Vector3.Cross(lm.Verts[f.V[i]], lm.Verts[f.V[i + 1]])) / 6;
+        Expect(lm.IsClosedManifold(out _) && vol > 0.7 && vol < 0.8, $"lathe: closed cylinder, faces outward, volume {vol:0.000} (pi r^2 h = 0.785)");
+        SelectOnly(half); FrameSelection(Viewports[ActiveViewport]); yield return Frames(4);
+        yield return Shot("lathe");
+    }
+
+    IEnumerable<object> SkinTest()
+    {
+        Fresh();
+        UI.ImGuiBackend.SyntheticInput = true;
+        var tube = Prim(CreateKind.Cylinder, Vector3.Zero);
+        Do("tall", () => { tube.Mesh = Primitives.Cylinder(0.15f, 2, 12, 16); tube.Touch(); });
+        Cursor3D = Vector3.Zero; SelectNone();
+        var b0 = AddBone(); Do("len", () => { b0.BoneLength = 1; b0.Mesh = BoneMesh(1); b0.Touch(); });
+        var b1 = AddBone(); // chained at the tip of the first
+        Expect(b0.IsBone && b1.IsBone && b1.ParentId == b0.Id && Vector3.Distance(b1.Position, new Vector3(0, 0, 1)) < 1e-4f, $"bone chain: second bone at the tip of the first ({b1.Position})");
+        Expect(b0.Gta.Role == GtaRole.Ignore, "bones are not exported to GTA");
+        var sk = new SkinModifier(); tube.Modifiers.Add(sk); tube.Touch();
+        BindSkin(tube, sk);
+        int n = tube.Mesh.Verts.Count;
+        Expect(sk.HasWeights(n) && sk.BoneIds.Count == 2, $"bound: {sk.BoneIds.Count} bones, {sk.VertexCount} points");
+        bool sums = Enumerable.Range(0, n).All(i => MathF.Abs(sk.Weight(i, 0) + sk.Weight(i, 1) - 1) < 1e-3f);
+        var lowI = Enumerable.Range(0, n).OrderBy(i => tube.Mesh.Verts[i].Z).First(); var topI = Enumerable.Range(0, n).OrderBy(i => -tube.Mesh.Verts[i].Z).First();
+        Expect(sums && sk.Weight(lowI, 0) > 0.9f && sk.Weight(topI, 1) > 0.9f, $"automatic weights: bottom on bone 1 ({sk.Weight(lowI, 0):0.00}), top on bone 2 ({sk.Weight(topI, 1):0.00}), each point sums to 1");
+        // turn the second bone 90° around X at its pivot: the top swings sideways, the bottom does not move
+        Do("pose", () => { b1.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI / 2); });
+        yield return Frames(3);
+        var ev = tube.Evaluated();
+        Expect(Vector3.Distance(ev.Verts[lowI], tube.Mesh.Verts[lowI]) < 1e-3f, "the bottom stays");
+        var top = ev.Verts[topI];
+        Expect(top.Z < 1.5f && MathF.Abs(top.Y) > 0.6f, $"the top bends with the bone ({tube.Mesh.Verts[topI]} -> {top})");
+        var vp = Viewports[ActiveViewport]; SelectOnly(tube); FrameSelection(vp); yield return Frames(4);
+        yield return Shot("skin_bent");
+        Do("rest", () => { b1.Rotation = Quaternion.Identity; }); yield return Frames(3);
+        // paint: bone 1 added on the middle with real mouse strokes
+        BeginWeightPaint(tube, sk); wpBone = 0; wpMode = 0; wpRadius = 0.4f; wpStrength = 1; yield return Frames(3);
+        Expect(modal.Kind == ModalKind.WeightPaint, "weight paint on");
+        var midI = Enumerable.Range(0, n).OrderBy(i => MathF.Abs(tube.Mesh.Verts[i].Z - 1.3f)).First();
+        float w0 = sk.Weight(midI, 0);
+        var pm = ScreenOf(vp, Vector3.Transform(new Vector3(0, 0, tube.Mesh.Verts[midI].Z), tube.World));
+        foreach (var x in MouseTo(pm, 4)) yield return x;
+        PostMouse(0x201, pm, 1); yield return Frames(2);
+        foreach (var x in MouseTo(pm + new Vector2(12, 6), 10, 1)) yield return x;
+        PostMouse(0x202, pm + new Vector2(12, 6), 0); yield return Frames(3);
+        float w1 = sk.Weight(midI, 0);
+        Expect(wpHitOk || w1 > w0, $"brush on the mesh ({wpHit})");
+        Expect(w1 > w0 + 0.1f && MathF.Abs(sk.Weight(midI, 0) + sk.Weight(midI, 1) - 1) < 1e-3f, $"painting adds bone 1 there ({w0:0.00} -> {w1:0.00}), still sums to 1");
+        yield return Shot("skin_weights");
+        ConfirmModal();
+        var path = Path.Combine(SelfTestDir, "skin_test.mmx");
+        SceneIO.Save(Scene, path);
+        var back = SceneIO.Load(path);
+        var t2 = back.Objects.First(x => x.Name == tube.Name);
+        var s2 = t2.Modifiers.OfType<SkinModifier>().FirstOrDefault();
+        Expect(s2 != null && s2.HasWeights(n) && MathF.Abs(s2.Weight(midI, 0) - w1) < 1e-5f && back.Objects.Count(x => x.IsBone) == 2, "save / open keeps the bones, the binding and the painted weights");
+        DoUndo(); yield return Frames(3);
+        Expect(Scene.Find(tube.Id).Modifiers.OfType<SkinModifier>().First().Weight(midI, 0) < w1 - 0.05f, "Ctrl+Z undoes the stroke");
+        UI.ImGuiBackend.SyntheticInput = false;
     }
 
     IEnumerable<object> UvSelectTest()

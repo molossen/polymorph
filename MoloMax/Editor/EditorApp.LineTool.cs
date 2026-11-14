@@ -232,7 +232,20 @@ public partial class EditorApp
         return hit;
     }
 
-    static readonly string[] ShapeRenderNames = { "Line only", "Rectangular (beam)", "Round (pipe)", "Door frame (casing)", "Extrude", "Sweep (your profile)" };
+    static readonly string[] ShapeRenderNames = { "Line only", "Rectangular (beam)", "Round (pipe)", "Door frame (casing)", "Extrude", "Sweep (your profile)", "Lathe (turn around an axis)" };
+    static readonly string[] ShapeKindNames = { "Line", "Rectangle", "Circle", "Arc" };
+
+    /// <summary>3ds Max Create > Shapes > Rectangle / Circle / Arc: a shape with editable sizes at the 3D cursor, flat on
+    /// the ground. Its panel renders it like a line (beam, pipe, extrude, lathe...).</summary>
+    public SceneObject CreateShapeKind(int kind)
+    {
+        var s = new ShapeData { Kind = kind, Render = ShapeRender.Line, Facing = Vector3.UnitZ };
+        ShapeBuilder.Generate(s);
+        var created = AddObject(ShapeKindNames[kind], ShapeBuilder.Build(s), Cursor3D);
+        if (created != null) { created.Shape = s; created.Touch(); }
+        SetStatus($"{ShapeKindNames[kind]} added. Its sizes, render (extrude, lathe, pipe...) and curve are in its panel.");
+        return created;
+    }
     static readonly string[] LineFrameStyles = { "Square", "Stepped", "Chamfer", "Round" };
 
     /// <summary>Properties of a line: closed, how it renders and its sizes; the mesh is rebuilt on every change.</summary>
@@ -257,6 +270,28 @@ public partial class EditorApp
             bool c = ImGui.DragFloat(label, ref v, speed, min, 50f, label.StartsWith("##") ? "%.3f m" : label + " %.3f m");
             return c;
         }
+        // the shape itself: rectangle / circle / arc keep their sizes (3ds Max parameters) until turned into a line
+        if (s.Kind != 0)
+        {
+            Ui.TextDisabled(ShapeKindNames[Math.Clamp(s.Kind, 0, 3)]);
+            if (s.Kind == 1) { ch |= F("Width##shape_rw", ref s.RectWidth, 0.01f); ch |= F("Length##shape_rl", ref s.RectLength, 0.01f); }
+            else
+            {
+                ch |= F("Radius##shape_rad", ref s.Radius, 0.005f);
+                int sd = s.Sides; ImGui.SetNextItemWidth(-1); if (ImGui.SliderInt("##shape_csides", ref sd, 2, 32, "smoothness %d")) { s.Sides = sd; ch = true; }
+                if (s.Kind == 3)
+                {
+                    ImGui.SetNextItemWidth(-1); ch |= ImGui.DragFloat("##shape_af", ref s.ArcFrom, 0.5f, -360, 360, "from %.0f°");
+                    ImGui.SetNextItemWidth(-1); ch |= ImGui.DragFloat("##shape_at", ref s.ArcTo, 0.5f, -360, 360, "to %.0f°");
+                }
+            }
+            if (ImGui.Button("Make it a line (edit its points)##shape_toline", new Vector2(-1, 0))) { ShapeBuilder.Generate(s); s.Kind = 0; ch = true; }
+            Theme.Tip("Like 3ds Max Convert to Editable Spline: the sizes go, its points can be moved one by one in vertex mode.");
+        }
+        bool smooth = s.Smooth;
+        if (ImGui.Checkbox("Smooth curve##shape_smooth", ref smooth)) { s.Smooth = smooth; ch = true; }
+        Theme.Tip("The line passes through its points as a smooth curve (3ds Max smooth vertices).");
+        if (s.Smooth) { ImGui.SameLine(); int st = s.Steps; ImGui.SetNextItemWidth(-1); if (ImGui.SliderInt("##shape_steps", ref st, 1, 24, "steps %d")) { s.Steps = st; ch = true; } }
         switch (s.Render)
         {
             case ShapeRender.Rectangular:
@@ -282,6 +317,20 @@ public partial class EditorApp
                 Ui.TextDisabled("Amount (along the plane of the line)");
                 ch |= F("##shape_amt", ref s.Amount, 0.005f);
                 break;
+            case ShapeRender.Lathe:
+                {
+                    Ui.TextDisabled("Axis (through the line's pivot) / segments / degrees");
+                    float bw = (ImGui.GetContentRegionAvail().X - 4) / 3;
+                    for (int ax = 0; ax < 3; ax++)
+                    {
+                        if (ax > 0) ImGui.SameLine(0, 2);
+                        if (Theme.Toggle("XYZ"[ax] + "##lathe_ax", s.LatheAxis == ax, new Vector2(bw, 0))) { s.LatheAxis = ax; ch = true; }
+                    }
+                    int sg = s.LatheSegs; ImGui.SetNextItemWidth(-1); if (ImGui.SliderInt("##lathe_segs", ref sg, 3, 64, "%d segments")) { s.LatheSegs = sg; ch = true; }
+                    ImGui.SetNextItemWidth(-1); ch |= ImGui.DragFloat("##lathe_deg", ref s.LatheDegrees, 1, 1, 360, "%.0f°");
+                    Ui.TextDisabled("Draw half the outline of a vase, a column, a lamp: it turns around the axis.");
+                    break;
+                }
             case ShapeRender.Sweep:
                 {
                     Ui.TextDisabled("Profile: another line, drawn as the section (its first point rides on this line)");

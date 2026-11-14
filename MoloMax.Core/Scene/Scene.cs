@@ -255,6 +255,9 @@ public sealed class SceneObject
     public string InstanceKey;
     /// <summary>A line drawn point by point (3ds Max spline): when set, the mesh is built from it (see ShapeBuilder).</summary>
     public global::MoloMax.Core.Mesh.ShapeData Shape;
+    /// <summary>A bone (3ds Max bone / Blender armature bone) for the Skin modifier: drawn as a bone, never exported to GTA.
+    /// It points along its local +Z, <see cref="BoneLength"/> long.</summary>
+    public bool IsBone; public float BoneLength = 0.3f;
     /// <summary>UV animation rows at the current frame (GTA globalAnimUV0 / 1), w = 1 when set; drawn only, never saved.</summary>
     public Vector4 UvRow0, UvRow1;
 
@@ -363,7 +366,7 @@ public sealed class SceneObject
     {
         Id = Id, Name = Name, Mesh = mesh ?? Mesh.Clone(), Position = Position, Rotation = Rotation, Scale = Scale,
         WireColour = WireColour, Hidden = Hidden, Frozen = Frozen, Folder = Folder, ParentId = ParentId, GtaType = GtaType, Version = Version,
-        Gta = (Gta ?? new GtaInfo()).Clone(), TripoTaskId = TripoTaskId, Paint = Paint, PaintFile = PaintFile, SplatFile = SplatFile, Splat = Splat?.Clone(), SplatCloud = SplatCloud, InstanceKey = InstanceKey, UvRow0 = UvRow0, UvRow1 = UvRow1, Shape = Shape?.Copy(),
+        Gta = (Gta ?? new GtaInfo()).Clone(), TripoTaskId = TripoTaskId, Paint = Paint, PaintFile = PaintFile, SplatFile = SplatFile, Splat = Splat?.Clone(), SplatCloud = SplatCloud, InstanceKey = InstanceKey, UvRow0 = UvRow0, UvRow1 = UvRow1, Shape = Shape?.Copy(), IsBone = IsBone, BoneLength = BoneLength,
         Modifiers = (Modifiers ?? new()).Select(m => m.Clone()).ToList(),
         ModEdit = ModEdit == null ? null : new ModEditState { Base = ModEdit.Base, All = ModEdit.All.Select(m => m.Clone()).ToList(), Index = ModEdit.Index },
     };
