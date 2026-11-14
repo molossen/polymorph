@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.7.2](#172) | Bone animations exported to GTA (.ycd), played by the model on its own |
 | [1.7.1](#171) | Skinned GTA export: bones + weights in the .ydr |
 | [1.7.0](#170) | Target Weld, FFD, ProOptimizer, easier UV selection, shapes + Lathe, bones / Skin / weight paint |
 | [1.6.5](#165) | Fix: start-up crash on Chinese / Japanese / Korean Windows (shader "unexpected end of file") |
@@ -26,6 +27,15 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.2.0](#120) | C# scripting inside Polymorph |
 | [1.1.0](#110) | One-click updates, animation, Wall Opening, texture library |
 | [1.0.0](#100) | First public release |
+
+---
+
+## 1.7.2
+
+- **Bone animations to GTA**: bones keyed on the timeline (and the skinned object itself) become a clip of the
+  resource's `_anims.ycd`, named like the model, with each bone's position and rotation under its parent (the bone
+  tags of the exported skeleton), at the timeline's frames. The archetype gets the clip dictionary and flags
+  1024 + 512 so the model plays it by itself, like the animated props of Molo maps. "Export .ycd" writes the same clip.
 
 ---
 

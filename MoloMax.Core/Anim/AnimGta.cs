@@ -21,9 +21,15 @@ public static class AnimGta
         int frames = Math.Max(2, a.End - a.Start + 1);
         float dur = (frames - 1) / MathF.Max(1, a.Fps);
         var want = ids?.ToHashSet();
+        // skinned objects: one clip with the root and every bone (bone tags), named like the model so it plays on its own
+        var skinned = SkinnedClips(s, want);
+        res.AddRange(skinned.Select(x => x.Clip));
+        var skinnedIds = skinned.Select(x => x.ObjectId).ToHashSet();
+        var boneIds = s.Objects.Where(x => skinnedIds.Contains(x.Id)).SelectMany(x => x.Modifiers.OfType<MoloMax.Core.Modifiers.SkinModifier>().SelectMany(m => m.BoneIds)).ToHashSet();
         foreach (var t in a.Tracks)
         {
             if (t.ObjectId < 0 || want != null && !want.Contains(t.ObjectId)) continue;
+            if (boneIds.Contains(t.ObjectId)) continue;
             var o = s.Find(t.ObjectId); if (o == null) continue;
             var model = ModelName(o).ToLowerInvariant();
             // sample on a copy so the scene does not move
@@ -41,7 +47,7 @@ public static class AnimGta
                 r0[f] = probe.UvRow0.W > 0 ? new Vector3(probe.UvRow0.X, probe.UvRow0.Y, probe.UvRow0.Z) : new Vector3(1, 0, 0);
                 r1[f] = probe.UvRow1.W > 0 ? new Vector3(probe.UvRow1.X, probe.UvRow1.Y, probe.UvRow1.Z) : new Vector3(0, 1, 0);
             }
-            if (xf)
+            if (xf && !skinnedIds.Contains(o.Id))
             {
                 var inv0 = Quaternion.Conjugate(Quaternion.Normalize(rot[0]));
                 var c = new YcdClip { Name = model + "_anim", Frames = frames, Duration = dur };
@@ -61,6 +67,68 @@ public static class AnimGta
                     res.Add(c);
                 }
             }
+        }
+        return res;
+    }
+
+    /// <summary>
+    /// Bone animation of skinned objects (Skin modifier) whose bones or self are keyed: the clip holds the root (bone 0, the
+    /// object's own move from where it stands at the first frame) and each bone's local position / rotation under its parent,
+    /// with the bone tags of the exported skeleton. Its hash is the model name: an archetype with this clip dictionary plays it
+    /// by itself (like the game's animated props).
+    /// </summary>
+    public static List<(int ObjectId, YcdClip Clip)> SkinnedClips(Scene s, HashSet<int> want = null)
+    {
+        var a = s.Anim; var res = new List<(int, YcdClip)>();
+        if (a == null || a.Tracks.Count == 0) return res;
+        int frames = Math.Max(2, a.End - a.Start + 1);
+        float dur = (frames - 1) / MathF.Max(1, a.Fps);
+        bool Keyed(int id) => a.Track(id) is { } t && Ch.Loc.Concat(Ch.Rot).Concat(Ch.Scale).Any(t.Has);
+        foreach (var o in s.Objects)
+        {
+            var sk = o.Modifiers?.OfType<MoloMax.Core.Modifiers.SkinModifier>().LastOrDefault(m => m.ShowRender);
+            if (sk == null || sk.BoneIds.Count == 0 || sk.BindObject == null) continue;
+            if (want != null && !want.Contains(o.Id) && !sk.BoneIds.Any(want.Contains)) continue;
+            if (!Keyed(o.Id) && !sk.BoneIds.Any(Keyed)) continue;
+            var model = ModelName(o).ToLowerInvariant();
+            var copy = s.Clone(x => x.Mesh);
+            var pos = new Vector3[frames]; var rot = new Quaternion[frames];
+            var pose = new List<SkinBone>[frames];
+            for (int f = 0; f < frames; f++)
+            {
+                a.Apply(copy, a.Start + f);
+                var co = copy.Find(o.Id);
+                pos[f] = co.Position; rot[f] = co.Rotation;
+                var now = (MoloMax.Core.Modifiers.SkinModifier)sk.Clone();
+                now.BindObject = MoloMax.Core.Modifiers.SkinModifier.Pack(co.World);
+                now.BindBones = sk.BoneIds.Select((id, i) => copy.Find(id) is { } b ? MoloMax.Core.Modifiers.SkinModifier.Pack(b.World) : sk.BindBones[i]).ToList();
+                var src = new SkinExport.Source { Skin = now, Points = Array.Empty<Vector3>() };
+                pose[f] = SkinExport.Make(copy, co, src, Matrix4x4.CreateScale(co.Scale), model).Bones;
+            }
+            var c = new YcdClip { Name = model, Hash = MetaXml.Jenkins(model), Frames = frames, Duration = dur, NoClipSuffix = true };
+            if (Keyed(o.Id))
+            {
+                var inv0 = Quaternion.Conjugate(Quaternion.Normalize(rot[0]));
+                c.Tracks.Add(new YcdTrack { Bone = 0, Track = 0, Values = pos.Select(p => new Vector4(Vector3.Transform(p - pos[0], inv0), 0)).ToArray() });
+                c.Tracks.Add(new YcdTrack { Bone = 0, Track = 1, Values = rot.Select(q => { var l = Quaternion.Normalize(inv0 * q); return new Vector4(l.X, l.Y, l.Z, l.W); }).ToArray() });
+            }
+            for (int b = 1; b < pose[0].Count; b++)
+            {
+                ushort tag = (ushort)pose[0][b].Tag;
+                var tr = new Vector4[frames]; var rq = new Vector4[frames];
+                var prev = Quaternion.Identity;
+                for (int f = 0; f < frames; f++)
+                {
+                    var bone = pose[f][b];
+                    tr[f] = new Vector4(bone.Translation, 0);
+                    var q = bone.Rotation;
+                    if (f > 0 && Quaternion.Dot(q, prev) < 0) q = Quaternion.Negate(q); // same hemisphere: no flip between frames
+                    prev = q; rq[f] = new Vector4(q.X, q.Y, q.Z, q.W);
+                }
+                c.Tracks.Add(new YcdTrack { Bone = tag, Track = 0, Values = tr });
+                c.Tracks.Add(new YcdTrack { Bone = tag, Track = 1, Values = rq });
+            }
+            res.Add((o.Id, c));
         }
         return res;
     }

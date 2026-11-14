@@ -25,6 +25,8 @@ public sealed class YcdClip
     public uint Hash;
     public int Frames;
     public float Duration;
+    /// <summary>Written as 'pack:/name' without '.clip' (like the game's animated props).</summary>
+    public bool NoClipSuffix;
     public List<YcdTrack> Tracks = new();
     public YcdTrack Track(ushort bone, byte track) => Tracks.FirstOrDefault(t => t.Bone == bone && t.Track == track);
     public bool IsUv => Tracks.Any(t => t.Track is 17 or 18);
@@ -106,7 +108,7 @@ public static class YcdIO
             uint hash = c.Hash != 0 ? c.Hash : MetaXml.Jenkins(c.Name);
             sb.Append("  <Item>\n");
             sb.Append($"   <Hash>hash_{hash:X8}</Hash>\n");
-            sb.Append($"   <Name>pack:/{c.Name}.clip</Name>\n");
+            sb.Append($"   <Name>pack:/{c.Name}{(c.NoClipSuffix ? "" : ".clip")}</Name>\n");
             sb.Append("   <Type value=\"Animation\" />\n   <Unknown30 value=\"0\" />\n   <Tags />\n   <Properties />\n");
             sb.Append($"   <AnimationHash>{c.Name}</AnimationHash>\n");
             sb.Append($"   <StartTime value=\"0\" />\n   <EndTime value=\"{F(c.Duration)}\" />\n   <Rate value=\"1\" />\n");

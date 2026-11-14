@@ -207,6 +207,22 @@ public sealed partial class EditorApp
         var gb = gex == null ? MoloMax.Core.Gta.Forge.ForgeCommon.YdrBones(File.ReadAllBytes(ydr)) : new();
         Expect(gex == null && gb.Count == 3 && gb[2].Parent == 1 && Vector3.Distance(gb[2].Position, new Vector3(0, 0, 1)) < 1e-3f,
             $"GTA export: skinned .ydr, root + 2 bones, chain kept ({info ?? gex?.Message}; {string.Join(", ", gb.Select(x => x.Name + "@" + x.Position))})");
+        // bone animation: the second bone keyed 0 -> 90 degrees, as a clip named like the model with the bones' tags
+        int s0 = Scene.Anim.Start, e0 = Scene.Anim.End;
+        Scene.Anim.Start = 0; Scene.Anim.End = 30;
+        Scene.Anim.KeyObject(b1, 0, MoloMax.Core.Anim.Ch.Rot);
+        b1.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI / 2);
+        Scene.Anim.KeyObject(b1, 30, MoloMax.Core.Anim.Ch.Rot);
+        b1.Rotation = Quaternion.Identity;
+        var bclips = MoloMax.Core.Anim.AnimGta.ToClips(Scene);
+        var ycdPath = Path.Combine(SelfTestDir, "skin_tube.ycd");
+        bool wrote = ExportYcd(ycdPath, bclips);
+        var rb = wrote ? MoloMax.Core.Gta.Anim.YcdIO.Read(File.ReadAllBytes(ycdPath), ycdPath) : new();
+        var bclip = rb.FirstOrDefault(c => c.Name == MoloMax.Core.Anim.AnimGta.ModelName(tube).ToLowerInvariant());
+        var rtrack = bclip?.Tracks.FirstOrDefault(t => t.Track == 1 && gb.Count == 3 && t.Bone == (ushort)MoloMax.Core.Gta.Export.SkinExport.Tag(gb[2].Name));
+        float bang = rtrack == null ? -1 : 2 * MathF.Acos(Math.Clamp(MathF.Abs(rtrack.Values[^1].W), 0, 1)) * 180 / MathF.PI;
+        Expect(bclip != null && rtrack != null && MathF.Abs(bang - 90) < 1, $"bone animation .ycd: clip '{bclip?.Name}' ({bclip?.Tracks.Count} tracks), second bone turns {bang:0.0} deg");
+        Scene.Anim.Tracks.RemoveAll(t => t.ObjectId == b1.Id); Scene.Anim.Start = s0; Scene.Anim.End = e0;
         DoUndo(); yield return Frames(3);
         Expect(Scene.Find(tube.Id).Modifiers.OfType<SkinModifier>().First().Weight(midI, 0) < w1 - 0.05f, "Ctrl+Z undoes the stroke");
         UI.ImGuiBackend.SyntheticInput = false;

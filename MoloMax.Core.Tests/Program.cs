@@ -39,7 +39,25 @@ if (args.Length > 0 && args[0] == "skin") {
         if (pos[2] > 1.7f) { high++; if (ix[top] == 2 && w.Sum() == 255) highOk++; }
     }
     Console.WriteLine($"bottom on bone_a {lowOk}/{low}, top on bone_b {highOk}/{high}");
-    return lowOk == low && highOk == high && low > 0 && high > 0 && bones.Length == 3 ? 0 : 1;
+    // bone animation: bone_b turns 90 degrees about X over 30 frames
+    sc.Anim.Start = 0; sc.Anim.End = 30; sc.Anim.Fps = 30;
+    sc.Anim.KeyObject(b2, 0, MoloMax.Core.Anim.Ch.Rot);
+    b2.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI / 2);
+    sc.Anim.KeyObject(b2, 30, MoloMax.Core.Anim.Ch.Rot);
+    b2.Rotation = Quaternion.Identity;
+    var clips = MoloMax.Core.Anim.AnimGta.ToClips(sc);
+    Console.WriteLine("clips: " + string.Join(", ", clips.Select(c => c + " hash " + c.Hash.ToString("X8") + " [" + string.Join(" ", c.Tracks.Select(t => t.Bone + "/" + t.Track)) + "]")));
+    var ycd = MoloMax.Core.Gta.Anim.YcdIO.Write(clips);
+    var back2 = MoloMax.Core.Gta.Anim.YcdIO.Read(ycd, "tube_skin.ycd");
+    var bc = back2.FirstOrDefault(c => c.Name == tube.Name.ToLowerInvariant());
+    var tagB = bones[2].Tag;
+    var rt = bc?.Track(tagB, 1);
+    var q0 = rt?.Values[0] ?? default; var q1 = rt?.Values[^1] ?? default;
+    float ang = 2 * MathF.Acos(Math.Clamp(MathF.Abs(q1.W), 0, 1)) * 180 / MathF.PI;
+    Console.WriteLine($"read back: {bc}, bone {tagB} rotation first {q0} last {q1} = {ang:0.0} deg; xml name {MoloMax.Core.Gta.Anim.YcdIO.BinaryToXml(ycd).Split('\n').First(l => l.Contains("<Name>")).Trim()}");
+    bool animOk = bc != null && bc.Hash == MoloMax.Core.Gta.Export.MetaXml.Jenkins(tube.Name.ToLowerInvariant()) && rt != null && MathF.Abs(ang - 90) < 1 && MathF.Abs(q0.W - 1) < 1e-3f && bc.Track(bones[1].Tag, 1) != null && bc.Frames == 31;
+    Console.WriteLine("anim ok " + animOk);
+    return lowOk == low && highOk == high && low > 0 && high > 0 && bones.Length == 3 && animOk ? 0 : 1;
 }
 if (args.Length > 0 && args[0] == "chamfer") {
     float V(PolyMesh m) => MoloMax.Core.Mesh.CsgClean.Volume(m);

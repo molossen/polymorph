@@ -33,6 +33,7 @@ then export a FiveM resource that is ready to `ensure` — in one free program, 
 
 ## What's new
 
+- **1.7.2 — Bone animations**: keyed bones go to GTA as a .ycd clip the model plays by itself.
 - **1.7.1 — Skinned export**: a mesh with a Skin modifier goes to GTA as a skinned .ydr (skeleton + weights).
 - **1.7.0 — Tools**: Target Weld, FFD, ProOptimizer, easier UV selection, Rectangle / Circle / Arc + Lathe, bones + Skin + weight paint.
 - **1.6.5 — Start-up fix** for Windows in Chinese / Japanese / Korean.

@@ -39,6 +39,9 @@ public static class GtaExporter
     /// <summary>Archetype flags of a UV animated model: "UV anims (YCD)" (bit 10) + "Auto start anim" (bit 19).
     /// Without auto start the clip is loaded but never plays (the texture stays still in game).</summary>
     public const uint UvAnimFlags = 1024u | 524288u;
+    /// <summary>Archetype flags of a skinned model with a bone animation: 1024 + 512, like the animated props that play
+    /// on their own in Molo maps (clip hash = model name, entity flags 1572872).</summary>
+    public const uint SkinAnimFlags = 1024u | 512u;
 
     sealed class PropModel
     {
@@ -89,8 +92,12 @@ public static class GtaExporter
         // modifier stacks are evaluated with their render settings (what a render / export sees), on a copy;
         // a Skin modifier at the end of a stack is taken off: the model goes out in the bind pose with its bones
         var skins = new Dictionary<int, SkinExport.Source>();
+        var boneClips = new Dictionary<int, MoloMax.Core.Gta.Anim.YcdClip>();
         if (scene.Objects.Any(o => o.Modifiers?.Count > 0))
         {
+            // bone animation of skinned objects, sampled before the copy loses its Skin modifiers
+            try { foreach (var (id, c) in MoloMax.Core.Anim.AnimGta.SkinnedClips(scene)) boneClips[id] = c; }
+            catch (Exception e) { rep.Warnings.Add("Bone animation not exported: " + e.Message); }
             scene = scene.Clone();
             skins = SkinExport.Take(scene, rep.Warnings);
             foreach (var o in scene.Objects) o.BakeModifiers(render: true);
@@ -216,6 +223,7 @@ public static class GtaExporter
             var written = new List<(string Dir, string Name, string Xml, string Kind, List<ExportTexture> Tex)>();
             var uvClips = new List<UvClip>();
             var keyedUvClips = new List<MoloMax.Core.Gta.Anim.YcdClip>(); // UV animation keyed on the timeline
+            var skinClips = new List<MoloMax.Core.Gta.Anim.YcdClip>();    // bone animation of skinned models
             string animDir = null;
 
             // ---- MLO shell (split at the vertex budget)
@@ -322,6 +330,16 @@ public static class GtaExporter
                 if (pm.First.Gta.Fragment && pm.Model.Skin == null) WriteFragment(pm.Model, pm.First, anyInMlo ? mloDir : extDir, written, bank, st, archetypes, rep);
                 else WriteModel(pm.Model, anyInMlo ? mloDir : extDir, written, bank, st, archetypes, rep);
 
+                // bone animation: one clip named like the model, played by the archetype on its own (like the game's animated props)
+                if (pm.Model.Skin != null && boneClips.TryGetValue(pm.First.Id, out var bc))
+                {
+                    bc.Name = pm.Name.ToLowerInvariant(); bc.Hash = MetaXml.Jenkins(bc.Name);
+                    skinClips.Add(bc);
+                    var arch = archetypes.Last(a => a.Name == pm.Name);
+                    arch.Flags |= SkinAnimFlags; arch.ClipDictionary = res + "_anims";
+                    animDir = anyInMlo ? mloDir : animDir ?? extDir;
+                    rep.Info.Add($"{pm.Name}: bone animation, {bc.Frames} frames at 30 fps ({bc.Tracks.Count} tracks).");
+                }
                 // UV animation keyed on the timeline: one clip per shader that can animate UVs
                 if (scene.Anim?.Track(pm.First.Id) is { } uvTrack && MoloMax.Core.Anim.Ch.Uv.Any(uvTrack.Has))
                 {
@@ -454,12 +472,12 @@ public static class GtaExporter
                 }
             }
 
-            if (uvClips.Count > 0 || keyedUvClips.Count > 0)
+            if (uvClips.Count > 0 || keyedUvClips.Count > 0 || skinClips.Count > 0)
             {
-                var xml = keyedUvClips.Count == 0 ? AnimXml.ClipDictionary(uvClips)
-                    : MoloMax.Core.Gta.Anim.YcdIO.ToXml(uvClips.Select(MoloMax.Core.Anim.AnimGta.FromUvClip).Concat(keyedUvClips));
+                var xml = keyedUvClips.Count == 0 && skinClips.Count == 0 ? AnimXml.ClipDictionary(uvClips)
+                    : MoloMax.Core.Gta.Anim.YcdIO.ToXml(uvClips.Select(MoloMax.Core.Anim.AnimGta.FromUvClip).Concat(keyedUvClips).Concat(skinClips));
                 written.Add((animDir ?? (isMlo ? mloDir : extDir), res + "_anims", xml, "ycd", null));
-                rep.Info.Add($"{uvClips.Count + keyedUvClips.Count} UV animation(s) at 30 fps in {res}_anims.ycd (archetype flags UV anims + auto start){(keyedUvClips.Count > 0 ? $", {keyedUvClips.Count} from the timeline keys" : "")}.");
+                rep.Info.Add($"{uvClips.Count + keyedUvClips.Count} UV animation(s){(skinClips.Count > 0 ? $" + {skinClips.Count} bone animation(s)" : "")} at 30 fps in {res}_anims.ycd (archetype flags UV anims + auto start){(keyedUvClips.Count > 0 ? $", {keyedUvClips.Count} from the timeline keys" : "")}.");
             }
 
             // ---- ytyp and ymaps
