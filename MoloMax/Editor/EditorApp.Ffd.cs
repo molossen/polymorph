@@ -189,9 +189,9 @@ public sealed partial class EditorApp
         {
             m.SetResolution(res[0], res[1], res[2]); c = true;
         }
-        Theme.Tip("Control points per axis (2x2x2, 3x3x3, 4x4x4 like 3ds Max; each axis can differ like FFD (box)). Changing it resets the points.");
+        Theme.Tip("Control points per axis (2x2x2, 3x3x3, 4x4x4; each axis can differ). Changing it resets the points.");
         c |= ImGui.Checkbox("Only in volume", ref m.InsideOnly);
-        Theme.Tip("3ds Max \"Only In Volume\": only the points inside the cage move. Off: \"All Vertices\", the whole mesh follows.");
+        Theme.Tip("On: only the points inside the cage move. Off: the whole mesh follows.");
         bool editing = modal.Kind == ModalKind.FfdPoints && ffdMod == m;
         if (Theme.Toggle(editing ? "Editing control points (Esc)##ffded" : "Edit control points##ffded", editing, new Vector2(-1, 0)))
         {

@@ -76,7 +76,7 @@ public sealed partial class EditorApp
         if (ImGui.Button("Fit 0-1")) Op("UV fit", () => UvTools.Fit01(m, Target())); ImGui.SameLine();
         if (ImGui.Button("Pack")) Op("UV pack", () => UvTools.Pack(m, Target())); Theme.Tip("Packs the islands into 0..1 (selection, or everything)."); ImGui.SameLine();
         if (ImGui.Button("Unwrap")) SmartUv(); Theme.Tip("Smart UV Project on the selection (or the whole object).");
-        if (Theme.Toggle("Move", uvTool == 0, new Vector2(52, 0))) uvTool = 0; Theme.Tip("Move tool (W): drag the arrows. G: move with the mouse, like Blender"); ImGui.SameLine(0, 2);
+        if (Theme.Toggle("Move", uvTool == 0, new Vector2(52, 0))) uvTool = 0; Theme.Tip("Move tool (W): drag the arrows. G: move with the mouse"); ImGui.SameLine(0, 2);
         if (Theme.Toggle("Rotate", uvTool == 1, new Vector2(58, 0))) uvTool = 1; Theme.Tip("Rotate tool (E): drag the circle. R: rotate with the mouse (Ctrl: 15° steps)"); ImGui.SameLine(0, 2);
         if (Theme.Toggle("Scale", uvTool == 2, new Vector2(52, 0))) uvTool = 2; Theme.Tip("Scale tool: drag an arrow (one axis) or the centre (both). S: scale with the mouse"); ImGui.SameLine();
         ImGui.SetNextItemWidth(70); ImGui.DragFloat("##uvang", ref uvAngle, 0.5f, -360, 360, "%.1f°"); ImGui.SameLine(0, 2);

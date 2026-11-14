@@ -286,11 +286,11 @@ public partial class EditorApp
                 }
             }
             if (ImGui.Button("Make it a line (edit its points)##shape_toline", new Vector2(-1, 0))) { ShapeBuilder.Generate(s); s.Kind = 0; ch = true; }
-            Theme.Tip("Like 3ds Max Convert to Editable Spline: the sizes go, its points can be moved one by one in vertex mode.");
+            Theme.Tip("Turns it into a plain line: the sizes go, its points can be moved one by one in vertex mode.");
         }
         bool smooth = s.Smooth;
         if (ImGui.Checkbox("Smooth curve##shape_smooth", ref smooth)) { s.Smooth = smooth; ch = true; }
-        Theme.Tip("The line passes through its points as a smooth curve (3ds Max smooth vertices).");
+        Theme.Tip("The line passes through its points as a smooth curve.");
         if (s.Smooth) { ImGui.SameLine(); int st = s.Steps; ImGui.SetNextItemWidth(-1); if (ImGui.SliderInt("##shape_steps", ref st, 1, 24, "steps %d")) { s.Steps = st; ch = true; } }
         switch (s.Render)
         {
