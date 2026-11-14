@@ -1,7 +1,7 @@
 {
-  "version": "1.6.5",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.6.5.exe",
-  "size": 70537010,
-  "sha256": "e5fc419545079c9dabd65419998bd574dee7e293834fbf34eccce72caa1a80a8",
-  "notes": "- Fix: Polymorph closed at start-up on some Windows language settings (\"gta_basic.hlsl(389,1): unexpected end of file\")\n- Includes 1.6.3 (scale box) and 1.6.4 (easier edge clicks)"
+  "version": "1.7.0",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.0.exe",
+  "size": 70553446,
+  "sha256": "1bddc34d8badd453f20c7c54afb898fb81656058cea9302995af0d552334b8ff",
+  "notes": "- New: Target Weld (click a vertex, then the one to weld it onto)\n- New: FFD 2x2x2 / 3x3x3 / 4x4x4 cage to bend a mesh\n- New: ProOptimizer: fewer polygons, same look (UVs, materials kept) for LODs\n- New: easier UV editor selection: vertex / edge / face / island (1 2 3 4), hover highlight, L, box\n- New: Rectangle / Circle / Arc shapes, smooth curves, Lathe\n- New: bones, Skin modifier and weight paint"
 }
