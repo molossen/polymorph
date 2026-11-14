@@ -8,7 +8,7 @@ using MoloMax.UI;
 
 namespace MoloMax.Editor;
 
-public enum ModalKind { None, Translate, Rotate, Scale, Extrude, Inset, LoopCut, Wall, Chamfer, Knife, Opening, Connect, Line, QuickSlice }
+public enum ModalKind { None, Translate, Rotate, Scale, Extrude, Inset, LoopCut, Wall, Chamfer, Knife, Opening, Connect, Line, QuickSlice, TargetWeld, FfdPoints }
 
 /// <summary>
 /// Blender-style modal tools: G / R / S with X Y Z constraints (twice = local, Shift = plane),
@@ -125,6 +125,14 @@ public sealed partial class EditorApp
                 modal.Header = "QuickSlice: click two points (Shift = 45°)";
                 SetStatus("QuickSlice: click two points, the whole object (or the selected polygons) is sliced along the line. Right click / Esc to stop.");
                 break;
+            case ModalKind.TargetWeld:
+                if (cur?.Mesh == null) { SetStatus("Select one object to weld."); return; }
+                if (Level != SubObject.Vertex) SetLevel(SubObject.Vertex);
+                StartModalCommon(kind, vp, Vector3.Zero);
+                twSrc = -1;
+                modal.Header = "Target Weld: click a vertex, then the vertex to weld it onto";
+                SetStatus("Target Weld: click a vertex, then the one it goes onto (that one stays put). Right click / Esc to stop.");
+                break;
             case ModalKind.Wall:
                 StartModalCommon(kind, vp, Vector3.Zero);
                 wallPts.Clear();
@@ -154,6 +162,7 @@ public sealed partial class EditorApp
         if (P(ImGuiKey.Escape)) { CancelModal(); return; }
         if (P(ImGuiKey.Enter) || P(ImGuiKey.KeypadEnter)) { ConfirmModal(); return; }
         if (modal.Kind == ModalKind.Opening) { OpeningKeys(); return; }
+        if (modal.Kind == ModalKind.FfdPoints) { FfdKeys(); return; }
 
         if (modal.Kind == ModalKind.Line) { LineKeys(); return; }
         if (modal.Kind == ModalKind.Wall)
@@ -243,6 +252,8 @@ public sealed partial class EditorApp
         if (modal.Kind == ModalKind.LoopCut) { LoopCutMouse(hv); return; }
         if (modal.Kind == ModalKind.Knife) { KnifeMouse(hv); return; }
         if (modal.Kind == ModalKind.QuickSlice) { QuickSliceMouse(hv); return; }
+        if (modal.Kind == ModalKind.TargetWeld) { TargetWeldMouse(hv); return; }
+        if (modal.Kind == ModalKind.FfdPoints) { FfdMouse(hv); return; }
         UpdateModal();
         // started by dragging the extrude arrow: releasing the button confirms (Blender's tool gizmo)
         if (extrudeDragging && modal.Kind == ModalKind.Extrude && !Input.Down(MouseButtons.Left)) { extrudeDragging = false; ConfirmModal(); }
@@ -485,6 +496,25 @@ public sealed partial class EditorApp
         SetStatus($"QuickSlice: {cut.Count} new edge(s){(faces != null ? " in the selected polygons" : "")}. Click two more points, or Esc / right click to stop.");
     }
 
+    /// <summary>Target Weld: the first click takes a vertex, the second merges it into the vertex clicked. Stays on.</summary>
+    int twSrc = -1, twHover = -1;
+    void TargetWeldMouse(Viewport hv)
+    {
+        var cur = Current;
+        if (Input.Pressed(MouseButtons.Right)) { if (twSrc >= 0) { twSrc = -1; return; } CancelModal(); return; }
+        twHover = -1;
+        if (hv == null || cur?.Mesh == null || ImGui.GetIO().WantCaptureMouse) return;
+        twHover = NearestVisibleVertex(hv, cur, hv.Local(Input.Mouse));
+        if (twHover == twSrc) twHover = -1;
+        if (!Input.Pressed(MouseButtons.Left)) return;
+        if (twSrc < 0) { twSrc = twHover; if (twSrc >= 0) SetStatus("Target Weld: now click the vertex to weld it onto."); return; }
+        if (twHover < 0) { twSrc = -1; SetStatus("Target Weld: no vertex there. Click a vertex to start again."); return; }
+        int src = twSrc, dst = twHover, merged = -1;
+        DoMesh("Target Weld", (o, mm, s) => { merged = MeshOps.TargetWeld(mm, src, dst); s.Clear(); if (merged >= 0) s.Verts.Add(merged); });
+        twSrc = -1;
+        SetStatus(merged >= 0 ? "Welded. Click another vertex, or Esc / right click to stop." : "Target Weld: could not weld those two.");
+    }
+
     static bool InsidePolygon(Vector2 p, Vector2[] poly)
     {
         bool inside = false;
@@ -629,7 +659,7 @@ public sealed partial class EditorApp
         if (k == ModalKind.Line) { FinishLine(false); return; }
         if (k == ModalKind.Opening) { ConfirmOpening(); return; }
         if (k == ModalKind.LoopCut) { if (modal.Hover.HasValue) { } CancelModal(); return; }
-        if (k is ModalKind.Knife or ModalKind.QuickSlice) { modal.Kind = ModalKind.None; return; }
+        if (k is ModalKind.Knife or ModalKind.QuickSlice or ModalKind.TargetWeld or ModalKind.FfdPoints) { modal.Kind = ModalKind.None; twSrc = -1; ffdDragging = false; return; }
         if (k is ModalKind.Extrude or ModalKind.Inset or ModalKind.Chamfer) RememberMeshOp();
         modal.Kind = ModalKind.None;
         FinishPointsOnly();
@@ -642,6 +672,7 @@ public sealed partial class EditorApp
     {
         var k = modal.Kind;
         modal.Kind = ModalKind.None;
+        twSrc = -1; ffdDragging = false; ffdBox = null;
         switch (k)
         {
             case ModalKind.Translate:
@@ -730,6 +761,19 @@ public sealed partial class EditorApp
             }
             dl.AddCircleFilled(a, 4, 0xFF40E0FF); dl.AddCircleFilled(b, 4, 0xFF40E0FF);
         }
+        if (modal.Kind == ModalKind.TargetWeld && Current is { Mesh: not null } tw)
+        {
+            var sc = ScreenVerts(vp, tw);
+            Vector2 S(int i) => new(vp.X + sc.P[i].X, vp.Y + sc.P[i].Y);
+            if (twSrc >= 0 && twSrc < sc.P.Length && sc.Ok[twSrc])
+            {
+                var a = S(twSrc); var b = twHover >= 0 && twHover < sc.P.Length ? S(twHover) : Input.Mouse;
+                dl.AddLine(a, b, 0xFF40E0FF, 2f);
+                dl.AddCircleFilled(a, 5, 0xFF40E0FF);
+            }
+            if (twHover >= 0 && twHover < sc.P.Length && sc.Ok[twHover]) dl.AddCircle(S(twHover), 8, ImGui.ColorConvertFloat4ToU32(Theme.Gold), 16, 2f);
+        }
+        FfdOverlay(dl, vp);
         WallOverlay(dl, vp);
         LineOverlay(dl, vp);
     }

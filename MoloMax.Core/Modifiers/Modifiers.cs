@@ -27,6 +27,8 @@ public enum ModifierCategory { Edit, Generate, Deform, Normals }
 [JsonDerivedType(typeof(EditPolyModifier), "edit_poly")]
 [JsonDerivedType(typeof(UnwrapUvwModifier), "unwrap_uvw")]
 [JsonDerivedType(typeof(WallOpeningModifier), "wall_opening")]
+[JsonDerivedType(typeof(FfdModifier), "ffd")]
+[JsonDerivedType(typeof(ProOptimizerModifier), "pro_optimizer")]
 public abstract class Modifier
 {
     public string Name;
@@ -54,6 +56,7 @@ public abstract class Modifier
         ("Weld", ModifierCategory.Edit, () => new WeldModifier()),
         ("Clean Up", ModifierCategory.Edit, () => new CleanUpModifier()),
         ("Wall Opening", ModifierCategory.Generate, () => new WallOpeningModifier()),
+        ("ProOptimizer", ModifierCategory.Generate, () => new ProOptimizerModifier()),
         ("Array", ModifierCategory.Generate, () => new ArrayModifier()),
         ("Mirror", ModifierCategory.Generate, () => new MirrorModifier()),
         ("Symmetry", ModifierCategory.Generate, () => new SymmetryModifier()),
@@ -61,6 +64,9 @@ public abstract class Modifier
         ("Subdivision Surface", ModifierCategory.Generate, () => new SubdivisionModifier()),
         ("Triangulate", ModifierCategory.Generate, () => new TriangulateModifier()),
         ("Cast", ModifierCategory.Deform, () => new CastModifier()),
+        ("FFD 2x2x2", ModifierCategory.Deform, () => { var f = new FfdModifier(); f.SetResolution(2, 2, 2); return f; }),
+        ("FFD 3x3x3", ModifierCategory.Deform, () => { var f = new FfdModifier(); f.SetResolution(3, 3, 3); return f; }),
+        ("FFD 4x4x4", ModifierCategory.Deform, () => { var f = new FfdModifier(); f.SetResolution(4, 4, 4); return f; }),
         ("Displace", ModifierCategory.Deform, () => new DisplaceNoiseModifier()),
         ("Smooth", ModifierCategory.Deform, () => new SmoothModifier()),
         ("Smooth by Angle", ModifierCategory.Normals, () => new SmoothByAngleModifier()),

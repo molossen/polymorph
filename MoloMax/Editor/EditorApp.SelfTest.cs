@@ -204,6 +204,7 @@ public sealed partial class EditorApp
         T("performance: 1M vertices", Perf);
         T("preferences + hub windows", Windows);
         UserFlowTests(T);
+        Tools17Tests(T);
         Tutorials(T);
         var only = Environment.GetEnvironmentVariable("POLYMORPH_ST_ONLY");
         // the tutorial videos are recorded only when asked for ("TUTO" in the filter)

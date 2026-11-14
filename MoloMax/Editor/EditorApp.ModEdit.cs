@@ -84,6 +84,8 @@ public sealed partial class EditorApp
             Theme.Tip("Two clicks: slices the whole object (or the selected polygons) along the line, like 3ds Max QuickSlice.");
             if (ImGui.Button("Weld##ep", new Vector2(w2, 0))) Weld(0.01f); ImGui.SameLine(0, 4);
             if (ImGui.Button("Collapse##ep", new Vector2(w2, 0))) Collapse();
+            if (ImGui.Button("Target Weld##ep", new Vector2(-1, 0))) BeginModal(ModalKind.TargetWeld);
+            Theme.Tip("Click a vertex, then the vertex to weld it onto (that one stays put), like 3ds Max Target Weld.");
             MakePlanarUi();
             Ui.Label("Selection", Theme.TextDim);
             if (ImGui.Button("Loop##ep", new Vector2(w2, 0))) Loop(); ImGui.SameLine(0, 4);

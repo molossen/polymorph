@@ -519,6 +519,17 @@ public sealed partial class EditorApp
             case SmoothByAngleModifier m:
                 L("Angle"); c |= ImGui.SliderFloat("##ang", ref m.Angle, 0, 180, "%.0f°");
                 break;
+            case ProOptimizerModifier m:
+                L("Vertex %"); c |= ImGui.SliderFloat("##popct", ref m.Percent, 1, 100, "%.1f %%");
+                Theme.Tip("How many vertices to keep. 50 % = about half the polygons. UVs, colours and materials stay exact.");
+                c |= ImGui.Checkbox("Keep borders", ref m.KeepBorders);
+                c |= ImGui.Checkbox("Keep UV seams", ref m.KeepUvSeams);
+                c |= ImGui.Checkbox("Keep material borders", ref m.KeepMaterialBorders);
+                if (Current is { } po) { var ev = po.Evaluated(); Ui.TextDisabled($"{po.Mesh.Faces.Count:N0} -> {ev.Faces.Count:N0} polygons"); }
+                break;
+            case FfdModifier m:
+                c |= FfdFields(m, L);
+                break;
             case CastModifier m:
                 L("Shape"); c |= ImGui.Combo("##shape", ref m.Shape, new[] { "Sphere", "Cylinder", "Cuboid" }, 3);
                 L("Factor"); c |= ImGui.DragFloat("##cf", ref m.Factor, 0.01f, -2, 2);

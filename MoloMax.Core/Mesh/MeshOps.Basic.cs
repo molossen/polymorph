@@ -134,6 +134,20 @@ public static partial class MeshOps
         m.RemoveUnusedVertices();
     }
 
+    /// <summary>3ds Max Target Weld: vertex <paramref name="src"/> is merged into <paramref name="dst"/> (which keeps its
+    /// place). Faces that end up with fewer than 3 corners go away. Returns the index of the merged vertex afterwards, or -1.</summary>
+    public static int TargetWeld(PolyMesh m, int src, int dst)
+    {
+        if (src == dst || src < 0 || dst < 0 || src >= m.Verts.Count || dst >= m.Verts.Count) return -1;
+        var keepPos = m.Verts[dst];
+        foreach (var f in m.Faces) for (int i = 0; i < f.V.Length; i++) if (f.V[i] == src) f.V[i] = dst;
+        m.CleanFaces();
+        // the merged vertex is found again by its position (indices shift when unused vertices go)
+        m.RemoveUnusedVertices();
+        for (int i = 0; i < m.Verts.Count; i++) if (m.Verts[i] == keepPos) return i;
+        return -1;
+    }
+
     // ---------------------------------------------------------------- deleting / detaching
 
     public static void DeleteFaces(PolyMesh m, ISet<int> faces, bool removeIsolatedVerts = true)
