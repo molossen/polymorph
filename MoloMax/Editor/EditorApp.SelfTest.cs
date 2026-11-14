@@ -395,7 +395,7 @@ public sealed partial class EditorApp
         Scene.Objects.Clear();
         var room = Scene.Add("room", Core.Mesh.Primitives.Box(10, 2, 1), Vector3.Zero);
         var piece = Scene.Add("piece", Core.Mesh.Primitives.Plane(10, 1, 4, 4), new Vector3(0, 0, 0.002f)); // lies on the floor
-        SelectOnly(room); SetLevel(SubObject.Edge); XRay = true; yield return Frames(3);
+        SelectOnly(room); SetLevel(SubObject.Edge); XRay = true; Tool = Tool.Select; yield return Frames(3); // no gizmo in the way of the clicks
         var vp = Viewports[ActiveViewport]; var cam = vp.Camera;
         cam.Ortho = false; cam.Target = new Vector3(0, 0, 0.5f); cam.Distance = 0.3f; cam.Yaw = 0; cam.Pitch = -0.15f;
         yield return Frames(4);

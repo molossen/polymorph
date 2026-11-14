@@ -44,16 +44,21 @@ public sealed partial class EditorApp
         return ok && depth > 0;
     }
 
+    /// <summary>The cage point under the mouse (10 px); points that fall on the same spot: the one nearest the camera.</summary>
     int FfdPick(Viewport vp, Vector2 mouse)
     {
-        int best = -1; float bd = 10;
+        var eye = vp.Camera.Eye;
+        var cand = new List<(int I, float D, float Z)>();
         for (int i = 0; i < ffdMod.Count; i++)
         {
-            if (!FfdScreen(vp, FfdWorld(i), out var s)) continue;
+            var w = FfdWorld(i);
+            if (!FfdScreen(vp, w, out var s)) continue;
             float d = Vector2.Distance(s, mouse);
-            if (d < bd) { bd = d; best = i; }
+            if (d < 10) cand.Add((i, d, Vector3.Distance(w, eye)));
         }
-        return best;
+        if (cand.Count == 0) return -1;
+        float dmin = cand.Min(c => c.D);
+        return cand.Where(c => c.D <= dmin + 2).OrderBy(c => c.Z).First().I;
     }
 
     void FfdKeys()

@@ -56,7 +56,7 @@ public sealed partial class EditorApp
         SelectOnly(c); var vp = Viewports[ActiveViewport];
         var ffd = new FfdModifier(); ffd.SetResolution(3, 3, 3);
         c.Modifiers.Add(ffd); c.Touch();
-        FrameSelection(vp); yield return Frames(4);
+        FrameSelection(vp); vp.Camera.Yaw = -2.2f; vp.Camera.Pitch = 0.45f; vp.Camera.Ortho = false; yield return Frames(4); // a 3/4 view: no two cage points on the same pixel
         float top0 = c.Evaluated().Verts.Max(v => v.Z);
         BeginFfdEdit(c, ffd); yield return Frames(3);
         Expect(modal.Kind == ModalKind.FfdPoints && ffd.HasBox, "FFD point editing started, cage fitted");
@@ -223,7 +223,8 @@ public sealed partial class EditorApp
         PostKey(Keys.D1, true); yield return Frames(1); PostKey(Keys.D1, false); yield return Frames(2);
         Expect(uvMode == 0, "1 = vertex mode");
         var target = m.Faces[0].UV[0];
-        foreach (var x in UClick(UvToScreen(target) + new Vector2(5, 4))) yield return x;
+        foreach (var x in UClick(UvToScreen(target) + new Vector2(2, 1))) yield return x;
+        Note($"vertex click: mode {uvMode}, hot {uvHot}, {uvCorn.Count} corner(s), first {(uvCorn.Count > 0 ? uvCorn.First() : -1)}");
         bool allAtPoint = uvCorn.Count > 0 && uvCorn.All(k => Vector2.Distance(m.Faces[(int)(k >> 8)].UV[(int)(k & 0xFF)], target) < 1e-5f);
         Expect(allAtPoint && uvCorn.Contains(CK(0, 0)), $"a click near the point takes it ({uvCorn.Count} corner(s) at that place)");
         // drag it: only those corners move
@@ -244,13 +245,15 @@ public sealed partial class EditorApp
         PostKey(Keys.D2, true); yield return Frames(1); PostKey(Keys.D2, false); yield return Frames(2);
         uvCorn.Clear();
         var ea = m.Faces[1].UV[0]; var eb = m.Faces[1].UV[1];
-        foreach (var x in UClick(UvToScreen((ea + eb) / 2) + new Vector2(0, 5))) yield return x;
+        foreach (var x in UClick(UvToScreen((ea + eb) / 2) + new Vector2(0, 4))) yield return x;
+        Note($"edge click: mode {uvMode}, hot {uvHot}, {uvCorn.Count} corner(s), at {UvToScreen((ea + eb) / 2)}, canvas {uvC0}, level {Level}");
         Expect(uvMode == 1 && uvCorn.Count >= 2 && uvCorn.Contains(CK(1, 0)) && uvCorn.Contains(CK(1, 1)), $"edge mode: the edge under the mouse ({uvCorn.Count} corners)");
         // ---- face mode: a click just outside a face, on its edge, still takes it
         PostKey(Keys.D3, true); yield return Frames(1); PostKey(Keys.D3, false); yield return Frames(2);
         SubSel(c).Faces.Clear();
         var fc = Vector2.Zero; foreach (var u in m.Faces[2].UV) fc += u; fc /= m.Faces[2].UV.Length;
         foreach (var x in UClick(UvToScreen(fc))) yield return x;
+        Note($"face click: mode {uvMode}, hot {uvHot}, faces {Faces(SubSel(c).Faces)}, level {Level}, current {Current?.Name}");
         Expect(uvMode == 2 && SubSel(c).Faces.SetEquals(new[] { 2 }), $"face mode: the face clicked ({Faces(SubSel(c).Faces)})");
         // ---- island mode: L over a face takes its island
         PostKey(Keys.D4, true); yield return Frames(1); PostKey(Keys.D4, false); yield return Frames(2);
