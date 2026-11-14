@@ -1,5 +1,6 @@
 using System.Numerics;
 using ImGuiNET;
+using MoloMax.Core.Mesh;
 using MoloMax.Core.Modifiers;
 using MoloMax.Core.Scenes;
 using MoloMax.UI;
