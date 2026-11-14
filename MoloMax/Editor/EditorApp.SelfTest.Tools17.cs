@@ -253,6 +253,13 @@ public sealed partial class EditorApp
         Expect(uvMode == 1 && uvCorn.Count >= 2 && uvCorn.Contains(CK(1, 0)) && uvCorn.Contains(CK(1, 1)), $"edge mode: the edge under the mouse ({uvCorn.Count} corners)");
         // ---- face mode: a click just outside a face, on its edge, still takes it
         PostKey(Keys.D3, true); yield return Frames(1); PostKey(Keys.D3, false); yield return Frames(2);
+        Note($"after 3 (no mouse move): mode {uvMode}, canvas under mouse {UvCanvasUnderMouse}, hover {uvHover}, imgui mouse {ImGuiNET.ImGui.GetIO().MousePos}, want kb {ImGuiNET.ImGui.GetIO().WantCaptureKeyboard}, xf {uvXfMode}, drag {uvDragging}, box {uvBoxing}, level {Level}");
+        if (uvMode != 2)
+        {
+            PostMouse(0x200, ImGuiNET.ImGui.GetIO().MousePos + new Vector2(1, 1), 0); yield return Frames(2);
+            PostKey(Keys.D3, true); yield return Frames(1); PostKey(Keys.D3, false); yield return Frames(2);
+            Note($"after 3 (mouse moved 1 px): mode {uvMode}, canvas under mouse {UvCanvasUnderMouse}, hover {uvHover}");
+        }
         SubSel(c).Faces.Clear();
         var fc = Vector2.Zero; foreach (var u in m.Faces[2].UV) fc += u; fc /= m.Faces[2].UV.Length;
         foreach (var x in UClick(UvToScreen(fc))) yield return x;
