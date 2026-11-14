@@ -1,7 +1,7 @@
 {
-  "version": "1.7.1",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.1.exe",
-  "size": 70562493,
-  "sha256": "9825b2bbcba627a47350f1940d478ed4fc9e3a55152ce70cad7e675565ddf8f2",
-  "notes": "- New: skinned GTA export: a mesh with a Skin modifier goes out as a skinned .ydr (skeleton + weights, bind pose)\n- Includes 1.7.0: Target Weld, FFD, ProOptimizer, easier UV selection, shapes + Lathe, bones / Skin / weight paint"
+  "version": "1.7.2",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.2.exe",
+  "size": 70551881,
+  "sha256": "5c135114e35ce688db4f6fed0e68b2a6eef47d2caacc18e6c2e61e485318a81f",
+  "notes": "- New: bone animations to GTA: keyed bones become a .ycd clip named like the model, played by the model on its own\n- 1.7.1: skinned GTA export (skeleton + weights)\n- 1.7.0: Target Weld, FFD, ProOptimizer, easier UV selection, shapes + Lathe, bones / Skin / weight paint"
 }
