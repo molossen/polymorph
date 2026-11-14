@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.7.0](#170) | Target Weld, FFD, ProOptimizer, UV selection like Blender, shapes + Lathe, bones / Skin / weight paint |
 | [1.6.5](#165) | Fix: start-up crash on Chinese / Japanese / Korean Windows (shader "unexpected end of file") |
 | [1.6.4](#164) | Edges easier to click inside a room |
 | [1.6.3](#163) | Scale box: stretch the selection from a side, an edge or a corner |
@@ -24,6 +25,31 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.2.0](#120) | C# scripting inside Polymorph |
 | [1.1.0](#110) | One-click updates, animation, Wall Opening, texture library |
 | [1.0.0](#100) | First public release |
+
+---
+
+## 1.7.0
+
+- **Target Weld** (Edit Poly, under Collapse, or search): click a vertex, then the one to weld it onto. The second one
+  stays where it is. Stays on for the next weld; right click or Esc to stop.
+- **FFD 2x2x2 / 3x3x3 / 4x4x4** (Add Modifier > Deform): a cage around the object. "Edit control points" shows it:
+  click a point (Shift adds), drag on empty space to box-select, drag a point to bend the mesh smoothly. X / Y / Z lock
+  the move on an axis, A selects all. Reset, Conform, "Only in volume".
+- **ProOptimizer** (Add Modifier > Generate): fewer polygons, same look. Keeps UVs, vertex colours, materials and
+  smoothing exact, never moves open borders, UV seams or material borders. Made for LODs: put it on the HD model,
+  lower the %. A 200 000-polygon room is halved in about 2 s, then the result is kept.
+- **UV editor selection like Blender**: Vertex / Edge / Face / Island modes (buttons or 1 2 3 4). What the mouse is
+  over is highlighted, a click takes the nearest point / edge / face (no need to hit inside a tiny face; stacked faces:
+  the smallest one), Shift adds or removes, Ctrl removes, drag on empty space box-selects, L takes the island under
+  the mouse, A all, Alt+A nothing. Moving, rotating, scaling and the buttons work on points and edges too.
+- **Shapes**: Create > Rectangle / Circle / Arc with editable sizes (like 3ds Max), "Make it a line" to edit the
+  points. "Smooth curve" makes any line pass through its points as a curve. New render **Lathe**: draw half the outline
+  of a vase, a column or a lamp, it turns around an axis (segments, degrees), closed and facing outward.
+- **Bones, Skin and weight paint**: Create > Bone (with a bone selected: continues the chain). Add a Skin modifier to
+  the mesh, "Bind" makes the weights from the distance to the bones. Turning or moving a bone bends the mesh.
+  "Paint weights" shows the chosen bone's weights in colour (blue 0 ... red 1); left button adds, Ctrl removes, Shift
+  smooths, [ ] radius. Bones are never exported to GTA. Skinned (rigged) GTA export is not there yet: apply the Skin
+  modifier to export the posed mesh.
 
 ---
 
