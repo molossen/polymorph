@@ -41,15 +41,29 @@ public sealed partial class EditorApp
         var res = new List<SplatScan.Overlay>();
         if (!Bool(p, "overlay", true)) return res;
         var only = Str(p, "only");
-        var pal = new[] { new Vector3(1f, 0.4f, 0.1f), new Vector3(0.1f, 0.8f, 1f), new Vector3(0.95f, 0.2f, 0.6f), new Vector3(0.3f, 1f, 0.3f), new Vector3(1f, 0.9f, 0.2f) };
+        var pal = new[] { new Vector3(0.7f, 0.5f, 0.95f), new Vector3(0.95f, 0.35f, 0.6f), new Vector3(0.95f, 0.8f, 0.3f), new Vector3(0.45f, 0.55f, 0.95f) };
         int k = 0;
         foreach (var o in Scene.Objects)
         {
             if (IsSplat(o) || o.IsBone || o.Hidden || o.Mesh == null || o.Mesh.Faces.Count == 0) continue;
             if (only != null && !o.Name.Contains(only, StringComparison.OrdinalIgnoreCase)) continue;
-            res.Add(new SplatScan.Overlay { Mesh = o.Mesh, World = o.World, Colour = pal[k++ % pal.Length], Label = o.Name });
+            res.Add(new SplatScan.Overlay { Mesh = o.Mesh, World = o.World, Colour = BlockoutColour(o.Name) ?? pal[k++ % pal.Length], Label = o.Name });
         }
         return res;
+    }
+
+    /// <summary>One colour per kind of piece, read from its name, so a block-out reads at a glance (walls light, doors
+    /// orange, windows blue, stairs green); anything else (furniture, props) gets the object palette.</summary>
+    static Vector3? BlockoutColour(string name)
+    {
+        var n = name.ToLowerInvariant();
+        if (n.Contains("door")) return new Vector3(0.95f, 0.45f, 0.12f);
+        if (n.Contains("window") || n.Contains("glass")) return new Vector3(0.35f, 0.75f, 0.95f);
+        if (n.Contains("stair") || n.Contains("banister") || n.Contains("rail")) return new Vector3(0.35f, 0.85f, 0.45f);
+        if (n.Contains("ceiling")) return new Vector3(0.86f, 0.86f, 0.88f);
+        if (n.Contains("floor")) return new Vector3(0.62f, 0.6f, 0.58f);
+        if (n.Contains("wall")) return new Vector3(0.82f, 0.84f, 0.9f);
+        return null;
     }
 
     static string ShotPath(JsonObject p, string kind)
@@ -75,7 +89,7 @@ public sealed partial class EditorApp
                     position = V3(o.Position), rotation = V3(EulerDeg(o.Rotation)), scale = V3(o.Scale), floor = m.Floor, ceiling = m.Ceiling,
                     layers = m.Layers.Select(l => new { z = MathF.Round(l.Z, 3), points = l.Count }) };
             });
-        A.Add("splat.view", "Picture (PNG, returned as an image through MCP) of the capture from a camera, with the block-out objects drawn over it (faces see-through, edges solid, one colour per object). Use clip_min / clip_max to cut away a ceiling or a wall (cut-away view). ortho=true with ortho_height for straight elevations or plans.",
+        A.Add("splat.view", "Picture (PNG, returned as an image through MCP) of the capture from a camera, with the block-out objects drawn over it (nearest surface only, shaded, the scan kept in front where it is nearer; walls light, doors orange, windows blue, stairs green, furniture in colours; face_alpha 1 = solid clay). Use clip_min / clip_max to cut away a ceiling or a wall (cut-away view). ortho=true with ortho_height for straight elevations or plans.",
             new[] { new P("eye", "vec3", "camera position", true), new P("target", "vec3", "point looked at", true), new P("fov", "float", "vertical field of view, degrees (default 70)"),
                 new P("width", "int", "pixels (default 1280)"), new P("height", "int", "pixels (default 800)"), new P("ortho", "bool", "orthographic"), new P("ortho_height", "float", "metres seen top to bottom (ortho)"),
                 new P("clip_min", "vec3", "only blobs inside this box (min corner)"), new P("clip_max", "vec3", "max corner"), new P("overlay", "bool", "draw the block-out (default true)"), new P("only", "string", "draw only objects whose name contains this"),

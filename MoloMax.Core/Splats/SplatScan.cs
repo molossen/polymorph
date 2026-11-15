@@ -238,39 +238,99 @@ public sealed class SplatScan
                     if (a > 0.35f) depth[y * w + x] = MathF.Min(depth[y * w + x], z);
                 }
         }
-        if (overlay != null) DrawOverlay(img, overlay, vp, ortho, faceAlpha);
+        if (overlay != null) DrawOverlay(img, overlay, view, vp, ortho, faceAlpha, depth);
         return img;
     }
 
-    static void DrawOverlay(RgbaImage img, IEnumerable<Overlay> overlay, Matrix4x4 vp, bool ortho, float faceAlpha)
+    /// <summary>Draws the block-out with a depth buffer: only the nearest block-out surface shows in each pixel, shaded by
+    /// its facing, and the scan stays in front where it is clearly nearer (furniture before a wall). faceAlpha below 1 blends
+    /// the surfaces over the scan (checking the fit); 1 draws them solid (clay). Edges are drawn only where they are seen.</summary>
+    static void DrawOverlay(RgbaImage img, IEnumerable<Overlay> overlay, Matrix4x4 view, Matrix4x4 vp, bool ortho, float faceAlpha, float[] scanDepth)
     {
         int w = img.Width, h = img.Height; var px = img.Pixels;
+        var zb = new float[w * h]; Array.Fill(zb, float.MaxValue);
+        var colR = new float[w * h]; var colG = new float[w * h]; var colB = new float[w * h];
+        var light = Vector3.Normalize(new Vector3(0.45f, -0.35f, 0.82f));
+        var edges = new List<(Vector3 A, Vector3 B, Vector3 C)>();
+        Vector3 Screen(Vector3 world, out bool ok)
+        {
+            var q = Vector4.Transform(new Vector4(world, 1), vp);
+            float d = -Vector3.Transform(world, view).Z;
+            ok = ortho || d > 0.05f;
+            float iw = ortho ? 1 : 1 / q.W;
+            return new Vector3((q.X * iw * 0.5f + 0.5f) * w, (1 - (q.Y * iw * 0.5f + 0.5f)) * h, d);
+        }
         foreach (var ov in overlay)
         {
             var m = ov.Mesh; if (m == null) continue;
-            var sp = new Vector3[m.Verts.Count]; var ok = new bool[m.Verts.Count];
-            for (int i = 0; i < m.Verts.Count; i++)
-            {
-                var q = Vector4.Transform(new Vector4(Vector3.Transform(m.Verts[i], ov.World), 1), vp);
-                ok[i] = ortho || q.W > 0.05f; float iw = ortho ? 1 : 1 / q.W;
-                sp[i] = new Vector3((q.X * iw * 0.5f + 0.5f) * w, (1 - (q.Y * iw * 0.5f + 0.5f)) * h, q.W);
-            }
-            byte cr = (byte)(ov.Colour.X * 255), cg = (byte)(ov.Colour.Y * 255), cb = (byte)(ov.Colour.Z * 255);
-            // faces, see-through
-            var cover = new bool[w * h];
+            var wp = new Vector3[m.Verts.Count]; var sp = new Vector3[m.Verts.Count]; var ok = new bool[m.Verts.Count];
+            for (int i = 0; i < wp.Length; i++) { wp[i] = Vector3.Transform(m.Verts[i], ov.World); sp[i] = Screen(wp[i], out ok[i]); }
             foreach (var f in m.Faces)
             {
-                if (f.V.Any(v => !ok[v])) continue;
-                for (int t = 1; t + 1 < f.V.Length; t++) FillTri(sp[f.V[0]], sp[f.V[t]], sp[f.V[t + 1]], w, h, cover);
+                if (f.V.Length < 3 || f.V.Any(v => !ok[v])) continue;
+                // Newell normal, two-sided light so inward rooms read too
+                var n = Vector3.Zero;
+                for (int k = 0; k < f.V.Length; k++) { var a = wp[f.V[k]]; var b = wp[f.V[(k + 1) % f.V.Length]]; n += new Vector3((a.Y - b.Y) * (a.Z + b.Z), (a.Z - b.Z) * (a.X + b.X), (a.X - b.X) * (a.Y + b.Y)); }
+                float lam = n.LengthSquared() > 1e-12f ? MathF.Abs(Vector3.Dot(Vector3.Normalize(n), light)) : 0.5f;
+                float sh = 0.55f + 0.45f * lam;
+                var c = ov.Colour * sh * 255f;
+                for (int t = 1; t + 1 < f.V.Length; t++) RasterDepth(sp[f.V[0]], sp[f.V[t]], sp[f.V[t + 1]], w, h, ortho, zb, colR, colG, colB, c);
+                for (int k = 0; k < f.V.Length; k++) edges.Add((sp[f.V[k]], sp[f.V[(k + 1) % f.V.Length]], ov.Colour));
             }
-            for (int i = 0; i < w * h; i++) if (cover[i]) { int o = i * 4; px[o] = (byte)(px[o] + ((int)cr - px[o]) * faceAlpha); px[o + 1] = (byte)(px[o + 1] + ((int)cg - px[o + 1]) * faceAlpha); px[o + 2] = (byte)(px[o + 2] + ((int)cb - px[o + 2]) * faceAlpha); }
-            // edges
-            foreach (var f in m.Faces)
-                for (int k = 0; k < f.V.Length; k++)
-                {
-                    int a = f.V[k], b = f.V[(k + 1) % f.V.Length];
-                    if (ok[a] && ok[b]) Line(img, sp[a].X, sp[a].Y, sp[b].X, sp[b].Y, cr, cg, cb);
-                }
+        }
+        for (int i = 0; i < w * h; i++)
+        {
+            if (zb[i] == float.MaxValue) continue;
+            // the scan wins where it is clearly in front of the block-out surface
+            if (faceAlpha < 0.99f && scanDepth != null && scanDepth[i] < zb[i] - MathF.Max(0.12f, zb[i] * 0.04f)) continue;
+            int o = i * 4;
+            px[o] = (byte)(px[o] + (colR[i] - px[o]) * faceAlpha);
+            px[o + 1] = (byte)(px[o + 1] + (colG[i] - px[o + 1]) * faceAlpha);
+            px[o + 2] = (byte)(px[o + 2] + (colB[i] - px[o + 2]) * faceAlpha);
+        }
+        foreach (var (a, b, col) in edges)
+        {
+            var dark = faceAlpha >= 0.99f ? col * 0.35f : col;
+            DepthLine(img, a, b, zb, ortho, (byte)(dark.X * 255), (byte)(dark.Y * 255), (byte)(dark.Z * 255));
+        }
+    }
+
+    static void RasterDepth(Vector3 a, Vector3 b, Vector3 c, int w, int h, bool ortho, float[] zb, float[] cr, float[] cg, float[] cb, Vector3 col)
+    {
+        int x0 = Math.Max(0, (int)MathF.Floor(MathF.Min(a.X, MathF.Min(b.X, c.X)))), x1 = Math.Min(w - 1, (int)MathF.Ceiling(MathF.Max(a.X, MathF.Max(b.X, c.X))));
+        int y0 = Math.Max(0, (int)MathF.Floor(MathF.Min(a.Y, MathF.Min(b.Y, c.Y)))), y1 = Math.Min(h - 1, (int)MathF.Ceiling(MathF.Max(a.Y, MathF.Max(b.Y, c.Y))));
+        float area = (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);
+        if (MathF.Abs(area) < 1e-6f || (long)(x1 - x0) * (y1 - y0) > 40_000_000) return;
+        // perspective: 1/depth is linear on screen
+        float ia = ortho ? a.Z : 1 / a.Z, ib = ortho ? b.Z : 1 / b.Z, ic = ortho ? c.Z : 1 / c.Z;
+        for (int y = y0; y <= y1; y++)
+            for (int x = x0; x <= x1; x++)
+            {
+                float px = x + 0.5f, py = y + 0.5f;
+                float w0 = ((b.X - px) * (c.Y - py) - (b.Y - py) * (c.X - px)) / area;
+                float w1 = ((c.X - px) * (a.Y - py) - (c.Y - py) * (a.X - px)) / area;
+                float w2 = 1 - w0 - w1;
+                if (w0 < 0 || w1 < 0 || w2 < 0) continue;
+                float iz = w0 * ia + w1 * ib + w2 * ic; float d = ortho ? iz : 1 / iz;
+                int i = y * w + x;
+                if (d >= zb[i]) continue;
+                zb[i] = d; cr[i] = col.X; cg[i] = col.Y; cb[i] = col.Z;
+            }
+    }
+
+    static void DepthLine(RgbaImage img, Vector3 a, Vector3 b, float[] zb, bool ortho, byte r, byte g, byte bl)
+    {
+        int w = img.Width, h = img.Height;
+        float dx = b.X - a.X, dy = b.Y - a.Y; int n = (int)MathF.Ceiling(MathF.Max(MathF.Abs(dx), MathF.Abs(dy)));
+        if (n > 20000) return;
+        float ia = ortho ? a.Z : 1 / a.Z, ib = ortho ? b.Z : 1 / b.Z;
+        for (int i = 0; i <= n; i++)
+        {
+            float t = n == 0 ? 0 : (float)i / n; int x = (int)(a.X + dx * t), y = (int)(a.Y + dy * t);
+            if (x < 0 || y < 0 || x >= w || y >= h) continue;
+            float iz = ia + (ib - ia) * t; float d = ortho ? iz : 1 / iz;
+            if (d > zb[y * w + x] + MathF.Max(0.03f, d * 0.015f)) continue;
+            int o = (y * w + x) * 4; img.Pixels[o] = r; img.Pixels[o + 1] = g; img.Pixels[o + 2] = bl;
         }
     }
 
