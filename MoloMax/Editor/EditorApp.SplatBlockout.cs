@@ -49,10 +49,11 @@ public sealed partial class EditorApp
     void SplatLevel(SceneObject o)
     {
         var s = ScanOf(o);
-        var floor = s.Planes(8)
-            .Where(p => MathF.Abs(p.Normal.Z) > 0.7f)
-            .OrderByDescending(p => p.Points * MathF.Abs(p.Normal.Z))
-            .FirstOrDefault();
+        // big horizontal planes (normal turned up); the floor is the lowest of them, not the biggest (a ceiling often has more blobs)
+        var flat = s.Planes(8).Where(p => MathF.Abs(p.Normal.Z) > 0.7f)
+            .Select(p => p.Normal.Z < 0 ? new SplatScan.Plane { Normal = -p.Normal, D = -p.D, Points = p.Points, Min = p.Min, Max = p.Max, Kind = p.Kind } : p).ToList();
+        int most = flat.Count == 0 ? 0 : flat.Max(p => p.Points);
+        var floor = flat.Where(p => p.Points >= most * 0.3f).OrderBy(p => p.D / p.Normal.Z).FirstOrDefault();
         if (floor == null) { SetStatus("No floor found: turn the scan upright first (Turn upright)."); return; }
         var n = floor.Normal; float d = floor.D;
         // the floor is the lowest big horizontal plane; its normal must end up pointing up
