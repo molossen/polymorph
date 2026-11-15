@@ -96,7 +96,8 @@ public sealed partial class EditorApp
             o.Position = target - new Vector3((mn.X + mx.X) / 2, (mn.Y + mx.Y) / 2, mn.Z);
             Selected.Clear(); Selected.Add(o.Id); ActiveId = o.Id; SelectionChanged();
         });
-        SetStatus($"Scan {o.Name}: {c.Count:N0} splats ({c.Format}). Turn it upright in the Object tab if needed.");
+        propTab = PropTab.Object; // the scan's panel (and its block-out button) shows right away
+        SetStatus($"Scan {o.Name}: {c.Count:N0} splats ({c.Format}). Object tab: Copy the block-out prompt for AI (MCP).");
         return o;
     }
 

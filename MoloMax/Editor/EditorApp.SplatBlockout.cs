@@ -22,15 +22,17 @@ public sealed partial class EditorApp
 5. Finish with gta.check and gta.fix_all.
 6. Then rebuild the room clean over the block-out (hide the bo_ pieces, names starting with rm_): one room shell with its faces turned inward, the walls cut around every opening with their thickness inside the openings (reveals), floor and ceiling (with the stair well), baseboards (rm_wall_trim_baseboards, about 10 cm high, 1.5 cm proud, stopping at doors), casings round doors and windows (rm_wall_trim_casings), one cube per door leaf, window glass and mullions, the stairs as treads, risers and the visible side, a handrail with balusters and a newel post. GTA optimised: no face that can't be seen (nothing under what sits on the floor, nothing against a wall). Furniture is left to props. Check it with splat.view (face_alpha 1 for clay, 0.45 over the scan), then uv.unwrap each piece and gta.check.";
 
+    void CopySplatBlockoutPrompt()
+    {
+        ImGui.SetClipboardText(SplatBlockoutPrompt);
+        SetStatus("Block-out prompt copied: paste it to your AI assistant connected to Polymorph (Preferences > Python & MCP).");
+    }
+
     /// <summary>One button: the prompt that lets an AI connected through MCP do the whole block-out.</summary>
     void SplatBlockoutPanel(SceneObject o, float w2)
     {
         ImGui.Spacing();
-        if (ImGui.Button("Copy the block-out prompt for AI (MCP)", new Vector2(-1, 0)))
-        {
-            ImGui.SetClipboardText(SplatBlockoutPrompt);
-            SetStatus("Block-out prompt copied: paste it to your AI assistant connected to Polymorph (Preferences > Python & MCP).");
-        }
+        if (ImGui.Button("Copy the block-out prompt for AI (MCP)", new Vector2(-1, 0))) CopySplatBlockoutPrompt();
         Theme.Tip("Paste it to your AI assistant connected to Polymorph: it stands the scan up, gives it its real size and models the walls, doors, stairs and furniture over it.");
     }
 

@@ -80,6 +80,7 @@ public sealed partial class EditorApp
             new("Hide Unselected", "Object", HideUnselected, Key: () => "Shift+H"),
             new("Reveal Hidden", "Object", UnhideAll, Key: () => "Alt+H"),
             new("Local View (isolate)", "View", () => IsolateSelection(), Key: () => K("Numpad /", "Shift+I")),
+            new("Scan: copy the block-out prompt for AI (MCP)", "Object", CopySplatBlockoutPrompt, () => Scene.Objects.Any(IsSplat)),
             new("Apply Rotation & Scale", "Object", ResetXForm, HasObj, () => K("Ctrl+A", "")),
             new("Origin to Geometry", "Object", CenterPivot, HasObj),
             new("Origin to Base", "Object", PivotToBase, HasObj),
