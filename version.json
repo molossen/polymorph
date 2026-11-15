@@ -1,7 +1,7 @@
 {
-  "version": "1.7.6",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.6.exe",
-  "size": 70583800,
-  "sha256": "5d7201c1830d96ac15c0e44ad2e3946e89f073147c2d6f180c2e969814fe55cc",
-  "notes": "- Scan to block-out goes on to a clean room: one button copies the prompt; your AI levels and scales the scan, models the block-out, then rebuilds the room clean (shell, reveals, baseboards, casings, stairs, GTA optimised)\n- 1.7.2: bone animations to GTA (.ycd)\n- 1.7.1: skinned GTA export (skeleton + weights)"
+  "version": "1.7.7",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.7.exe",
+  "size": 70589169,
+  "sha256": "b79e099529ab440975b07eb68cf4bfe0350f7759d6680edc8891afb6c8a9d4f1",
+  "notes": "- NEW: Scan button in the toolbar (next to Assets): open a Marble / splat scan (.spz .ply .splat) and copy the block-out prompt for your AI (MCP) in one click\n- Your AI levels the scan, sets the real size, models the block-out, then rebuilds the room clean (walls, doors, window, baseboards, cornice), GTA ready\n- Watch how it works: https://molossen.github.io/polymorph/scan-to-blockout.mp4\n- Join the Polymorph Discord (link on the site)"
 }
