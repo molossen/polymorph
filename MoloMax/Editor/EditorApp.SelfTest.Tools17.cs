@@ -24,7 +24,7 @@ public sealed partial class EditorApp
     /// splat.* API: floor 0, ceiling 2.5, a ray from the middle hits the wall 3 m away, planes found, pictures written.</summary>
     IEnumerable<object> SplatToolsTest()
     {
-        yield return Fresh();
+        Fresh();
         var file = Path.Combine(SelfTestDir, "room_test.splat");
         var rnd = new Random(5); var bytes = new List<byte>();
         void Blob(float x, float y, float z, byte r, byte g, byte b)
