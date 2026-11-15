@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.7.3](#173) | Scan to block-out: level, square and scale a splat scan, then let an AI model the room through MCP |
 | [1.7.2](#172) | Bone animations exported to GTA (.ycd), played by the model on its own |
 | [1.7.1](#171) | Skinned GTA export: bones + weights in the .ydr |
 | [1.7.0](#170) | Target Weld, FFD, ProOptimizer, easier UV selection, shapes + Lathe, bones / Skin / weight paint |
@@ -27,6 +28,18 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.2.0](#120) | C# scripting inside Polymorph |
 | [1.1.0](#110) | One-click updates, animation, Wall Opening, texture library |
 | [1.0.0](#100) | First public release |
+
+---
+
+## 1.7.3
+
+- **Scan to block-out**: three new buttons in the scan panel. *Level on the floor* finds the floor of the scan and
+  makes it flat at height 0, *Square the walls* turns it so its walls run along X / Y, *Real size* scales it from the
+  ceiling height you give.
+- **Block-out by AI through MCP**: new `splat.*` tools let an AI assistant read a scan: views from any camera with the
+  block-out drawn over it, plan cuts with a metre grid, floor / ceiling / furniture heights, distances to walls, and the
+  big flat planes. *Copy the block-out prompt* in the scan panel gives it the steps: walls split around doors and
+  windows, door leaves, stairs, furniture as simple boxes, then the GTA check.
 
 ---
 
