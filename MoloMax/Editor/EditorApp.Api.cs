@@ -258,6 +258,7 @@ public sealed partial class EditorApp
             return ids;
         });
         A.Add("view.frame", "Frame the selection (or everything) in the views.", Array.Empty<P>(), _ => { foreach (var vp in Viewports) FrameSelection(vp); return true; });
+        RegisterSplatApi();
         A.Add("view.screenshot", "Save a PNG of the window at the end of this frame.", new[] { new P("path", "string", "PNG path", true) }, p => { apiShotPath = Str(p, "path"); return new { path = apiShotPath, note = "written after this frame" }; });
 
         A.Add("render.photo", "Photo render of the active view (path traced in the background). quality: 0 quick, 1 good, 2 best. light: 0 like the view, 1 daylight, 2 evening, 3 night, 4 studio. size: 0 like the view, 1 HD, 2 4K, 3 square. Returns at once; poll render.status until done, then the PNG is at 'output'.",

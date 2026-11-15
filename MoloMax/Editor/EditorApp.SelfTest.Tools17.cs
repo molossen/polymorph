@@ -17,6 +17,64 @@ public sealed partial class EditorApp
         T("TOOLS17: shapes: rectangle extrude, circle pipe, smooth curve, lathe of a half outline (closed, outward)", ShapesTest);
         T("TOOLS17: bones + Skin: bind with automatic weights, turn a bone (the top bends, the bottom stays), paint weights with the mouse, save / open", SkinTest);
         T("TOOLS17: UV editor selection: vertex near the point, edge, face from its edge, island, box, L, drag moves", UvSelectTest);
+        T("SPLAT: block-out tools: info, measure floor/ceiling, ray to a wall, planes, view and plan cut with the block-out drawn over", SplatToolsTest);
+    }
+
+    /// <summary>A synthetic capture of a 6 x 4 x 2.5 m room (blobs on the floor, ceiling and walls, a door gap) read back by the
+    /// splat.* API: floor 0, ceiling 2.5, a ray from the middle hits the wall 3 m away, planes found, pictures written.</summary>
+    IEnumerable<object> SplatToolsTest()
+    {
+        yield return Fresh();
+        var file = Path.Combine(SelfTestDir, "room_test.splat");
+        var rnd = new Random(5); var bytes = new List<byte>();
+        void Blob(float x, float y, float z, byte r, byte g, byte b)
+        {
+            foreach (var f in new[] { x, y, z, 0.03f, 0.03f, 0.03f }) bytes.AddRange(BitConverter.GetBytes(f));
+            bytes.AddRange(new byte[] { r, g, b, 255, 255, 128, 128, 128 });
+        }
+        // file axes: the .splat loader turns -90 deg about X (file Y down -> Z up), so write y = -z
+        void W(float x, float y, float z, byte r, byte g, byte b) => Blob(x, -z, y, r, g, b);
+        for (int i = 0; i < 60000; i++)
+        {
+            float u = (float)rnd.NextDouble(), v = (float)rnd.NextDouble(); int side = rnd.Next(6);
+            switch (side)
+            {
+                case 0: W(-3 + 6 * u, -2 + 4 * v, 0, 120, 90, 60); break;          // floor
+                case 1: W(-3 + 6 * u, -2 + 4 * v, 2.5f, 230, 230, 230); break;     // ceiling
+                case 2: W(-3, -2 + 4 * u, 2.5f * v, 200, 200, 180); break;          // west wall
+                case 3: W(3, -2 + 4 * u, 2.5f * v, 200, 200, 180); break;           // east wall
+                case 4: W(-3 + 6 * u, -2, 2.5f * v, 200, 180, 180); break;          // south wall
+                default: { float x = -3 + 6 * u, z = 2.5f * v; if (x > -0.5f && x < 0.5f && z < 2.1f) continue; W(x, 2, z, 180, 200, 180); break; } // north wall with a door
+            }
+        }
+        File.WriteAllBytes(file, bytes.ToArray());
+        TryImportSplat(file, Vector3.Zero, wait: true);
+        yield return Frames(3);
+        var cap = Scene.Objects.FirstOrDefault(IsSplat);
+        Expect(cap?.SplatCloud != null, "the synthetic capture is imported");
+        if (cap == null) yield break;
+        // the import puts the bottom centre on the cursor: put it back where it was made
+        cap.Position = Vector3.Zero; cap.Touch();
+        System.Text.Json.Nodes.JsonObject J(string json) => System.Text.Json.Nodes.JsonNode.Parse(json).AsObject();
+        string S(object o) => System.Text.Json.JsonSerializer.Serialize(o);
+        var info = S(Api.CallLocal("splat.info", J("{}")));
+        Note("info " + info);
+        var meas = System.Text.Json.JsonDocument.Parse(S(Api.CallLocal("splat.measure", J("{\"min\":[-1,-1,-0.5],\"max\":[1,1,3]}")))).RootElement;
+        float fl = meas.GetProperty("floor").GetSingle(), ce = meas.GetProperty("ceiling").GetSingle();
+        Expect(MathF.Abs(fl) < 0.1f && MathF.Abs(ce - 2.5f) < 0.12f, $"measure: floor {fl:0.00}, ceiling {ce:0.00} (0 and 2.5)");
+        var ray = System.Text.Json.JsonDocument.Parse(S(Api.CallLocal("splat.ray", J("{\"origin\":[0,0,1.2],\"dir\":[1,0,0]}")))).RootElement;
+        float d = ray.GetProperty("hit").GetBoolean() ? ray.GetProperty("distance").GetSingle() : -1;
+        Expect(MathF.Abs(d - 3) < 0.12f, $"ray east hits the wall at {d:0.00} m (3)");
+        var door = System.Text.Json.JsonDocument.Parse(S(Api.CallLocal("splat.ray", J("{\"origin\":[0,0,1.0],\"dir\":[0,1,0],\"max\":4}")))).RootElement;
+        Expect(!door.GetProperty("hit").GetBoolean(), "ray north through the door gap finds nothing");
+        var planes = S(Api.CallLocal("splat.planes", J("{\"count\":6}")));
+        Expect(planes.Split("horizontal").Length - 1 >= 2 && planes.Split("vertical").Length - 1 >= 3, "planes: floor, ceiling and walls found");
+        // a block-out box drawn over the capture
+        var box = Scene.Add("blockout_room", MoloMax.Core.Mesh.Primitives.Box(6, 4, 2.5f), new Vector3(0, 0, 0));
+        var view = System.Text.Json.JsonDocument.Parse(S(Api.CallLocal("splat.view", J($"{{\"eye\":[0,0,1.6],\"target\":[3,1,1.2],\"fov\":80,\"path\":\"{Path.Combine(SelfTestDir, "splat_view.png").Replace("\\", "/")}\"}}")))).RootElement;
+        var sec = System.Text.Json.JsonDocument.Parse(S(Api.CallLocal("splat.section", J($"{{\"z\":1.2,\"path\":\"{Path.Combine(SelfTestDir, "splat_section.png").Replace("\\", "/")}\"}}")))).RootElement;
+        Expect(File.Exists(view.GetProperty("png").GetString()) && File.Exists(sec.GetProperty("png").GetString()), "view and plan cut pictures written");
+        Note("box bounds " + string.Join(",", box.Mesh.Verts.Select(v => v.Z).Distinct()));
     }
 
     IEnumerable<object> TargetWeldTest()

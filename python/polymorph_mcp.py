@@ -94,6 +94,17 @@ def call_tool(name, args):
                 pass
             return [{"type": "image", "data": data, "mimeType": "image/png"}], False
         result = client().call(method, **(args or {}))
+        # splat.view / splat.section: the picture comes back as an image
+        if isinstance(result, dict) and isinstance(result.get("png"), str):
+            path = result["png"]
+            for _ in range(100):
+                if os.path.exists(path) and os.path.getsize(path) > 0:
+                    break
+                time.sleep(0.05)
+            if os.path.exists(path):
+                with open(path, "rb") as f:
+                    data = base64.b64encode(f.read()).decode("ascii")
+                return [{"type": "image", "data": data, "mimeType": "image/png"}, {"type": "text", "text": json.dumps(result, indent=1, default=str)}], False
         return [{"type": "text", "text": json.dumps(result, indent=1, default=str)}], False
     except PolymorphError as e:
         _client = None
