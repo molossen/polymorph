@@ -59,8 +59,10 @@ public sealed partial class EditorApp
         var n = name.ToLowerInvariant();
         if (n.Contains("door")) return new Vector3(0.95f, 0.45f, 0.12f);
         if (n.Contains("window") || n.Contains("glass")) return new Vector3(0.35f, 0.75f, 0.95f);
+        if (n.Contains("void")) return new Vector3(0.12f, 0.12f, 0.14f);
+        if (n.Contains("trim") || n.Contains("casing") || n.Contains("baseboard") || n.Contains("skirting")) return new Vector3(0.98f, 0.96f, 0.9f);
         // structure first: "wall_stairhall" is a wall, "floor_stairhall" a floor
-        if (n.Contains("wall")) return new Vector3(0.82f, 0.84f, 0.9f);
+        if (n.Contains("wall")) return new Vector3(0.72f, 0.76f, 0.84f);
         if (n.Contains("ceiling")) return new Vector3(0.86f, 0.86f, 0.88f);
         if (n.Contains("floor")) return new Vector3(0.62f, 0.6f, 0.58f);
         if (n.Contains("stair") || n.Contains("banister") || n.Contains("rail")) return new Vector3(0.35f, 0.85f, 0.45f);

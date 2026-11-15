@@ -19,7 +19,8 @@ public sealed partial class EditorApp
 2. Read the room: splat.section at z = 1.0 and z = 2.3 (plan cuts with a 1 m grid), straight elevations of each wall with splat.view (ortho = true, clip_min / clip_max to cut away the near half), splat.measure for floor, ceiling and furniture heights, splat.ray for distances.
 3. Build with object.create_mesh, one closed box per piece, names starting with bo_: floor and ceiling slabs, walls 0.12 m thick split around every door, window and opening, one box per door leaf, stairs as one closed stepped mesh, the main furniture as simple boxes.
 4. Check every step with splat.view and splat.section (the block-out is drawn over the scan in colour) and move what does not line up.
-5. Finish with gta.check and gta.fix_all.";
+5. Finish with gta.check and gta.fix_all.
+6. Then rebuild the room clean over the block-out (hide the bo_ pieces, names starting with rm_): one room shell with its faces turned inward, the walls cut around every opening with their thickness inside the openings (reveals), floor and ceiling (with the stair well), baseboards (rm_wall_trim_baseboards, about 10 cm high, 1.5 cm proud, stopping at doors), casings round doors and windows (rm_wall_trim_casings), one cube per door leaf, window glass and mullions, the stairs as treads, risers and the visible side, a handrail with balusters and a newel post. GTA optimised: no face that can't be seen (nothing under what sits on the floor, nothing against a wall). Furniture is left to props. Check it with splat.view (face_alpha 1 for clay, 0.45 over the scan), then uv.unwrap each piece and gta.check.";
 
     /// <summary>One button: the prompt that lets an AI connected through MCP do the whole block-out.</summary>
     void SplatBlockoutPanel(SceneObject o, float w2)
