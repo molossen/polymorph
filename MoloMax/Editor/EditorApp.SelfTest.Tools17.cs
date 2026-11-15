@@ -75,6 +75,25 @@ public sealed partial class EditorApp
         var sec = System.Text.Json.JsonDocument.Parse(S(Api.CallLocal("splat.section", J($"{{\"z\":1.2,\"path\":\"{Path.Combine(SelfTestDir, "splat_section.png").Replace("\\", "/")}\"}}")))).RootElement;
         Expect(File.Exists(view.GetProperty("png").GetString()) && File.Exists(sec.GetProperty("png").GetString()), "view and plan cut pictures written");
         Note("box bounds " + string.Join(",", box.Mesh.Verts.Select(v => v.Z).Distinct()));
+        // the panel buttons: a tilted, turned, half-size scan comes back level, square and to scale
+        Scene.RemoveObjects(x => x == box);
+        cap.Rotation = Quaternion.CreateFromYawPitchRoll(0.08f, 0.06f, 0) * Quaternion.CreateFromAxisAngle(Vector3.UnitZ, 0.15f) * cap.Rotation;
+        cap.Scale = new Vector3(0.5f); cap.Position = new Vector3(1, 2, 3); cap.Touch();
+        SplatLevel(cap); SplatSquare(cap); SplatRealSize(cap, 2.5f);
+        cap.Touch();
+        var lv = System.Text.Json.JsonDocument.Parse(S(Api.CallLocal("splat.planes", J("{\"count\":6}")))).RootElement;
+        float worstTilt = 0, worstSquare = 0;
+        foreach (var pl in lv.EnumerateArray())
+        {
+            var n = pl.GetProperty("normal"); float nx = n[0].GetSingle(), ny = n[1].GetSingle(), nz = n[2].GetSingle();
+            if (pl.GetProperty("kind").GetString() == "horizontal") worstTilt = MathF.Max(worstTilt, MathF.Acos(Math.Clamp(MathF.Abs(nz), 0, 1)) * 57.3f);
+            else if (pl.GetProperty("kind").GetString() == "vertical") worstSquare = MathF.Max(worstSquare, MathF.Min(MathF.Abs(nx), MathF.Abs(ny)) * 57.3f);
+        }
+        Expect(worstTilt < 1.5f && worstSquare < 2f, $"Level + Square: floor tilt {worstTilt:0.0}°, walls off X/Y {worstSquare:0.0}°");
+        var (b0, b1) = cap.WorldBounds(); var c0 = (b0 + b1) * 0.5f;
+        var m2 = System.Text.Json.JsonDocument.Parse(S(Api.CallLocal("splat.measure", J($"{{\"min\":[{c0.X - 1},{c0.Y - 1},-1],\"max\":[{c0.X + 1},{c0.Y + 1},4]}}")))).RootElement;
+        float f2 = m2.GetProperty("floor").GetSingle(), c2 = m2.GetProperty("ceiling").GetSingle();
+        Expect(MathF.Abs(f2) < 0.1f && MathF.Abs(c2 - 2.5f) < 0.15f, $"Real size: floor {f2:0.00}, ceiling {c2:0.00} (0 and 2.5)");
     }
 
     IEnumerable<object> TargetWeldTest()

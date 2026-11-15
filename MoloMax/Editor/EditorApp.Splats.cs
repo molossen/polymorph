@@ -165,6 +165,7 @@ public sealed partial class EditorApp
             look.CropMin = Vector3.Min(lo, hi); look.CropMax = Vector3.Max(lo, hi);
             if (ImGui.Button("Whole scan", new Vector2(w2, 0))) { look.CropMin = c.Min; look.CropMax = c.Max; }
         }
+        if (c != null) SplatBlockoutPanel(o, w2);
         ImGui.Spacing();
         if (ImGui.Button("Reload the file", new Vector2(w2, 0))) { splatErrors.Remove(o.SplatFile); o.SplatCloud = null; }
         ImGui.SameLine();
