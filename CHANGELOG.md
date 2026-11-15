@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.7.7](#177) | Scan button in the toolbar, demo video |
 | [1.7.6](#176) | Scan to block-out goes on to a clean room |
 | [1.7.5](#175) | The AI sees the block-out clearly over the scan |
 | [1.7.4](#174) | Scan to block-out in one button: copy the prompt, the AI does the rest |
@@ -31,6 +32,17 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.2.0](#120) | C# scripting inside Polymorph |
 | [1.1.0](#110) | One-click updates, animation, Wall Opening, texture library |
 | [1.0.0](#100) | First public release |
+
+---
+
+## 1.7.7
+
+- **Scan button** in the top toolbar (next to Assets): no scan yet, it imports one (.ply / .spz / .splat); a scan in the
+  scene, it selects it, opens its panel and copies the block-out prompt for your AI.
+- Importing a scan opens the Object tab, so the *Copy the block-out prompt for AI (MCP)* button is in view.
+- Search: *Scan: copy the block-out prompt for AI (MCP)*.
+- Demo: a world made in Marble by World Labs, turned into a GTA-ready room
+  ([video](https://molossen.github.io/polymorph/scan-to-blockout.mp4)).
 
 ---
 
