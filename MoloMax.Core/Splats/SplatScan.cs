@@ -268,7 +268,7 @@ public sealed class SplatScan
             for (int i = 0; i < wp.Length; i++) { wp[i] = Vector3.Transform(m.Verts[i], ov.World); sp[i] = Screen(wp[i], out ok[i]); }
             foreach (var f in m.Faces)
             {
-                if (f.V.Length < 3 || f.V.Any(v => !ok[v])) continue;
+                if (f.V.Length < 3 || f.V.All(v => !ok[v])) continue;
                 // Newell normal, two-sided light so inward rooms read too
                 var n = Vector3.Zero;
                 for (int k = 0; k < f.V.Length; k++) { var a = wp[f.V[k]]; var b = wp[f.V[(k + 1) % f.V.Length]]; n += new Vector3((a.Y - b.Y) * (a.Z + b.Z), (a.Z - b.Z) * (a.X + b.X), (a.X - b.X) * (a.Y + b.Y)); }
@@ -278,8 +278,20 @@ public sealed class SplatScan
                 float lam = n.LengthSquared() > 1e-12f ? MathF.Abs(Vector3.Dot(Vector3.Normalize(n), light)) : 0.5f;
                 float sh = 0.55f + 0.45f * lam;
                 var c = ov.Colour * sh * 255f;
-                for (int t = 1; t + 1 < f.V.Length; t++) RasterDepth(sp[f.V[0]], sp[f.V[t]], sp[f.V[t + 1]], w, h, ortho, zb, colR, colG, colB, c);
-                for (int k = 0; k < f.V.Length; k++) edges.Add((sp[f.V[k]], sp[f.V[(k + 1) % f.V.Length]], ov.Colour));
+                // faces crossing the camera plane are clipped at the near distance instead of dropped (big floors seen from inside)
+                var poly = new List<Vector3>(f.V.Length + 2); var edgeOk = new List<bool>(f.V.Length + 2);
+                const float nearD = 0.06f;
+                float D(Vector3 p) => ortho ? 1 : -Vector3.Transform(p, view).Z;
+                for (int k = 0; k < f.V.Length; k++)
+                {
+                    var a = wp[f.V[k]]; var b = wp[f.V[(k + 1) % f.V.Length]]; float da = D(a), db = D(b);
+                    if (da >= nearD) { poly.Add(a); edgeOk.Add(true); }
+                    if ((da >= nearD) != (db >= nearD)) { poly.Add(a + (b - a) * ((nearD - da) / (db - da))); edgeOk.Add(db >= nearD); }
+                }
+                if (poly.Count < 3) continue;
+                var ps = poly.Select(p => Screen(p, out _)).ToArray();
+                for (int t = 1; t + 1 < ps.Length; t++) RasterDepth(ps[0], ps[t], ps[t + 1], w, h, ortho, zb, colR, colG, colB, c);
+                for (int k = 0; k < ps.Length; k++) if (edgeOk[k]) edges.Add((ps[k], ps[(k + 1) % ps.Length], ov.Colour));
             }
         }
         for (int i = 0; i < w * h; i++)
