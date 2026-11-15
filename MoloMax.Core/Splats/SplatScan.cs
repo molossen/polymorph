@@ -251,6 +251,7 @@ public sealed class SplatScan
         var zb = new float[w * h]; Array.Fill(zb, float.MaxValue);
         var colR = new float[w * h]; var colG = new float[w * h]; var colB = new float[w * h];
         var light = Vector3.Normalize(new Vector3(0.45f, -0.35f, 0.82f));
+        Matrix4x4.Invert(view, out var inv); var eye = inv.Translation; var fwd = -new Vector3(inv.M31, inv.M32, inv.M33);
         var edges = new List<(Vector3 A, Vector3 B, Vector3 C)>();
         Vector3 Screen(Vector3 world, out bool ok)
         {
@@ -271,6 +272,9 @@ public sealed class SplatScan
                 // Newell normal, two-sided light so inward rooms read too
                 var n = Vector3.Zero;
                 for (int k = 0; k < f.V.Length; k++) { var a = wp[f.V[k]]; var b = wp[f.V[(k + 1) % f.V.Length]]; n += new Vector3((a.Y - b.Y) * (a.Z + b.Z), (a.Z - b.Z) * (a.X + b.X), (a.X - b.X) * (a.Y + b.Y)); }
+                // back faces are not drawn, like in game: a room seen from outside opens up (cut-away), boxes look solid
+                var fc = Vector3.Zero; foreach (var vi in f.V) fc += wp[vi]; fc /= f.V.Length;
+                if (Vector3.Dot(n, ortho ? fwd : fc - eye) > 0) continue;
                 float lam = n.LengthSquared() > 1e-12f ? MathF.Abs(Vector3.Dot(Vector3.Normalize(n), light)) : 0.5f;
                 float sh = 0.55f + 0.45f * lam;
                 var c = ov.Colour * sh * 255f;
