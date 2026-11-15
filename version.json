@@ -1,7 +1,7 @@
 {
-  "version": "1.7.3",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.3.exe",
-  "size": 70590127,
-  "sha256": "f9b4b65127fc5cc518226c869091d3e7365224d7b38a95501efdfd664277fdd3",
-  "notes": "- New: scan to block-out: Level on the floor, Square the walls and Real size buttons for splat scans, and splat.* MCP tools so an AI can model the room over a scan (Copy the block-out prompt)\n- 1.7.2: bone animations to GTA (.ycd)\n- 1.7.1: skinned GTA export (skeleton + weights)"
+  "version": "1.7.4",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.4.exe",
+  "size": 70595089,
+  "sha256": "603994837190e4608b8aaa52a82930a26112af4e719d0a971391b919c4abce22",
+  "notes": "- New: scan to block-out in one button: Copy the block-out prompt for AI (MCP) in the scan panel; your AI stands the scan up, gives it its real size and models the room over it\n- 1.7.2: bone animations to GTA (.ycd)\n- 1.7.1: skinned GTA export (skeleton + weights)"
 }
