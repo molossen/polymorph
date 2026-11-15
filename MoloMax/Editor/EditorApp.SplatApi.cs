@@ -114,6 +114,15 @@ public sealed partial class EditorApp
                 var (d, pt, c) = h.Value;
                 return (object)new { hit = true, distance = MathF.Round(d, 3), point = V3(pt), colour = new[] { (int)(c & 255), (int)((c >> 8) & 255), (int)((c >> 16) & 255) } };
             });
+        A.Add("splat.level", "Stands the capture on its floor: finds the lowest big flat plane, makes it level and puts it at z = 0. Turn the capture roughly upright first if it lies on its side.",
+            new[] { new P("id", "int", "capture object id"), new P("name", "string", "capture name") }, p =>
+            { var o = SplatObj(p); SplatLevel(o); return new { status, rotation = V3(EulerDeg(o.Rotation)), position = V3(o.Position) }; });
+        A.Add("splat.square", "Turns the capture around Z so its biggest wall runs along X or Y.",
+            new[] { new P("id", "int", "capture object id"), new P("name", "string", "capture name") }, p =>
+            { var o = SplatObj(p); SplatSquare(o); return new { status, rotation = V3(EulerDeg(o.Rotation)) }; });
+        A.Add("splat.real_size", "Scales the capture around its floor so the ceiling in the middle of the room is at the given height (metres).",
+            new[] { new P("ceiling", "float", "real floor-to-ceiling height, e.g. 2.6", true), new P("id", "int", "capture object id"), new P("name", "string", "capture name") }, p =>
+            { var o = SplatObj(p); SplatRealSize(o, Num(p, "ceiling", 2.6f)); return new { status, scale = V3(o.Scale), position = V3(o.Position) }; });
         A.Add("splat.planes", "The biggest flat planes of the capture (floors, ceilings, walls) with their normal, offset, size and kind. Use them to stand the capture upright (floor normal straight up) and square (walls along X / Y) before modelling.",
             new[] { new P("count", "int", "how many planes (default 8)"), new P("id", "int", "capture object id"), new P("name", "string", "capture name") }, p =>
             {

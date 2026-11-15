@@ -12,37 +12,25 @@ namespace MoloMax.Editor;
 /// </summary>
 public sealed partial class EditorApp
 {
-    float splatCeiling = 2.6f;
-
     const string SplatBlockoutPrompt =
 @"Model a block-out of the scan that is open in Polymorph, through the Polymorph MCP tools.
 
-1. splat.info, then splat.planes: check the floor is at z = 0 and the walls run along X / Y (the scan is already levelled, squared and to scale).
+1. Get the scan ready: splat.level (floor flat at z = 0), splat.square (walls along X / Y), then splat.real_size with the room's ceiling height (about 2.6 m in a house; check that the doors come out about 2.0-2.1 m high).
 2. Read the room: splat.section at z = 1.0 and z = 2.3 (plan cuts with a 1 m grid), straight elevations of each wall with splat.view (ortho = true, clip_min / clip_max to cut away the near half), splat.measure for floor, ceiling and furniture heights, splat.ray for distances.
-3. Build with object.create_mesh, one closed box per piece, names starting with bo_: floor and ceiling slabs, walls 0.12 m thick split around every door, window and opening, one box per door leaf, stairs as one closed stepped mesh, the main furniture as simple boxes. Real-world sizes (door about 2.0-2.1 m).
+3. Build with object.create_mesh, one closed box per piece, names starting with bo_: floor and ceiling slabs, walls 0.12 m thick split around every door, window and opening, one box per door leaf, stairs as one closed stepped mesh, the main furniture as simple boxes.
 4. Check every step with splat.view and splat.section (the block-out is drawn over the scan in colour) and move what does not line up.
 5. Finish with gta.check and gta.fix_all.";
 
+    /// <summary>One button: the prompt that lets an AI connected through MCP do the whole block-out.</summary>
     void SplatBlockoutPanel(SceneObject o, float w2)
     {
         ImGui.Spacing();
-        Ui.TextDisabled("Block-out");
-        if (ImGui.Button("Level on the floor", new Vector2(w2, 0))) SplatLevel(o);
-        Theme.Tip("Finds the floor of the scan, makes it flat and puts it at height 0. Turn the scan roughly upright first.");
-        ImGui.SameLine();
-        if (ImGui.Button("Square the walls", new Vector2(w2, 0))) SplatSquare(o);
-        Theme.Tip("Turns the scan so its biggest wall runs along X or Y.");
-        ImGui.SetNextItemWidth(w2); ImGui.DragFloat("##ceil", ref splatCeiling, 0.01f, 1.8f, 12f, "Ceiling %.2f m");
-        Theme.Tip("The real floor-to-ceiling height of the room (about 2.5 to 2.7 m in a house).");
-        ImGui.SameLine();
-        if (ImGui.Button("Real size", new Vector2(w2, 0))) SplatRealSize(o, splatCeiling);
-        Theme.Tip("Scales the scan so its ceiling is at that height.");
         if (ImGui.Button("Copy the block-out prompt for AI (MCP)", new Vector2(-1, 0)))
         {
             ImGui.SetClipboardText(SplatBlockoutPrompt);
             SetStatus("Block-out prompt copied: paste it to your AI assistant connected to Polymorph (Preferences > Scripting > MCP server).");
         }
-        Theme.Tip("The AI looks at the scan through the splat tools (views, plan cuts, measures) and models the walls, doors, stairs and furniture.");
+        Theme.Tip("Paste it to your AI assistant connected to Polymorph: it stands the scan up, gives it its real size and models the walls, doors, stairs and furniture over it.");
     }
 
     /// <summary>Rotates the scan so its floor plane is level, then moves it so the floor is at z = 0.</summary>

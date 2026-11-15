@@ -79,7 +79,7 @@ public sealed partial class EditorApp
         Scene.RemoveObjects(x => x == box);
         cap.Rotation = Quaternion.CreateFromYawPitchRoll(0.08f, 0.06f, 0) * Quaternion.CreateFromAxisAngle(Vector3.UnitZ, 0.15f) * cap.Rotation;
         cap.Scale = new Vector3(0.5f); cap.Position = new Vector3(1, 2, 3); cap.Touch();
-        SplatLevel(cap); SplatSquare(cap); SplatRealSize(cap, 2.5f);
+        Api.CallLocal("splat.level", J("{}")); Api.CallLocal("splat.square", J("{}")); Api.CallLocal("splat.real_size", J("{\"ceiling\":2.5}"));
         cap.Touch();
         var lv = System.Text.Json.JsonDocument.Parse(S(Api.CallLocal("splat.planes", J("{\"count\":6}")))).RootElement;
         float worstTilt = 0, worstSquare = 0;
