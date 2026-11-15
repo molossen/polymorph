@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.7.5](#175) | The AI sees the block-out clearly over the scan |
 | [1.7.4](#174) | Scan to block-out in one button: copy the prompt, the AI does the rest |
 | [1.7.3](#173) | Scan to block-out: level, square and scale a splat scan, then let an AI model the room through MCP |
 | [1.7.2](#172) | Bone animations exported to GTA (.ycd), played by the model on its own |
@@ -29,6 +30,15 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.2.0](#120) | C# scripting inside Polymorph |
 | [1.1.0](#110) | One-click updates, animation, Wall Opening, texture library |
 | [1.0.0](#100) | First public release |
+
+---
+
+## 1.7.5
+
+- **Scan to block-out, clearer**: the pictures the AI looks at (`splat.view`) now draw the block-out properly: only the
+  nearest surface in each pixel, shaded, edges only where they are seen, and the scan kept in front where it is nearer
+  (furniture before a wall). Pieces are coloured by kind (walls light, doors orange, windows blue, stairs green,
+  furniture in colours); `face_alpha` 1 draws a solid clay block-out.
 
 ---
 
