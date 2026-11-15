@@ -29,7 +29,7 @@ public sealed partial class EditorApp
         if (ImGui.Button("Copy the block-out prompt for AI (MCP)", new Vector2(-1, 0)))
         {
             ImGui.SetClipboardText(SplatBlockoutPrompt);
-            SetStatus("Block-out prompt copied: paste it to your AI assistant connected to Polymorph (Preferences > Scripting > MCP server).");
+            SetStatus("Block-out prompt copied: paste it to your AI assistant connected to Polymorph (Preferences > Python & MCP).");
         }
         Theme.Tip("Paste it to your AI assistant connected to Polymorph: it stands the scan up, gives it its real size and models the walls, doors, stairs and furniture over it.");
     }
