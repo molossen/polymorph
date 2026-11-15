@@ -11,7 +11,7 @@
   &nbsp;·&nbsp;
   <a href="CHANGELOG.md">Changelog</a>
   &nbsp;·&nbsp;
-  <a href="https://discord.com/invite/molomodding">Discord</a>
+  <a href="https://discord.gg/RWB28mvJU9">Discord</a>
 </p>
 
 <p align="center">
@@ -125,7 +125,7 @@ What changed in each version: [CHANGELOG.md](CHANGELOG.md).
 ## Help & bugs
 
 - **Bugs and ideas**: [GitHub issues](https://github.com/molossen/polymorph/issues/new/choose) — a screenshot and the steps help a lot.
-- **Questions, show your work**: the [Molo Modding Discord](https://discord.com/invite/molomodding).
+- **Questions, show your work**: the [Polymorph Discord](https://discord.gg/RWB28mvJU9).
 
 ## Build from source
 
