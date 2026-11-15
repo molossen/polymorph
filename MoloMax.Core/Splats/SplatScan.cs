@@ -92,7 +92,7 @@ public sealed class SplatScan
             int k = (int)MathF.Floor(p.Z / band); hist[k] = hist.GetValueOrDefault(k) + 1;
         }
         if (m.Points == 0) return m;
-        float mean = (float)m.Points / Math.Max(1, hist.Count);
+        int span = hist.Keys.Max() - hist.Keys.Min() + 1; float mean = (float)m.Points / Math.Max(1, span);
         var dense = hist.Where(kv => kv.Value > mean * 2.5f && kv.Value >= 20).OrderBy(kv => kv.Key).ToList();
         // merge neighbouring bands, keep the band with most points of each run
         for (int i = 0; i < dense.Count; i++)
