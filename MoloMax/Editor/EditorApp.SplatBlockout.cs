@@ -96,13 +96,14 @@ public sealed partial class EditorApp
         var size = s.Max - s.Min; var mid = (s.Min + s.Max) * 0.5f;
         var half = new Vector3(size.X * 0.2f, size.Y * 0.2f, 0);
         var m = s.MeasureBox(new Vector3(mid.X - half.X, mid.Y - half.Y, s.Min.Z), new Vector3(mid.X + half.X, mid.Y + half.Y, s.Max.Z));
-        float? floor = m.Floor, ceil = m.Ceiling;
+        // both as band middles (MeasureBox gives the bottom of 5 cm bands, and the ceiling as the top of its band)
+        float? floor = m.Floor + 0.025f, ceil = m.Ceiling - 0.025f;
         if (floor != null)
         {
             // the ceiling is often thin in a scan: look again in the top half only
             float zTop = floor.Value + (s.Max.Z - floor.Value) * 0.5f;
             var top = s.MeasureBox(new Vector3(mid.X - half.X, mid.Y - half.Y, zTop), new Vector3(mid.X + half.X, mid.Y + half.Y, s.Max.Z));
-            if (top.Layers.Count > 0) ceil = top.Layers[^1].Z + 0.05f;
+            if (top.Layers.Count > 0) ceil = top.Layers[^1].Z + 0.025f;
         }
         if (floor == null || ceil == null || ceil - floor < 0.1f) { SetStatus("No ceiling found in the middle of the scan: set the size by hand (Scale)."); return; }
         float f = ceiling / (ceil.Value - floor.Value);

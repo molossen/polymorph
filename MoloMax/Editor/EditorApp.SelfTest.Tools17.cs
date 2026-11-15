@@ -96,7 +96,7 @@ public sealed partial class EditorApp
         var m2 = System.Text.Json.JsonDocument.Parse(S(Api.CallLocal("splat.measure", J(FormattableString.Invariant($"{{\"min\":[{cx - 1},{cy - 1},-1],\"max\":[{cx + 1},{cy + 1},4]}}"))))).RootElement;
         float N(string k) => m2.GetProperty(k).ValueKind == System.Text.Json.JsonValueKind.Number ? m2.GetProperty(k).GetSingle() : float.NaN;
         float f2 = N("floor"), c2 = N("ceiling");
-        Expect(MathF.Abs(f2) < 0.1f && MathF.Abs(c2 - 2.5f) < 0.15f, $"Real size: floor {f2:0.00}, ceiling {c2:0.00} (0 and 2.5)");
+        Expect(MathF.Abs(f2) < 0.1f && MathF.Abs(c2 - 2.5f) < 0.08f, $"Real size: floor {f2:0.00}, ceiling {c2:0.00} (0 and 2.5)");
     }
 
     IEnumerable<object> TargetWeldTest()
