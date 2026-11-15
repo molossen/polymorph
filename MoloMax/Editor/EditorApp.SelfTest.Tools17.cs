@@ -90,9 +90,12 @@ public sealed partial class EditorApp
             else if (pl.GetProperty("kind").GetString() == "vertical") worstSquare = MathF.Max(worstSquare, MathF.Min(MathF.Abs(nx), MathF.Abs(ny)) * 57.3f);
         }
         Expect(worstTilt < 1.5f && worstSquare < 2f, $"Level + Square: floor tilt {worstTilt:0.0}°, walls off X/Y {worstSquare:0.0}°");
-        var (b0, b1) = cap.WorldBounds(); var c0 = (b0 + b1) * 0.5f;
-        var m2 = System.Text.Json.JsonDocument.Parse(S(Api.CallLocal("splat.measure", J($"{{\"min\":[{c0.X - 1},{c0.Y - 1},-1],\"max\":[{c0.X + 1},{c0.Y + 1},4]}}")))).RootElement;
-        float f2 = m2.GetProperty("floor").GetSingle(), c2 = m2.GetProperty("ceiling").GetSingle();
+        Note("after real size: " + status + " · " + S(Api.CallLocal("splat.info", J("{}"))));
+        var i2 = System.Text.Json.JsonDocument.Parse(S(Api.CallLocal("splat.info", J("{}")))).RootElement;
+        float cx = (i2.GetProperty("min")[0].GetSingle() + i2.GetProperty("max")[0].GetSingle()) / 2, cy = (i2.GetProperty("min")[1].GetSingle() + i2.GetProperty("max")[1].GetSingle()) / 2;
+        var m2 = System.Text.Json.JsonDocument.Parse(S(Api.CallLocal("splat.measure", J(FormattableString.Invariant($"{{\"min\":[{cx - 1},{cy - 1},-1],\"max\":[{cx + 1},{cy + 1},4]}}"))))).RootElement;
+        float N(string k) => m2.GetProperty(k).ValueKind == System.Text.Json.JsonValueKind.Number ? m2.GetProperty(k).GetSingle() : float.NaN;
+        float f2 = N("floor"), c2 = N("ceiling");
         Expect(MathF.Abs(f2) < 0.1f && MathF.Abs(c2 - 2.5f) < 0.15f, $"Real size: floor {f2:0.00}, ceiling {c2:0.00} (0 and 2.5)");
     }
 
