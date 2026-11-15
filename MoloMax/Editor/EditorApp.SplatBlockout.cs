@@ -22,6 +22,31 @@ public sealed partial class EditorApp
 5. Finish with gta.check and gta.fix_all.
 6. Then rebuild the room clean over the block-out (hide the bo_ pieces, names starting with rm_): one room shell with its faces turned inward, the walls cut around every opening with their thickness inside the openings (reveals), floor and ceiling (with the stair well), baseboards (rm_wall_trim_baseboards, about 10 cm high, 1.5 cm proud, stopping at doors), casings round doors and windows (rm_wall_trim_casings), one cube per door leaf, window glass and mullions, the stairs as treads, risers and the visible side, a handrail with balusters and a newel post. GTA optimised: no face that can't be seen (nothing under what sits on the floor, nothing against a wall). Furniture is left to props. Check it with splat.view (face_alpha 1 for clay, 0.45 over the scan), then uv.unwrap each piece and gta.check.";
 
+    /// <summary>Toolbar "Scan": no scan yet = pick one to import; a scan in the scene = select it, show its panel and copy the prompt.</summary>
+    void ScanButton()
+    {
+        var scan = Scene.Objects.FirstOrDefault(x => IsSplat(x) && Selected.Contains(x.Id)) ?? Scene.Objects.FirstOrDefault(IsSplat);
+        if (scan == null)
+        {
+            using var d = new System.Windows.Forms.OpenFileDialog
+            {
+                Filter = "Gaussian splat scans (*.ply;*.spz;*.splat)|*.ply;*.spz;*.splat",
+                Title = "Import a scan",
+                InitialDirectory = Settings.LastFolder != null && Directory.Exists(Settings.LastFolder) ? Settings.LastFolder : "",
+            };
+            var ok = ShowFileDialog(d) == System.Windows.Forms.DialogResult.OK;
+            Input.ReleaseAllKeys();
+            if (!ok) return;
+            Settings.LastFolder = Path.GetDirectoryName(d.FileName); Settings.Save();
+            TryImportSplat(d.FileName, null);
+            SetStatus("Scan loading... then click Scan again to copy the block-out prompt for your AI.");
+            return;
+        }
+        Selected.Clear(); Selected.Add(scan.Id); ActiveId = scan.Id; SelectionChanged();
+        propTab = PropTab.Object;
+        CopySplatBlockoutPrompt();
+    }
+
     void CopySplatBlockoutPrompt()
     {
         ImGui.SetClipboardText(SplatBlockoutPrompt);

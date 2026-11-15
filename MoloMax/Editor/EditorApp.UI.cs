@@ -296,6 +296,8 @@ public sealed partial class EditorApp
         Theme.Tip("Animation: timeline, keyframes (I), auto key, camera keys, GTA .ycd import / export");
         ImGui.SameLine(); if (Theme.Toggle("Assets", assetsOpen)) { if (assetsOpen) assetsOpen = false; else OpenAssetBrowser(); }
         Theme.Tip("Asset Browser: your models and the game props as thumbnails; double-click or drag into the view");
+        ImGui.SameLine(); if (ImGui.Button("Scan")) ScanButton();
+        Theme.Tip("Scan to block-out: import a Gaussian splat scan (.ply / .spz / .splat), then copy the prompt for your AI connected through MCP: it models the room over the scan.");
         ImGui.SameLine(); Ui.TextDisabled("|"); ImGui.SameLine();
         ImGui.AlignTextToFramePadding(); Ui.Text(InteriorLight ? "Interior" : "Sun");
         ImGui.SameLine(); ImGui.SetNextItemWidth(gpu.Width < 2100 ? 100 : 140);
