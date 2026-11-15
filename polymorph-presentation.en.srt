@@ -1,0 +1,152 @@
+1
+00:00:02,850 --> 00:00:04,500
+This is Polymorph:
+
+2
+00:00:04,500 --> 00:00:09,176
+a free 3D editor made for GTA V and FiveM creators.
+
+3
+00:00:10,216 --> 00:00:15,659
+Model a prop, build an MLO interior, or edit the real map.
+
+4
+00:00:15,659 --> 00:00:19,975
+Then export a FiveM resource, ready to ensure.
+
+5
+00:00:19,975 --> 00:00:21,852
+All in one free app.
+
+6
+00:00:22,916 --> 00:00:25,424
+Modelling feels familiar.
+
+7
+00:00:25,424 --> 00:00:30,339
+A non-destructive modifier stack, precise vertex,
+
+8
+00:00:30,339 --> 00:00:35,756
+edge and face snaps, clean booleans, and Wall Opening,
+
+9
+00:00:35,756 --> 00:00:39,368
+to cut doors and windows in seconds.
+
+10
+00:00:40,416 --> 00:00:42,626
+Texture it right there.
+
+11
+00:00:42,626 --> 00:00:48,294
+GTA shaders, one-click UVs, sculpt brushes, and Molo Paint:
+
+12
+00:00:48,294 --> 00:00:52,617
+layers, smart materials and procedural nodes,
+
+13
+00:00:52,617 --> 00:00:55,979
+exported straight to game textures.
+
+14
+00:00:57,016 --> 00:01:02,526
+Animate with keys and texture scroll, saved as a GTA animation.
+
+15
+00:01:02,526 --> 00:01:06,112
+And place point, spot and capsule lights,
+
+16
+00:01:06,112 --> 00:01:08,211
+with every game setting.
+
+17
+00:01:09,250 --> 00:01:10,691
+The MLO Room Builder.
+
+18
+00:01:10,691 --> 00:01:13,917
+Draw the floor plan, and closed rooms, portals,
+
+19
+00:01:13,917 --> 00:01:16,251
+doors and frames build themselves.
+
+20
+00:01:16,251 --> 00:01:19,339
+A GTA checker fixes what would crash in game.
+
+21
+00:01:20,383 --> 00:01:23,255
+MAP mode loads the whole GTA V map,
+
+22
+00:01:23,255 --> 00:01:26,948
+with real models streaming around the camera.
+
+23
+00:01:26,948 --> 00:01:30,641
+Move, delete and place props, edit interiors,
+
+24
+00:01:30,641 --> 00:01:32,857
+and model right on the map.
+
+25
+00:01:33,916 --> 00:01:37,946
+Weapon Forge and Vehicle Forge turn any model into a GTA
+
+26
+00:01:37,946 --> 00:01:39,530
+weapon or a FiveM car.
+
+27
+00:01:39,530 --> 00:01:42,048
+The meta files are written for you.
+
+28
+00:01:43,083 --> 00:01:45,543
+Everything lives in the GTA panel.
+
+29
+00:01:45,543 --> 00:01:49,741
+Press F10, and you get a FiveM resource with its manifest,
+
+30
+00:01:49,741 --> 00:01:51,694
+ready for your test server.
+
+31
+00:01:52,750 --> 00:01:55,175
+Polymorph also talks to AI.
+
+32
+00:01:55,175 --> 00:01:58,320
+With its Python API and MCP server,
+
+33
+00:01:58,320 --> 00:02:01,555
+your AI assistant can model for you.
+
+34
+00:02:01,555 --> 00:02:02,723
+New in 1.7.7:
+
+35
+00:02:02,723 --> 00:02:07,126
+turn a Marble world into a clean GTA room, by AI.
+
+36
+00:02:08,183 --> 00:02:11,617
+Polymorph is free forever, for personal and commercial work.
+
+37
+00:02:11,617 --> 00:02:13,677
+Download it, and join us on Discord.
+
+38
+00:02:13,677 --> 00:02:15,337
+Links are in the description.
+
