@@ -1,7 +1,7 @@
 {
-  "version": "1.7.2",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.2.exe",
-  "size": 70551881,
-  "sha256": "5c135114e35ce688db4f6fed0e68b2a6eef47d2caacc18e6c2e61e485318a81f",
-  "notes": "- New: bone animations to GTA: keyed bones become a .ycd clip named like the model, played by the model on its own\n- 1.7.1: skinned GTA export (skeleton + weights)\n- 1.7.0: Target Weld, FFD, ProOptimizer, easier UV selection, shapes + Lathe, bones / Skin / weight paint"
+  "version": "1.7.3",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.3.exe",
+  "size": 70590127,
+  "sha256": "f9b4b65127fc5cc518226c869091d3e7365224d7b38a95501efdfd664277fdd3",
+  "notes": "- New: scan to block-out: Level on the floor, Square the walls and Real size buttons for splat scans, and splat.* MCP tools so an AI can model the room over a scan (Copy the block-out prompt)\n- 1.7.2: bone animations to GTA (.ycd)\n- 1.7.1: skinned GTA export (skeleton + weights)"
 }
