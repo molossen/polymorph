@@ -2,6 +2,7 @@ using System.Numerics;
 using ImGuiNET;
 using MoloMax.Core.Scenes;
 using MoloMax.Core.Splats;
+using MoloMax.UI;
 
 namespace MoloMax.Editor;
 
