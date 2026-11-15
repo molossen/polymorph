@@ -33,7 +33,7 @@ then export a FiveM resource that is ready to `ensure` — in one free program, 
 
 ## What's new
 
-- **1.7.3 — Scan to block-out**: level, square and scale a splat scan in one click each, then an AI models the room over it through MCP.
+- **1.7.4 — Scan to block-out**: one button copies the prompt; your AI connected through MCP stands the scan up, scales it and models the room over it.
 - **1.7.2 — Bone animations**: keyed bones go to GTA as a .ycd clip the model plays by itself.
 - **1.7.1 — Skinned export**: a mesh with a Skin modifier goes to GTA as a skinned .ydr (skeleton + weights).
 - **1.7.0 — Tools**: Target Weld, FFD, ProOptimizer, easier UV selection, Rectangle / Circle / Arc + Lathe, bones + Skin + weight paint.
