@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.7.6](#176) | Scan to block-out goes on to a clean room |
 | [1.7.5](#175) | The AI sees the block-out clearly over the scan |
 | [1.7.4](#174) | Scan to block-out in one button: copy the prompt, the AI does the rest |
 | [1.7.3](#173) | Scan to block-out: level, square and scale a splat scan, then let an AI model the room through MCP |
@@ -30,6 +31,16 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.2.0](#120) | C# scripting inside Polymorph |
 | [1.1.0](#110) | One-click updates, animation, Wall Opening, texture library |
 | [1.0.0](#100) | First public release |
+
+---
+
+## 1.7.6
+
+- **From block-out to a clean room**: the block-out prompt now goes on to rebuild the room properly over the block-out:
+  one inward room shell with real openings and reveals, baseboards, door and window casings, door leaves, window glass,
+  stairs with treads, risers, handrail and balusters, GTA optimised (no hidden faces). Furniture is left to props.
+- `splat.view`: back faces are not drawn, so a room shell seen from outside opens up like a cut-away; faces crossing the
+  camera are clipped instead of dropped; trims and voids have their own colours.
 
 ---
 
