@@ -1,7 +1,7 @@
 {
-  "version": "1.7.7",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.7.exe",
-  "size": 70589169,
-  "sha256": "b79e099529ab440975b07eb68cf4bfe0350f7759d6680edc8891afb6c8a9d4f1",
-  "notes": "- NEW: Scan button in the toolbar (next to Assets): open a Marble / splat scan (.spz .ply .splat) and copy the block-out prompt for your AI (MCP) in one click\n- Your AI levels the scan, sets the real size, models the block-out, then rebuilds the room clean (walls, doors, window, baseboards, cornice), GTA ready\n- Watch how it works: https://molossen.github.io/polymorph/scan-to-blockout.mp4\n- New Polymorph Discord (help, updates, showcase): https://discord.gg/RWB28mvJU9"
+  "version": "1.7.8",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.8.exe",
+  "size": 70606733,
+  "sha256": "5d0b142aad3a0220979f961049042d428cad9668b34933b6d6b983d15eae53d0",
+  "notes": "- Fix: with several objects selected, the X / Y / Z fields at the bottom now move, turn or scale all of them together\n- Fix: the viewport's [+] menu can be clicked again\n- New in 1.7.7: Scan button (Marble / splat scan to block-out by AI). Video: https://youtu.be/TzMZ-xQp2jI\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
