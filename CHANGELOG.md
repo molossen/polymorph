@@ -35,6 +35,10 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 ---
 
+## 1.7.8
+- Fix: with several objects selected, the X / Y / Z fields at the bottom move, turn or scale all of them together (they keep their spacing)
+- Fix: the viewport's [+] menu could not be clicked (the Scene Explorer's resize grip was covering it)
+
 ## 1.7.7
 
 - **Scan button** in the top toolbar (next to Assets): no scan yet, it imports one (.ply / .spz / .splat); a scan in the

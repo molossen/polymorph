@@ -379,10 +379,41 @@ public sealed partial class EditorApp
             if (ImGui.IsItemActivated()) Undo.Record("Transform Type-In", Scene);
         }
         if (!changed) return;
+        // the fields show the active object; with several objects selected the change is applied to all of them
+        // as an offset (3ds Max): they move / turn / scale together and keep their spacing
+        var oldPos = o.Position; var oldRot = o.Rotation; var oldScale = o.Scale;
         if (Tool == Tool.Rotate) o.Rotation = EulerDegToQuat(v);
         else if (Tool == Tool.Scale) o.Scale = v / 100f;
         else o.Position = v;
+        o.Touch();
+        if (Selected.Count > 1)
+        {
+            var sel = new HashSet<int>(Selected);
+            var dPos = o.Position - oldPos;
+            var dRot = Quaternion.Normalize(o.Rotation * Quaternion.Inverse(oldRot));
+            var fScale = new Vector3(SafeRatio(o.Scale.X, oldScale.X), SafeRatio(o.Scale.Y, oldScale.Y), SafeRatio(o.Scale.Z, oldScale.Z));
+            foreach (var x in SelObjects())
+            {
+                if (x == o || AncestorSelected(x, sel)) continue; // a child follows its selected parent
+                if (Tool == Tool.Rotate) x.Rotation = Quaternion.Normalize(dRot * x.Rotation);
+                else if (Tool == Tool.Scale) x.Scale *= fScale;
+                else x.Position += dPos;
+                x.Touch();
+            }
+        }
         Dirty = true;
+    }
+
+    static float SafeRatio(float a, float b) => MathF.Abs(b) < 1e-6f ? 1f : a / b;
+
+    bool AncestorSelected(SceneObject x, HashSet<int> sel)
+    {
+        for (int guard = 0, p = x.ParentId; p >= 0 && guard < 64; guard++)
+        {
+            if (sel.Contains(p)) return true;
+            p = Scene.Find(p)?.ParentId ?? -1;
+        }
+        return false;
     }
 
     // ---- viewport lens (Blender's View panel: Focal Length on a 36 mm sensor, fitted on the longer side; Clip Start / End)

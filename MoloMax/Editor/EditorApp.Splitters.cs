@@ -33,6 +33,8 @@ public sealed partial class EditorApp
         ImGui.SetNextWindowSize(new Vector2(w, h));
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0);
+        // ImGui widens every window to WindowMinSize (32 px): the grip then covered the viewport's [+] menu
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, new Vector2(1, 1));
         ImGui.SetNextWindowBgAlpha(0);
         ImGui.Begin(id, ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoBringToFrontOnFocus | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoBackground);
         ImGui.InvisibleButton(id + "b", new Vector2(w, h));
@@ -45,7 +47,7 @@ public sealed partial class EditorApp
         }
         if (active) { dx = ImGui.GetIO().MouseDelta.X; splitDragging = true; }
         ImGui.End();
-        ImGui.PopStyleVar(2);
+        ImGui.PopStyleVar(3);
         return active && dx != 0;
     }
 }
