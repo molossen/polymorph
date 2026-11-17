@@ -205,21 +205,21 @@ public static class PedForge
             if (textureFolders != null) bank.SearchFolders.AddRange(textureFolders);
             var ytd = new List<ExportTexture>();
             void AddTex(ExportTexture t, string as_) { if (t != null && !ytd.Any(x => x.Name == as_)) ytd.Add(new ExportTexture { Name = as_, Dds = t.Dds, Kind = t.Kind, Width = t.Width, Height = t.Height, Mips = t.Mips, Format = t.Format }); }
-            AddTex(bank.FromFile(pedMat.DiffuseTexture, TexKind.Diffuse) ?? bank.Placeholder(TexKind.Diffuse, pedMat.ViewportColour), "head_diff_000_a_whi");
+            AddTex(bank.FromFile(pedMat.DiffuseTexture, TexKind.Diffuse) ?? bank.Placeholder(TexKind.Diffuse, pedMat.ViewportColour), "head_diff_000_a_uni");
             AddTex(bank.FromFile(pedMat.BumpTexture, TexKind.Normal) ?? bank.Placeholder(TexKind.Normal, default), "head_normal_000");
             AddTex(bank.FromFile(pedMat.SpecTexture, TexKind.Specular) ?? bank.Placeholder(TexKind.Specular, default), "head_spec_000");
             foreach (var w in bank.Warnings) rep.Warnings.Add(w);
 
             var dict = new XmlDocument();
             dict.LoadXml("<?xml version=\"1.0\" encoding=\"UTF-8\"?><DrawableDictionary/>");
-            dict.DocumentElement.AppendChild(PedDrawable(dict, model, "head"));
+            dict.DocumentElement.AppendChild(PedDrawable(dict, model, "head", "head_000_r", SkeletonXml(body)));
             // the upper and lower body stay as tiny hidden pieces, like the game's animals
             foreach (var comp in new[] { "uppr", "lowr" })
             {
-                var stub = StubModel(comp + "_000_r", body, pedMat);
-                dict.DocumentElement.AppendChild(PedDrawable(dict, stub, comp));
+                var stub = StubModel(comp + "_000_u", body, pedMat);
+                dict.DocumentElement.AppendChild(PedDrawable(dict, stub, comp, comp + "_000_u", null));
                 var px = bank.Placeholder(TexKind.Diffuse, new Vector3(0.5f, 0.5f, 0.5f));
-                AddTex(px, comp + "_diff_000_a_whi");
+                AddTex(px, comp + "_diff_000_a_uni");
                 AddTex(bank.Placeholder(TexKind.Normal, default), comp + "_normal_000");
                 AddTex(bank.Placeholder(TexKind.Specular, default), comp + "_spec_000");
             }
@@ -244,7 +244,7 @@ public static class PedForge
 
                 // ---- variations (.ymt)
                 var mdoc = new XmlDocument(); mdoc.LoadXml(Ymt());
-                var ymtData = Cw.XmlMeta.GetData(mdoc, Cw.MetaFormat.PSO, tmp) ?? throw new InvalidDataException("CodeWalker could not build the .ymt");
+                var ymtData = Cw.XmlMeta.GetData(mdoc, Cw.MetaFormat.RSC, tmp) ?? throw new InvalidDataException("CodeWalker could not build the .ymt"); // RSC: a PSO .ymt is ignored in a stream folder (grey low-poly ped)
                 File.WriteAllBytes(Path.Combine(stream, name + ".ymt"), ymtData);
                 rep.Files.Add($"stream/{name}.ymt");
             }
@@ -431,8 +431,8 @@ public static class PedForge
     }
 
     /// <summary>A model as a ped dictionary item: our CodeWalker drawable, without skeleton (the .yft has it), ped shader
-    /// with the texture names the game looks for (comp_diff_000_a_whi...).</summary>
-    static XmlElement PedDrawable(XmlDocument dict, GtaModel model, string comp)
+    /// with the texture names the game looks for (comp_diff_000_a_uni...).</summary>
+    static XmlElement PedDrawable(XmlDocument dict, GtaModel model, string comp, string drawableName, XmlElement skeleton)
     {
         var bank = new TextureBank(); // textures are named below and go to the .ytd
         var xml = CwXml.Drawable(model, bank, false, out _);
@@ -440,7 +440,7 @@ public static class PedForge
         var root = d.DocumentElement;
         if (root["Skeleton"] is { } sk) root.RemoveChild(sk);
         if (root["Joints"] is { } jt) root.RemoveChild(jt);
-        if (root["Name"] is { } nm) nm.InnerText = comp + "_000_r";
+        if (root["Name"] is { } nm) nm.InnerText = drawableName;
         // one ped shader with the conventional texture names
         var sg = root["ShaderGroup"];
         if (sg != null) root.RemoveChild(sg);
@@ -450,6 +450,8 @@ public static class PedForge
         var after = root["FlagsVlow"];
         if (after != null) root.InsertAfter(newSg, after); else root.PrependChild(newSg);
         foreach (XmlElement si in root.SelectNodes("//ShaderIndex")) si.SetAttribute("value", "0");
+        // the game needs the skeleton in the head drawable too (CreatePed fails without it): the donor's, as in the .yft
+        if (skeleton != null) root.InsertAfter(d.ImportNode(skeleton, true), root["ShaderGroup"]);
         var item = dict.CreateElement("Item");
         foreach (XmlNode c in root.ChildNodes) item.AppendChild(dict.ImportNode(c, true));
         return item;
@@ -463,7 +465,7 @@ $@"<ShaderGroup>
    <FileName>ped.sps</FileName>
    <RenderBucket value=""0"" />
    <Parameters>
-    <Item name=""DiffuseSampler"" type=""Texture""><Name>{comp}_diff_000_a_whi</Name></Item>
+    <Item name=""DiffuseSampler"" type=""Texture""><Name>{comp}_diff_000_a_uni</Name></Item>
     <Item name=""TextureSamplerDiffPal"" type=""Texture"" />
     <Item name=""VolumeSampler"" type=""Texture""><Name>givemechecker</Name></Item>
     <Item name=""BumpSampler"" type=""Texture""><Name>{comp}_normal_000</Name></Item>
@@ -489,22 +491,32 @@ $@"<ShaderGroup>
         return (items.Length, items.Count(x => x.DrawableModels?.High?.Any(m => m.HasSkin > 0) == true));
     }
 
+    /// <summary>The donor's skeleton as CodeWalker XML (taken from its .yft).</summary>
+    static XmlElement SkeletonXml(Body body)
+    {
+        var yft = new Cw.YftFile(); yft.Load(body.Yft);
+        var tmp = Path.Combine(Path.GetTempPath(), "polymorph_pedskel");
+        Directory.CreateDirectory(tmp);
+        var doc = new XmlDocument(); doc.LoadXml(Cw.YftXml.GetXml(yft, tmp));
+        return doc.SelectSingleNode("/Fragment/Drawable/Skeleton") as XmlElement ?? throw new InvalidDataException(body.Model + ".yft: no skeleton");
+    }
+
     /// <summary>A .ymt read back as CodeWalker XML (checks).</summary>
     public static string YmtXml(byte[] data)
     {
-        var pso = new Cw.PsoFile(); pso.Load(data);
-        return Cw.PsoXml.GetXml(pso) ?? "";
+        var y = new Cw.YmtFile(); Cw.RpfFile.LoadResourceFile(y, data, 2);
+        return Cw.MetaXml.GetXml(y, out _) ?? "";
     }
 
     /// <summary>Variations: head (our body), upper and lower body (hidden stubs), one drawable and one texture each.</summary>
     static string Ymt()
     {
         var sb = new StringBuilder();
-        sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<CPedVariationInfo>\n <bHasTexVariations value=\"true\" />\n <bHasDrawblVariations value=\"true\" />\n <bHasLowLODs value=\"false\" />\n <bIsSuperLOD value=\"false\" />\n");
+        sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<CPedVariationInfo>\n <bHasTexVariations value=\"false\" />\n <bHasDrawblVariations value=\"false\" />\n <bHasLowLODs value=\"false\" />\n <bIsSuperLOD value=\"false\" />\n");
         sb.Append(" <availComp>0 255 255 1 2 255 255 255 255 255 255 255</availComp>\n <aComponentData3 itemType=\"CPVComponentData\">\n");
         for (int i = 0; i < 3; i++)
-            sb.Append("  <Item>\n   <numAvailTex value=\"1\" />\n   <aDrawblData3 itemType=\"CPVDrawblData\">\n    <Item>\n     <propMask value=\"17\" />\n     <numAlternatives value=\"0\" />\n" +
-                      "     <aTexData itemType=\"CPVTextureData\">\n      <Item>\n       <texId value=\"1\" />\n       <distribution value=\"255\" />\n      </Item>\n     </aTexData>\n" +
+            sb.Append("  <Item>\n   <numAvailTex value=\"1\" />\n   <aDrawblData3 itemType=\"CPVDrawblData\">\n    <Item>\n     <propMask value=\"1\" />\n     <numAlternatives value=\"0\" />\n" +
+                      "     <aTexData itemType=\"CPVTextureData\">\n      <Item>\n       <texId value=\"0\" />\n       <distribution value=\"255\" />\n      </Item>\n     </aTexData>\n" +
                       "     <clothData>\n      <ownsCloth value=\"false\" />\n     </clothData>\n    </Item>\n   </aDrawblData3>\n  </Item>\n");
         sb.Append(" </aComponentData3>\n <aSelectionSets itemType=\"CPedSelectionSet\" />\n <compInfos itemType=\"CComponentInfo\">\n");
         foreach (var c in new[] { 0, 3, 4 })
