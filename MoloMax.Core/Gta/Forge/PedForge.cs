@@ -261,13 +261,37 @@ public static class PedForge
             else { rep.Warnings.Add($"{body.Model} not found in the game's peds.meta: a basic entry is written."); it = meta.CreateElement("Item"); }
             ForgeCommon.SetChild(it, "Name", name);
             meta.SelectSingleNode("//InitDatas").AppendChild(it);
-            File.WriteAllText(Path.Combine(res, "peds.meta"), ForgeCommon.Pretty(meta));
-            rep.Files.Add("peds.meta");
-            if (item != null) rep.Info.Add($"peds.meta: {body.Model} cloned as {name} (from {from})");
+            // names the game files only keep as hashes (hash_XXXXXXXX): known ones back to text, else the file goes binary
+            int unknown = 0;
+            foreach (var el in meta.SelectNodes("//*").Cast<XmlElement>().Where(e => !e.HasChildNodes || e.ChildNodes.Count == 1 && e.FirstChild is XmlText))
+            {
+                var t = el.InnerText.Trim();
+                if (!t.StartsWith("hash_") || t.Length != 13 || !uint.TryParse(t[5..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var h)) continue;
+                var str = Cw.JenkIndex.TryGetString(h);
+                if (!string.IsNullOrEmpty(str)) el.InnerText = str; else unknown++;
+            }
+            string metaFile = "peds.meta";
+            if (unknown > 0)
+            {
+                // a text .meta would hand the game "hash_..." as names: the PSO keeps the exact hashes
+                var tmp2 = Path.Combine(Path.GetTempPath(), "polymorph_pedmeta_" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(tmp2);
+                try
+                {
+                    var pso = Cw.XmlMeta.GetData(meta, Cw.MetaFormat.PSO, tmp2) ?? throw new InvalidDataException("CodeWalker could not build peds.ymt");
+                    metaFile = "peds.ymt";
+                    File.WriteAllBytes(Path.Combine(res, metaFile), pso);
+                }
+                finally { try { Directory.Delete(tmp2, true); } catch { } }
+                File.WriteAllText(Path.Combine(res, "peds_readable.xml"), ForgeCommon.Pretty(meta));
+            }
+            else File.WriteAllText(Path.Combine(res, metaFile), ForgeCommon.Pretty(meta));
+            rep.Files.Add(metaFile);
+            if (item != null) rep.Info.Add($"{metaFile}: {body.Model} cloned as {name} (from {from})" + (unknown > 0 ? $", binary because {unknown} name(s) are only known by hash (readable copy: peds_readable.xml)" : ""));
 
             File.WriteAllText(Path.Combine(res, "fxmanifest.lua"),
                 "fx_version 'cerulean'\ngame 'gta5'\nlua54 'yes'\n\nauthor 'Molo Modding'\ndescription '" + name + " - ped made with Polymorph'\n\n" +
-                "files { 'peds.meta' }\ndata_file 'PED_METADATA_FILE' 'peds.meta'\n\nclient_script 'client.lua'\n");
+                "files { '" + metaFile + "' }\ndata_file 'PED_METADATA_FILE' '" + metaFile + "'\n\nclient_script 'client.lua'\n");
             File.WriteAllText(Path.Combine(res, "client.lua"),
                 "-- /" + name + " : become the ped (test)\n" +
                 "RegisterCommand('" + name + "', function()\n" +

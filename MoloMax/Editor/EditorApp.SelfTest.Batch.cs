@@ -774,14 +774,14 @@ public sealed partial class EditorApp
             ExportPed(ForgeSelection());
             var dir = forgeReport?.Folder;
             string F(string f) => dir == null ? "" : Path.Combine(dir, f);
-            bool ok = forgeReport != null && forgeReport.Ok && new[] { $"stream/{nm}.ydd", $"stream/{nm}.ytd", $"stream/{nm}.ymt", $"stream/{nm}.yft", "peds.meta", "fxmanifest.lua", "client.lua" }.All(f => File.Exists(F(f)));
+            bool ok = forgeReport != null && forgeReport.Ok && new[] { $"stream/{nm}.ydd", $"stream/{nm}.ytd", $"stream/{nm}.ymt", $"stream/{nm}.yft", "fxmanifest.lua", "client.lua" }.All(f => File.Exists(F(f))) && (File.Exists(F("peds.meta")) || File.Exists(F("peds.ymt")));
             int drawables = 0, skinned = 0;
             if (ok)
             {
                 (drawables, skinned) = Core.Gta.Forge.PedForge.YddInfo(File.ReadAllBytes(F($"stream/{nm}.ydd")));
             }
             var ymtXml = ok ? Core.Gta.Forge.PedForge.YmtXml(File.ReadAllBytes(F($"stream/{nm}.ymt"))) : "";
-            Expect(ok && drawables == 3 && skinned == 3 && ymtXml.Contains("CPedVariationInfo") && File.ReadAllText(F("peds.meta")).Contains(nm) && File.ReadAllText(F("peds.meta")).Contains("<Pedtype>") && File.ReadAllText(F("fxmanifest.lua")).Contains("PED_METADATA_FILE"),
+            Expect(ok && drawables == 3 && skinned == 3 && ymtXml.Contains("CPedVariationInfo") && (File.Exists(F("peds.meta")) ? File.ReadAllText(F("peds.meta")) : File.ReadAllText(F("peds_readable.xml"))) is var pm && pm.Contains(nm) && pm.Contains("<Pedtype>") && !(File.Exists(F("peds.meta")) && pm.Contains(">hash_")) && File.ReadAllText(F("fxmanifest.lua")).Contains("PED_METADATA_FILE"),
                 $"ped {nm} written: ydd {drawables} skinned drawables ({skinned}), ytd, ymt {(ymtXml.Contains("CPedVariationInfo") ? "reads back" : "BAD")}, yft, peds.meta, fxmanifest" + (forgeReport != null ? " " + string.Join(" | ", forgeReport.Errors.Concat(forgeReport.Warnings)) : ""));
         }
         Scene.Objects.RemoveAll(o => o.Folder == ForgeFolder);
