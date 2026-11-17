@@ -371,8 +371,8 @@ $@"<ShaderGroup>
     /// <summary>A .ymt read back as CodeWalker XML (checks).</summary>
     public static string YmtXml(byte[] data)
     {
-        var y = new Cw.YmtFile(); y.Load(data);
-        return Cw.MetaXml.GetXml(y, out _) ?? "";
+        var pso = new Cw.PsoFile(); pso.Load(data);
+        return Cw.PsoXml.GetXml(pso) ?? "";
     }
 
     /// <summary>Variations: head (our body), upper and lower body (hidden stubs), one drawable and one texture each.</summary>
