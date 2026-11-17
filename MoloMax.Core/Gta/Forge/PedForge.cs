@@ -251,8 +251,9 @@ public static class PedForge
             rep.Info.Add($"{name}.yft: skeleton and ragdoll of {body.Model}");
 
             // ---- peds.meta: the donor's entry, renamed
-            var item = ForgeCommon.FindItem(game, "peds.meta", body.Model,
-                $"//InitDatas/Item[translate(Name,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')='{body.Model}']", out var from);
+            var xp = $"//InitDatas/Item[translate(Name,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')='{body.Model}']";
+            // base game peds are in peds.ymt (binary), DLC peds in peds.meta
+            var item = ForgeCommon.FindItem(game, "peds.ymt", body.Model, xp, out var from) ?? ForgeCommon.FindItem(game, "peds.meta", body.Model, xp, out from);
             var meta = new XmlDocument();
             meta.LoadXml("<?xml version=\"1.0\" encoding=\"UTF-8\"?><CPedModelInfo__InitDataList><residentTxd>comp_peds_generic</residentTxd><residentAnims /><InitDatas /><txdRelationships /><multiTxdRelationships /></CPedModelInfo__InitDataList>");
             XmlElement it;

@@ -781,7 +781,7 @@ public sealed partial class EditorApp
                 (drawables, skinned) = Core.Gta.Forge.PedForge.YddInfo(File.ReadAllBytes(F($"stream/{nm}.ydd")));
             }
             var ymtXml = ok ? Core.Gta.Forge.PedForge.YmtXml(File.ReadAllBytes(F($"stream/{nm}.ymt"))) : "";
-            Expect(ok && drawables == 3 && skinned == 3 && ymtXml.Contains("CPedVariationInfo") && File.ReadAllText(F("peds.meta")).Contains(nm) && File.ReadAllText(F("fxmanifest.lua")).Contains("PED_METADATA_FILE"),
+            Expect(ok && drawables == 3 && skinned == 3 && ymtXml.Contains("CPedVariationInfo") && File.ReadAllText(F("peds.meta")).Contains(nm) && File.ReadAllText(F("peds.meta")).Contains("<Pedtype>") && File.ReadAllText(F("fxmanifest.lua")).Contains("PED_METADATA_FILE"),
                 $"ped {nm} written: ydd {drawables} skinned drawables ({skinned}), ytd, ymt {(ymtXml.Contains("CPedVariationInfo") ? "reads back" : "BAD")}, yft, peds.meta, fxmanifest" + (forgeReport != null ? " " + string.Join(" | ", forgeReport.Errors.Concat(forgeReport.Warnings)) : ""));
         }
         Scene.Objects.RemoveAll(o => o.Folder == ForgeFolder);
