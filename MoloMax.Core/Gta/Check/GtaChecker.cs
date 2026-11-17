@@ -21,12 +21,14 @@ public sealed class CheckIssue
 
 /// <summary>
 /// Molo Modding's GTA rules, checked before export, most with a one-click fix:
-/// shell in limbo, collision on the shell (RoomID per room), 60k vertices per model, DDS 1024 with mipmaps,
+/// shell in limbo, collision on the shell (RoomID per room), DDS 1024 with mipmaps,
 /// shared pivot, vertex colours (green inside, white emissive, red exterior), closed inward rooms, names.
 /// </summary>
 public static class GtaChecker
 {
     public const int MaxVerts = 60000;
+    /// <summary>Above this a model gets an information note (never a warning or an error).</summary>
+    public const int HeavyVerts = 500000;
 
     public static List<CheckIssue> Run(Scene scene)
     {
@@ -80,10 +82,12 @@ public static class GtaChecker
             }
             if (o.GtaType != GtaObjectType.Drawable || o.Mesh.Faces.Count == 0) continue;
             int vc = RenderVertexCount(o.Mesh);
-            if (vc > MaxVerts)
+            // no vertex cap: the export cuts every material into 65k-vertex geometries by itself (planets, terrains...);
+            // a very heavy model only gets a note, splitting it is a streaming choice
+            if (vc > HeavyVerts)
             {
                 var obj = o;
-                res.Add(new CheckIssue { Level = vc > 65535 ? CheckLevel.Error : CheckLevel.Warning, Group = "Models", ObjectId = o.Id, Message = $"{o.Name}: about {vc:N0} vertices in game (max {MaxVerts:N0} per model).", FixLabel = "Split at 60k", Fix = () => SplitObject(scene, obj) });
+                res.Add(new CheckIssue { Level = CheckLevel.Info, Group = "Models", ObjectId = o.Id, Message = $"{o.Name}: {vc:N0} vertices. Exported fine (cut into 65k pieces automatically); split it only if you want it to stream in parts.", FixLabel = "Split", Fix = () => SplitObject(scene, obj) });
             }
             var want = WantedColours(scene, o, layout, isMlo, st.PortalMaxGap, out string rule);
             if (want != null && !ColoursOk(o.Mesh, want))

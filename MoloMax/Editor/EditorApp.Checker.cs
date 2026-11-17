@@ -33,7 +33,7 @@ public sealed partial class EditorApp
             SetStatus($"{done?.Count ?? 0} fix(es) applied.");
         }
         if (fixable == 0) ImGui.EndDisabled();
-        Ui.TextDisabled("Rules: shell in limbo, collision on the shell, 60k vertices per model, DDS 1024 + mipmaps, shared pivot, vertex colours green / white / red.");
+        Ui.TextDisabled("Rules: shell in limbo, collision on the shell, DDS 1024 + mipmaps, shared pivot, vertex colours green / white / red.");
         ImGui.Separator();
         ImGui.BeginChild("##issues");
         foreach (var grp in checkIssues.GroupBy(i => i.Group ?? "General"))

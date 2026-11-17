@@ -50,7 +50,7 @@ public sealed class ImportResult
 
 public static class ModelImporter
 {
-    public static readonly string[] Extensions = { ".glb", ".gltf", ".obj", ".ydr", ".ydd", ".yft", ".ybn" };
+    public static readonly string[] Extensions = { ".glb", ".gltf", ".obj", ".fbx", ".ydr", ".ydd", ".yft", ".ybn" };
 
     public static bool CanImport(string path) => Extensions.Contains(Path.GetExtension(path).ToLowerInvariant()) || Gta.Import.GtaImporter.CanImport(path);
 
@@ -63,9 +63,10 @@ public static class ModelImporter
         {
             ".glb" or ".gltf" => GltfImporter.Import(path, opt),
             ".obj" => ObjImporter.Import(path, opt),
-            _ => throw new NotSupportedException($"{ext} is not supported. Use .glb, .gltf or .obj (convert FBX in Blender)."),
+            ".fbx" => FbxImporter.Import(path, opt), // already Z-up metres and finished
+            _ => throw new NotSupportedException($"{ext} is not supported. Use .fbx, .glb, .gltf or .obj."),
         };
-        Finish(res, opt);
+        if (ext != ".fbx") Finish(res, opt);
         return res;
     }
 

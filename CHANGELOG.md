@@ -6,6 +6,8 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.7.9](#179) | FBX import, no more 60k vertex warning |
+| [1.7.8](#178) | Multi-selection X / Y / Z fields, viewport [+] menu |
 | [1.7.7](#177) | Scan button in the toolbar, demo video |
 | [1.7.6](#176) | Scan to block-out goes on to a clean room |
 | [1.7.5](#175) | The AI sees the block-out clearly over the scan |
@@ -34,6 +36,14 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 1.7.9
+- **FBX import** (binary and ASCII, FBX 2010 and newer): meshes with their polygons, UVs, vertex colours, materials and
+  textures (next to the file, in a texture folder or embedded), the object hierarchy, pivots and axis / unit settings.
+  File > Import, drag and drop, and the Asset Browser all take .fbx. Skinned meshes come in as static meshes (warning shown).
+- No more 60,000 vertex warning: big models are cut into 65k-vertex pieces automatically at export, so a model of any
+  size goes to GTA. The checker only adds a note above 500,000 vertices (game performance).
+- GTA settings: *Join models up to (vertices)* can now go up to 2,000,000.
 
 ## 1.7.8
 - Fix: with several objects selected, the X / Y / Z fields at the bottom move, turn or scale all of them together (they keep their spacing)

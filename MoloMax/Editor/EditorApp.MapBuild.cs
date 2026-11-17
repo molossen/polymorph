@@ -175,7 +175,7 @@ public sealed partial class EditorApp
     {
         using var d = new System.Windows.Forms.OpenFileDialog
         {
-            Filter = "Scenes and models|*.mmx;*.glb;*.gltf;*.obj;*.ydr;*.yft;*.ydd|Polymorph scene (*.mmx)|*.mmx|glTF (*.glb, *.gltf)|*.glb;*.gltf|Wavefront OBJ (*.obj)|*.obj|GTA V (*.ydr, *.yft, *.ydd)|*.ydr;*.yft;*.ydd",
+            Filter = "Scenes and models|*.mmx;*.fbx;*.glb;*.gltf;*.obj;*.ydr;*.yft;*.ydd|Polymorph scene (*.mmx)|*.mmx|glTF (*.glb, *.gltf)|*.glb;*.gltf|Wavefront OBJ (*.obj)|*.obj|GTA V (*.ydr, *.yft, *.ydd)|*.ydr;*.yft;*.ydd",
             Title = "Import a 3D scene onto the map",
         };
         if (ShowFileDialog(d) != System.Windows.Forms.DialogResult.OK) return;

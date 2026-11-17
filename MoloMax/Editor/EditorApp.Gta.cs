@@ -165,7 +165,7 @@ public sealed partial class EditorApp
             ("MLO builder", "Rooms, automatic portals, limbo, timecycles.", "GTA V / FIVEM", () => hubPage = HubPage.Mlo),
             ("Object properties", "Shell, prop, door or exterior; model name, LOD, flags.", "GTA V / FIVEM", () => hubPage = HubPage.Object),
             ("Collision", "Col groups, materials, RoomID, flags (stairs, water...).", "GTA V / FIVEM", () => hubPage = HubPage.Collision),
-            ("Checks", "Vertex colours, normals, 60k limit, names, rooms.", "GTA V / FIVEM", () => { hubPage = HubPage.Checks; RunGtaChecks(); }),
+            ("Checks", "Vertex colours, normals, names, rooms.", "GTA V / FIVEM", () => { hubPage = HubPage.Checks; RunGtaChecks(); }),
             ("Game Files", "Search every GTA model by family, preview it, import it with its textures.", "GTA V / FIVEM", OpenGameBrowser),
             ("Tripo", "Text or image to 3D model, P2, Smart UV, texture.", "CREATE", () => hubPage = HubPage.Tripo),
             ("Molo Tools", "Doors, DDS, gradient, sign glow, AO, edge dirt, wear.", "CREATE", () => hubPage = HubPage.Tools),
@@ -265,7 +265,8 @@ public sealed partial class EditorApp
             int ts = Array.IndexOf(new[] { 256, 512, 1024, 2048 }, st.MaxTextureSize); if (ts < 0) ts = 2;
             if (ImGui.Combo("Max texture size", ref ts, new[] { "256", "512", "1024", "2048" }, 4)) st.MaxTextureSize = new[] { 256, 512, 1024, 2048 }[ts];
             ImGui.SetNextItemWidth(120);
-            ImGui.DragInt("Max vertices per model", ref st.MaxVertsPerModel, 500, 1000, 65000);
+            ImGui.DragInt("Join models up to (vertices)", ref st.MaxVertsPerModel, 500, 1000, 2000000);
+            Theme.Tip("Small pieces are joined into models up to this size. There is no hard limit: every model is cut into 65k-vertex pieces at export.");
             ImGui.SetNextItemWidth(120);
             ImGui.DragFloat("Portal max gap (m)", ref st.PortalMaxGap, 0.01f, 0.05f, 3f, "%.2f");
         }

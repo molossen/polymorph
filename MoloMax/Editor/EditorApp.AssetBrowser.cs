@@ -30,7 +30,7 @@ public sealed partial class EditorApp
 
     static string AssetThumbDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Polymorph", "Thumbnails");
     static string DefaultAssetFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Polymorph", "Assets");
-    static readonly string[] AssetExts = { ".mmx", ".glb", ".gltf", ".obj", ".ydr", ".yft", ".ydd" };
+    static readonly string[] AssetExts = { ".mmx", ".fbx", ".glb", ".gltf", ".obj", ".ydr", ".yft", ".ydd" };
 
     public void OpenAssetBrowser() { assetsOpen = true; if (Settings.AssetFolders.Count == 0) { Directory.CreateDirectory(DefaultAssetFolder); Settings.AssetFolders.Add(DefaultAssetFolder); Settings.Save(); } }
 

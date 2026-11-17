@@ -564,7 +564,6 @@ public static class GtaExporter
 
     static void WriteModel(GtaModel model, string dir, List<(string, string, string, string, List<ExportTexture>)> written, TextureBank bank, GtaProjectSettings st, List<ArchetypeDef> archetypes, ExportReport rep)
     {
-        if (model.VertexCount > st.MaxVertsPerModel) rep.Warnings.Add($"{model.Name} has {model.VertexCount} vertices (limit {st.MaxVertsPerModel}).");
         var xml = CwXml.Drawable(model, bank, !st.SeparateYtd, out var tex);
         written.Add((dir, model.Name, xml, "ydr", tex));
         if (st.SeparateYtd && tex.Count > 0) written.Add((dir, model.Name, CwXml.TextureDictionary(tex), "ytd", tex));
@@ -580,7 +579,6 @@ public static class GtaExporter
     /// <summary>A physical prop as a .yft: collision from the prop setting (a box when none), mass from the object.</summary>
     static void WriteFragment(GtaModel model, SceneObject o, string dir, List<(string, string, string, string, List<ExportTexture>)> written, TextureBank bank, GtaProjectSettings st, List<ArchetypeDef> archetypes, ExportReport rep)
     {
-        if (model.VertexCount > st.MaxVertsPerModel) rep.Warnings.Add($"{model.Name} has {model.VertexCount} vertices (limit {st.MaxVertsPerModel}).");
         int colType = Math.Clamp(o.Gta.CollisionMaterial, 0, CollisionMaterials.Names.Length - 1);
         var col = model.EmbeddedCollision != null && !model.EmbeddedCollision.IsEmpty ? model.EmbeddedCollision : CollisionMesh.Box(model.Min, model.Max, colType);
         var xml = CwXml.Fragment(model, bank, !st.SeparateYtd, col, o.Gta.FragMass, out var tex);

@@ -191,7 +191,7 @@ public sealed partial class EditorApp
             ImGui.SetNextItemWidth(-1);
             if (ImGui.Combo("##gtatype", ref t, new[] { "Drawable (.ydr)", "Collision (.ybn)", "MLO Room", "Portal" }, 4)) SetGtaType(o, (GtaObjectType)t);
             int nv = o.Mesh.Verts.Count;
-            Ui.TextColored(nv > 60000 ? new Vector4(1, 0.35f, 0.3f, 1) : Theme.TextDim, $"{nv:N0} / 60,000 vertices   {o.Mesh.Faces.Count:N0} polys");
+            Ui.TextColored(Theme.TextDim, $"{nv:N0} vertices   {o.Mesh.Faces.Count:N0} polys");
             float w3 = (ImGui.GetContentRegionAvail().X - 8) / 3;
             if (ImGui.Button("Reset XForm", new Vector2(w3, 0))) ResetXForm(); ImGui.SameLine();
             if (ImGui.Button("Center Pivot", new Vector2(w3, 0))) CenterPivot(); ImGui.SameLine();

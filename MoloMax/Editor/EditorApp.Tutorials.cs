@@ -1385,7 +1385,7 @@ public sealed partial class EditorApp
         if (hubPage != HubPage.Home) { hubPage = HubPage.Home; hubBack.Clear(); }
         yield return Frames(15);
         // 4. checks
-        foreach (var x in Say("Checks: every GTA rule in one click", "Limbo, collision, vertex colours, 60k limit, names - and Fix all")) yield return x;
+        foreach (var x in Say("Checks: every GTA rule in one click", "Limbo, collision, vertex colours, names - and Fix all")) yield return x;
         foreach (var x in ClickAt(TutCentre("g:Checks"))) yield return x;
         if (hubPage != HubPage.Checks) { HubGo(HubPage.Checks); RunGtaChecks(); }
         checkOpen = false; yield return Frames(110);

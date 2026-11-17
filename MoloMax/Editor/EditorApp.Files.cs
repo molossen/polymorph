@@ -116,8 +116,7 @@ public sealed partial class EditorApp
             SetStatus($"Material {name} created from the dropped texture");
             return;
         }
-        if (ext == ".fbx") SetStatus("FBX is not supported yet: export it as GLB (glTF binary) from your 3D software, then import or drop it here.");
-        else SetStatus($"{ext} files are not supported.");
+        SetStatus($"{ext} files are not supported.");
     }
 
     // ---------------------------------------------------------------- model import
@@ -130,7 +129,7 @@ public sealed partial class EditorApp
     {
         using var d = new OpenFileDialog
         {
-            Filter = "All supported|*.glb;*.gltf;*.obj;*.ydr;*.ydd;*.yft;*.ybn;*.xml;*.ply;*.spz;*.splat|Gaussian splat scans (*.ply;*.spz;*.splat)|*.ply;*.spz;*.splat|GTA V (*.ydr;*.ydd;*.yft;*.ybn)|*.ydr;*.ydd;*.yft;*.ybn|CodeWalker XML (*.ydr.xml, *.yft.xml...)|*.xml|glTF binary (*.glb)|*.glb|glTF (*.gltf)|*.gltf|Wavefront OBJ (*.obj)|*.obj|All files (*.*)|*.*",
+            Filter = "All supported|*.fbx;*.glb;*.gltf;*.obj;*.ydr;*.ydd;*.yft;*.ybn;*.xml;*.ply;*.spz;*.splat|Gaussian splat scans (*.ply;*.spz;*.splat)|*.ply;*.spz;*.splat|GTA V (*.ydr;*.ydd;*.yft;*.ybn)|*.ydr;*.ydd;*.yft;*.ybn|CodeWalker XML (*.ydr.xml, *.yft.xml...)|*.xml|FBX (*.fbx)|*.fbx|glTF binary (*.glb)|*.glb|glTF (*.gltf)|*.gltf|Wavefront OBJ (*.obj)|*.obj|All files (*.*)|*.*",
             Title = "Import model",
             Multiselect = true,
             InitialDirectory = Settings.LastFolder != null && Directory.Exists(Settings.LastFolder) ? Settings.LastFolder : "",
@@ -313,7 +312,7 @@ public sealed partial class EditorApp
         importReport.Add($"{created.Count} object(s), {verts:N0} vertices, {faces:N0} polygons, {r.Materials.Count} material(s), {sw.ElapsedMilliseconds} ms");
         if (r.TexturesWritten.Count > 0) importReport.Add($"{r.TexturesWritten.Count} texture(s) extracted to {Path.GetDirectoryName(r.TexturesWritten[0])}");
         importReport.AddRange(r.Warnings.Distinct());
-        importReportOpen = r.Warnings.Count > 0 || created.Any(o => o.Mesh.Verts.Count > 60000);
+        importReportOpen = r.Warnings.Count > 0;
         SetStatus(importReport[0]);
         return created;
     }

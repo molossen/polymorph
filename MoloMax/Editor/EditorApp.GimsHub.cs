@@ -156,7 +156,7 @@ public sealed partial class EditorApp
         if (GimsTile(exporting ? "Exporting" : "Export", wp, u, 34, 19, 26, 26, GimsIcon.Export)) HubGo(HubPage.Export);
         GimsTip("Export the FiveM resource or the selected models");
         if (GimsTile("Checks", wp, u, 62, 19, 26, 26, GimsIcon.Check)) { HubGo(HubPage.Checks); RunGtaChecks(); }
-        GimsTip("Vertex colours, normals, 60k limit, limbo, names, rooms");
+        GimsTip("Vertex colours, normals, limbo, names, rooms");
         if (GimsTile("Server", wp, u, 90, 19, 26, 26, GimsIcon.Send)) SendToServer();
         GimsTip("Export into your FiveM server and restart the resource");
 
