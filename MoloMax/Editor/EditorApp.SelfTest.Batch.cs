@@ -798,6 +798,15 @@ public sealed partial class EditorApp
             yield return Frames(4);
             yield return Shot("pedforge_fbx");
             ExportPed(ForgeSelection());
+            var yddOut = forgeReport?.Folder != null ? Path.Combine(forgeReport.Folder, "stream", "molo_pedtest.ydd") : null;
+            if (yddOut != null && File.Exists(yddOut))
+            {
+                Scene.Objects.RemoveAll(o => o.Folder != ForgeFolder);
+                ImportFile(yddOut, new Vector3(1.2f, 0, 0)); importReportOpen = false;
+                FrameAll();
+                yield return Frames(4);
+                yield return Shot("pedforge_fbx_result");
+            }
             Expect(forgeReport != null && forgeReport.Ok, $"{Path.GetFileName(fbx)} made into ped molo_pedtest: " + (forgeReport == null ? "" : string.Join(" | ", forgeReport.Errors.Concat(forgeReport.Warnings).Concat(forgeReport.Info))));
         }
         Scene.Objects.RemoveAll(o => o.Folder == ForgeFolder);

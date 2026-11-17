@@ -194,7 +194,12 @@ public static class PedForge
             var pedMat = new GtaMaterial { Id = int.MaxValue - 11, Name = "ped", Shader = "ped", DiffuseTexture = src.DiffuseTexture, BumpTexture = src.BumpTexture, SpecTexture = src.SpecTexture, ViewportColour = src.ViewportColour };
             foreach (var p in model.Parts) p.Material = pedMat;
             model.Skin = DonorSkin(body);
+            // arms held differently from the donor (T-pose on an A-pose ped...): the donor is posed like the model for the
+            // weights, then the model is brought back to the donor's pose (the pose the game's skeleton expects)
+            var pose = MatchArms(body, model.Parts.SelectMany(p => p.Verts.Select(v => v.Position)).ToList(), rep);
+            if (pose != null) model.Skin.Points = PosePoints(body, pose);
             model.Skin.Assign(model);
+            if (pose != null) Unpose(model, pose);
 
             var bank = new TextureBank { ImageLoader = imageLoader };
             if (textureFolders != null) bank.SearchFolders.AddRange(textureFolders);
@@ -304,6 +309,97 @@ public static class PedForge
         }
         catch (Exception e) { rep.Errors.Add(e.Message); }
         return rep;
+    }
+
+    /// <summary>Per bone: the transform taking the donor's pose to the model's (identity for most bones), or null when the
+    /// arms already match (within 8 degrees) or the donor has no human arms.</summary>
+    static Matrix4x4[] MatchArms(Body body, List<Vector3> pts, ForgeReport rep)
+    {
+        var pose = Enumerable.Repeat(Matrix4x4.Identity, body.BoneCount).ToArray();
+        bool any = false;
+        foreach (var side in new[] { "L", "R" })
+        {
+            var upper = body.Bones.FirstOrDefault(b => b.Name == $"SKEL_{side}_UpperArm");
+            var hand = body.Bones.FirstOrDefault(b => b.Name == $"SKEL_{side}_Hand");
+            if (upper == null || hand == null) continue;
+            var sh = upper.Position;
+            var dDir = hand.Position - sh; float dLen = dDir.Length();
+            if (dLen < 1e-3f) continue;
+            dDir /= dLen;
+            float sx = MathF.Sign(sh.X); if (sx == 0) continue;
+            // the model's hand on that side: the farthest point beyond the shoulder, among points at least as far out
+            Vector3 best = default; float bd = 0;
+            foreach (var p in pts)
+            {
+                if ((p.X - sh.X) * sx <= 0.05f) continue;
+                float d = Vector3.Distance(p, sh);
+                if (d > bd && d < dLen * 2.2f) { bd = d; best = p; }
+            }
+            if (bd < dLen * 0.6f) continue;
+            var uDir = Vector3.Normalize(best - sh);
+            float ang = MathF.Acos(Math.Clamp(Vector3.Dot(dDir, uDir), -1, 1));
+            if (ang < 8 * MathF.PI / 180) continue;
+            var axis = Vector3.Cross(dDir, uDir);
+            if (axis.LengthSquared() < 1e-8f) continue;
+            var m = Matrix4x4.CreateTranslation(-sh) * Matrix4x4.CreateFromAxisAngle(Vector3.Normalize(axis), ang) * Matrix4x4.CreateTranslation(sh);
+            // the upper arm and every bone under it
+            for (int i = 0; i < body.BoneCount; i++)
+            {
+                int b = i, guard = 0;
+                while (b >= 0 && guard++ < 256) { if (b == upper.Index) { pose[i] = m; break; } b = body.Bones[b].Parent; }
+            }
+            any = true;
+            rep.Info.Add($"{side} arm: yours is {ang * 180 / MathF.PI:0} deg away from the donor's, brought to its pose automatically");
+        }
+        return any ? pose : null;
+    }
+
+    /// <summary>The donor's body points in the model's pose (linear blend of the bone transforms).</summary>
+    static Vector3[] PosePoints(Body body, Matrix4x4[] pose)
+    {
+        var res = new Vector3[body.Points.Count];
+        for (int i = 0; i < res.Length; i++)
+        {
+            Vector3 acc = Vector3.Zero; float ws = 0;
+            for (int k = 0; k < 4; k++)
+            {
+                int b = body.Idx[i * 4 + k]; float w = body.W[i * 4 + k];
+                if (b < 0 || w <= 0 || b >= pose.Length) continue;
+                acc += Vector3.Transform(body.Points[i], pose[b]) * w; ws += w;
+            }
+            res[i] = ws > 0 ? acc / ws : body.Points[i];
+        }
+        return res;
+    }
+
+    /// <summary>Brings the model from its pose back to the donor's: each vertex by the inverse of its bones' transforms.</summary>
+    static void Unpose(GtaModel model, Matrix4x4[] pose)
+    {
+        var inv = pose.Select(m => Matrix4x4.Invert(m, out var i) ? i : Matrix4x4.Identity).ToArray();
+        model.Min = new Vector3(float.MaxValue); model.Max = new Vector3(float.MinValue);
+        foreach (var part in model.Parts)
+            for (int v = 0; v < part.Verts.Count; v++)
+            {
+                var rv = part.Verts[v];
+                Vector3 p = Vector3.Zero, n = Vector3.Zero, t = Vector3.Zero; float ws = 0;
+                for (int k = 0; k < 4; k++)
+                {
+                    float w = part.Blend[v * 8 + k] / 255f; int b = part.Blend[v * 8 + 4 + k];
+                    if (w <= 0 || b >= inv.Length) continue;
+                    p += Vector3.Transform(rv.Position, inv[b]) * w;
+                    n += Vector3.TransformNormal(rv.Normal, inv[b]) * w;
+                    t += Vector3.TransformNormal(new Vector3(rv.Tangent.X, rv.Tangent.Y, rv.Tangent.Z), inv[b]) * w;
+                    ws += w;
+                }
+                if (ws > 0)
+                {
+                    rv.Position = p / ws;
+                    if (n.LengthSquared() > 1e-12f) rv.Normal = Vector3.Normalize(n);
+                    if (t.LengthSquared() > 1e-12f) { var tn = Vector3.Normalize(t); rv.Tangent = new Vector4(tn, rv.Tangent.W); }
+                    part.Verts[v] = rv;
+                }
+                model.Min = Vector3.Min(model.Min, rv.Position); model.Max = Vector3.Max(model.Max, rv.Position);
+            }
     }
 
     /// <summary>Weights source: every point of the donor's body with its bones (the export skeleton is the donor's, stripped later).</summary>
