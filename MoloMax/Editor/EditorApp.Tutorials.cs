@@ -196,6 +196,7 @@ public sealed partial class EditorApp
         T("TUTO 10 modeling on the map", TutMapBuild);
         T("TUTO 11 weapon forge", TutWeaponForge);
         T("TUTO 12 vehicle forge", TutVehicleForge);
+        T("TUTO 24 ped forge", TutPedForge);
         T("TUTO 13 demo: sculpt and paint", TutSculptPaintDemo);
         T("TUTO 14 animation: keys, play, texture, camera, GTA .ycd", TutAnimation);
         T("TUTO 15 modifiers: every modifier on a cube", TutModifiers);
@@ -4407,6 +4408,62 @@ room.Mesh.Faces.Count");
         foreach (var x in ClickAt(TutCentre("wf_make"), moveFrames: 35)) yield return x;
         yield return Frames(90);
         foreach (var x in Say("ensure the resource, /give_molo_rifle in game", null, 60)) yield return x;
+        foreach (var x in EndFilm()) yield return x;
+        Scene.Objects.RemoveAll(o => o.Folder == ForgeFolder); Maximized = false; propTab = PropTab.Object;
+    }
+
+    /// <summary>Film 24: the Ped Forge (a T-pose character from an .fbx becomes a ped on the hipster's skeleton; the deer as animal donor).</summary>
+    IEnumerable<object> TutPedForge()
+    {
+        Fresh();
+        foreach (var x in ForgeGame()) yield return x;
+        if (game == null) { Expect(false, "game files"); yield break; }
+        var fbx = Environment.GetEnvironmentVariable("POLYMORPH_PED_FBX");
+        if (string.IsNullOrEmpty(fbx) || !File.Exists(fbx)) { Expect(false, "POLYMORPH_PED_FBX not set"); yield break; }
+        Maximized = true; ShowPanel = true; propTab = PropTab.Ped; var vp = Viewports[ActiveViewport]; vp.Camera.Ortho = false; vp.Shading = ShadingMode.Realistic;
+        forgeOut = StPath("forge_film"); pedName = "molo_character"; forgeReport = null; pedBody = null;
+        // the animal donors first: the deer, then the man
+        pedDonor = 3; LoadPedDonor(); yield return Frames(5);
+        vp.Camera.Frame(new Vector3(-1.6f, -1.6f, -1.1f), new Vector3(1.6f, 1.6f, 1.2f));
+        foreach (var x in StartFilm("24_ped_forge", 6)) yield return x;
+        foreach (var x in Say("Ped Forge", "Any character or animal becomes a FiveM ped", 70)) yield return x;
+        foreach (var x in Say("Animals too", "Deer, boar, cow, dogs, cat, chimp... their skeleton, ragdoll and animations")) yield return x;
+        for (int i = 0; i < 90; i++) { vp.Camera.Orbit(2f, 0); yield return Frames(1); }
+        // your character: an .fbx in T-pose, beside the origin
+        pedDonor = 0; Scene.Objects.RemoveAll(o => o.Folder == ForgeFolder); pedBody = null;
+        var mine = ImportFile(fbx, new Vector3(1.9f, 0.6f, 0)); importReportOpen = false;
+        mine = mine.Where(o => o.Mesh.Faces.Count > 0).ToList();
+        foreach (var o in mine) o.Name = "my_character";
+        vp.Camera.Frame(new Vector3(-1.2f, -1.4f, -1.1f), new Vector3(3.2f, 2f, 1.1f)); yield return Frames(10);
+        foreach (var x in Say("Your character, from any app", ".fbx, .glb, .obj: T-pose or A-pose")) yield return x;
+        yield return Frames(30);
+        foreach (var x in Say("1. Pick a game ped as donor", "It comes in as an orange ghost with its bones")) yield return x;
+        foreach (var x in ClickAt(TutCentre("pf_donor"), moveFrames: 35)) yield return x;
+        yield return Frames(15);
+        vp.Camera.Frame(new Vector3(-1.2f, -1.4f, -1.1f), new Vector3(3.2f, 2f, 1.1f)); yield return Frames(40);
+        foreach (var x in Say("2. Select your character and Fit", "Same height, feet on the donor's feet")) yield return x;
+        SelectOnly(mine.ToArray()); yield return Frames(20);
+        foreach (var x in ClickAt(TutCentre("pf_fit"), moveFrames: 35)) yield return x;
+        yield return Frames(30);
+        foreach (var x in CamTo(vp, new Vector3(0, 0, 0), 3.6f, vp.Camera.Yaw + 0.4f, 0.15f, 50)) yield return x;
+        for (int i = 0; i < 80; i++) { vp.Camera.Orbit(1.5f, 0); yield return Frames(1); }
+        foreach (var x in Say("3. Make the ped", "Skinned automatically: T-pose arms brought to the game's pose")) yield return x;
+        foreach (var x in ClickAt(TutCentre("pf_make"), moveFrames: 35)) yield return x;
+        yield return Frames(40);
+        // the result read back beside the donor
+        var ydd = forgeReport?.Folder != null ? Path.Combine(forgeReport.Folder, "stream", "molo_character.ydd") : null;
+        if (ydd != null && File.Exists(ydd))
+        {
+            var copyDir = StPath("forge_film_readback"); Directory.CreateDirectory(copyDir);
+            var copy = Path.Combine(copyDir, "molo_character.ydd"); File.Copy(ydd, copy, true);
+            foreach (var o in mine) o.Hidden = true;
+            ImportFile(copy, new Vector3(1.2f, 0, 0)); importReportOpen = false; Selected.Clear(); SelectionChanged();
+            vp.Camera.Frame(new Vector3(-1.2f, -1.2f, -1.1f), new Vector3(2.4f, 1.2f, 1.1f)); yield return Frames(10);
+            foreach (var x in Say("Your ped, on the game's skeleton", ".ydd .ytd .ymt .yft, peds metadata, fxmanifest, /molo_character")) yield return x;
+            for (int i = 0; i < 90; i++) { vp.Camera.Orbit(1.2f, 0); yield return Frames(1); }
+        }
+        Expect(forgeReport != null && forgeReport.Ok, "film: ped made " + (forgeReport == null ? "" : string.Join(" | ", forgeReport.Errors)));
+        foreach (var x in Say("ensure the resource, /molo_character in game", null, 60)) yield return x;
         foreach (var x in EndFilm()) yield return x;
         Scene.Objects.RemoveAll(o => o.Folder == ForgeFolder); Maximized = false; propTab = PropTab.Object;
     }
