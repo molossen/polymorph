@@ -193,6 +193,7 @@ public sealed partial class EditorApp
             T("LIBRARY BUILD: texture library from my own GTA V (every interior)", () => LibraryBuildTest(gtaFolder));
             T("MAP modeling: build on the map, MLO rooms, edit a game model in place", () => MapBuildTest(gtaFolder));
             T("FORGE: weapon and vehicle from a model, game donors", () => ForgeTest(gtaFolder));
+            T("PED FORGE: a model becomes a ped (deer + man donors)", () => PedForgeTest(gtaFolder));
             if (ytyp != null && File.Exists(ytyp)) T("MLO import with its models taken from the game", () => MloReal(ytyp));
         }
         T("Molo Paint: two materials = two texture sets, tools tab", PaintStart);

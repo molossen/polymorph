@@ -360,6 +360,13 @@ $@"<ShaderGroup>
  </Shaders>
 </ShaderGroup>";
 
+    /// <summary>A .ymt read back as CodeWalker XML (checks).</summary>
+    public static string YmtXml(byte[] data)
+    {
+        var y = new Cw.YmtFile(); y.Load(data);
+        return Cw.MetaXml.GetXml(y, out _) ?? "";
+    }
+
     /// <summary>Variations: head (our body), upper and lower body (hidden stubs), one drawable and one texture each.</summary>
     static string Ymt()
     {

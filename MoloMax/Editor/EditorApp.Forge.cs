@@ -41,6 +41,7 @@ public sealed partial class EditorApp
     {
         weaponBones = null; weaponMuzzle = null; forgeReport = null;
         vehicleDonor = null; vehicleWheels = null; vehicleWheelBoxes = null;
+        pedBody = null;
     }
 
     bool ForgeNeedsGame()
@@ -277,6 +278,66 @@ public sealed partial class EditorApp
         SetStatus(forgeReport.Ok ? "Vehicle written to " + forgeReport.Folder : "Vehicle: " + string.Join(" | ", forgeReport.Errors));
     }
 
+    // ------------------------------------------------------------------------------------------ peds
+
+    int pedDonor = 3; // deer
+    string pedName = "molo_ped";
+    PedForge.Body pedBody;
+
+    void PedProps()
+    {
+        Ui.Header("Ped Forge");
+        Ui.TextWrapped("Turn any character or animal into a FiveM ped: it takes the skeleton, ragdoll and animations of a game ped, and is skinned on it automatically.");
+        if (ForgeNeedsGame()) return;
+        var labels = PedForge.Donors.Select(d => d.Label).ToArray();
+        ImGui.SetNextItemWidth(-90);
+        if (ImGui.Combo("Donor##ped", ref pedDonor, labels, labels.Length)) pedBody = null;
+        if (ImGui.Button("1. Show the donor##ped", new Vector2(-1, 0))) LoadPedDonor();
+        Theme.Tip("Brings the game ped in as an orange ghost at the origin (its body in the bind pose, with its main bones).");
+        var sel = ForgeSelection();
+        ImGui.BeginDisabled(pedBody == null || sel.Count == 0);
+        if (ImGui.Button("2. Fit my model on it##ped", new Vector2(-1, 0))) FitPed(sel);
+        ImGui.EndDisabled();
+        Theme.Tip("Same height as the donor, feet on its feet, centred. Then pose-match by hand: arms, legs and head over the donor's (the weights come from the nearest point of its body).");
+        ImGui.Separator();
+        ImGui.SetNextItemWidth(-90); ImGui.InputText("Name##ped", ref pedName, 32);
+        ImGui.BeginDisabled(sel.Count == 0);
+        if (ImGui.Button("3. Make the ped", new Vector2(-1, 30))) ExportPed(sel);
+        ImGui.EndDisabled();
+        Theme.Tip("Writes name.ydd (your model, skinned), .ytd (its texture), .ymt (variations), .yft (the donor's skeleton and ragdoll), peds.meta cloned from the donor, fxmanifest and a /name command to become the ped.");
+        ForgeOutputUi();
+        ForgeReportUi();
+    }
+
+    void LoadPedDonor()
+    {
+        var d = PedForge.Donors[pedDonor];
+        try { pedBody = PedForge.LoadDonor(game, d.Model); } catch (Exception e) { SetStatus(e.Message); pedBody = null; return; }
+        Scene.Objects.RemoveAll(o => o.Folder == ForgeFolder);
+        if (!Scene.Folders.Contains(ForgeFolder)) Scene.Folders.Add(ForgeFolder);
+        var g = Scene.Add(d.Model, PedForge.GhostMesh(pedBody), Vector3.Zero);
+        g.Folder = ForgeFolder; g.Frozen = true; g.Gta.Role = GtaRole.Ignore; g.WireColour = new Vector3(1f, 0.55f, 0.15f);
+        Selected.Clear(); SelectionChanged();
+        FrameAll();
+        SetStatus($"{d.Label}: {pedBody.BoneCount} bones, {pedBody.Points.Count:N0} body points. Select your model, then Fit.");
+    }
+
+    void FitPed(List<SceneObject> sel)
+    {
+        var pts = sel.SelectMany(o => o.Mesh.Verts.Select(v => Vector3.Transform(v, o.World))).ToList();
+        ApplyWorld(sel, PedForge.Fit(pts, pedBody), "Fit on the donor ped");
+        SetStatus("Fitted on " + pedBody.Model + ". Line up the arms and legs with the donor's.");
+    }
+
+    void ExportPed(List<SceneObject> sel)
+    {
+        BakeAllPaint();
+        var o = new PedForge.Options { Donor = PedForge.Donors[pedDonor], Name = pedName };
+        forgeReportTab = PropTab.Ped;
+        forgeReport = PedForge.Export(game, Scene, sel, o, ForgeOutputFolder(), LoadImageRgba, renderer.Textures.SearchFolders.ToList(), pedBody?.Model == o.Donor.Model ? pedBody : null);
+        SetStatus(forgeReport.Ok ? "Ped written to " + forgeReport.Folder : "Ped: " + string.Join(" | ", forgeReport.Errors));
+    }
+
     // ------------------------------------------------------------------------------------------ shared UI and viewport marks
 
     void ForgeOutputUi()
@@ -300,7 +361,7 @@ public sealed partial class EditorApp
     /// <summary>Bones of the weapon donor, the muzzle, the wheels found and the donor's wheels, drawn in the viewport.</summary>
     void ForgeOverlay(ImDrawListPtr dl, Viewport vp)
     {
-        if (propTab is not (PropTab.Weapon or PropTab.Vehicle) || MapMode) return;
+        if (propTab is not (PropTab.Weapon or PropTab.Vehicle or PropTab.Ped) || MapMode) return;
         bool Screen(Vector3 p, out Vector2 s)
         {
             bool ok = vp.Camera.Project(p, vp.W, vp.H, out var sc, out _);
@@ -317,6 +378,10 @@ public sealed partial class EditorApp
         {
             if (weaponBones != null) foreach (var b in weaponBones) Dot(b.Position, 0xFF40A0FF, b.Name);
             if (weaponMuzzle is { } mz) Dot(mz, 0xFF30E0FF, "muzzle (yours)");
+        }
+        else if (propTab == PropTab.Ped)
+        {
+            if (pedBody != null) foreach (var b in pedBody.Bones.Where(b => b.Name != null && (b.Name.Contains("Head") || b.Name.Contains("Hand") || b.Name.Contains("Foot") || b.Name.Contains("Pelvis")))) Dot(b.Position, 0xFF40A0FF, b.Name);
         }
         else
         {

@@ -14,7 +14,7 @@ namespace MoloMax.Editor;
 /// </summary>
 public sealed partial class EditorApp
 {
-    enum PropTab { Map, Tool, Scene, Object, Modifiers, Data, Material, Light, Paint, Gta, Weapon, Vehicle, Tripo, Addons }
+    enum PropTab { Map, Tool, Scene, Object, Modifiers, Data, Material, Light, Paint, Gta, Weapon, Vehicle, Ped, Tripo, Addons }
     PropTab propTab = PropTab.Object;
     SubObject propLastLevel = SubObject.Object; PropTab? propTabBeforeEdit;
     int materialSlot;
@@ -33,6 +33,7 @@ public sealed partial class EditorApp
         (PropTab.Gta, "GTA: object type, role, collision, animation", 0xFF40C8F0),
         (PropTab.Weapon, "Weapon Forge: any model becomes a GTA weapon (game weapon as donor)", 0xFF4080F0),
         (PropTab.Vehicle, "Vehicle Forge: any car model becomes a FiveM vehicle (game car as donor)", 0xFF40D0A0),
+        (PropTab.Ped, "Ped Forge: any character or animal becomes a FiveM ped (game ped as donor)", 0xFFD08060),
         (PropTab.Tripo, "Tripo: AI 3D models", 0xFFE070C0),
         (PropTab.Addons, "Add-ons: panels of your add-ons", 0xFFC0C0C0),
     };
@@ -56,7 +57,7 @@ public sealed partial class EditorApp
         foreach (var (tab, tip, col) in PropTabs)
         {
             if (tab == PropTab.Addons && !AnyAddonPanels) continue; // only when an add-on adds a panel
-            if (MapMode ? tab is PropTab.Weapon or PropTab.Vehicle || !MapEditable(Current) && tab is PropTab.Modifiers or PropTab.Data or PropTab.Paint or PropTab.Tripo or PropTab.Tool or PropTab.Material : tab == PropTab.Map) continue;
+            if (MapMode ? tab is PropTab.Weapon or PropTab.Vehicle or PropTab.Ped || !MapEditable(Current) && tab is PropTab.Modifiers or PropTab.Data or PropTab.Paint or PropTab.Tripo or PropTab.Tool or PropTab.Material : tab == PropTab.Map) continue;
             if (tab == PropTab.Object || tab == PropTab.Gta) ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 6); // groups, like Blender
             var p = ImGui.GetCursorScreenPos() + new Vector2(3, 0);
             ImGui.SetCursorScreenPos(p);
@@ -99,6 +100,7 @@ public sealed partial class EditorApp
             case PropTab.Gta: HubObject(); break;
             case PropTab.Weapon: WeaponProps(); break;
             case PropTab.Vehicle: VehicleProps(); break;
+            case PropTab.Ped: PedProps(); break;
             case PropTab.Tripo: HubTripo(); break;
             case PropTab.Addons: AddonProps(); break;
         }
@@ -121,6 +123,12 @@ public sealed partial class EditorApp
                 dl.AddRectFilled(c + new Vector2(-8, -1), c + new Vector2(8, 3), col, 2);
                 dl.AddRectFilled(c + new Vector2(-4, -5), c + new Vector2(4, -1), col, 2);
                 dl.AddCircleFilled(c + new Vector2(-4.5f, 4), 2.3f, col); dl.AddCircleFilled(c + new Vector2(4.5f, 4), 2.3f, col);
+                break;
+            case PropTab.Ped: // person
+                dl.AddCircleFilled(c + new Vector2(0, -5), 2.8f, col, 12);
+                dl.AddRectFilled(c + new Vector2(-3.5f, -1.5f), c + new Vector2(3.5f, 4), col, 1.5f);
+                dl.AddRectFilled(c + new Vector2(-3, 4), c + new Vector2(-0.7f, 8), col);
+                dl.AddRectFilled(c + new Vector2(0.7f, 4), c + new Vector2(3, 8), col);
                 break;
             case PropTab.Map: // globe
                 dl.AddCircle(c, 7, col, 16, 1.6f);

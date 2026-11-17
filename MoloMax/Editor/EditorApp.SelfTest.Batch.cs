@@ -747,6 +747,49 @@ public sealed partial class EditorApp
         propTab = PropTab.Object;
     }
 
+    IEnumerable<object> PedForgeTest(string gtaFolder)
+    {
+        Fresh();
+        if (game == null) { Settings.GtaFolder = gtaFolder; if (gameTask == null || gameTask.IsCompleted) StartGameLoad(gtaFolder); }
+        yield return Until(() => game != null || gameError != null, 400);
+        if (game == null) { Expect(false, "game files " + gameError); yield break; }
+        var outDir = StPath("pedforge_out"); if (Directory.Exists(outDir)) Directory.Delete(outDir, true); forgeOut = outDir;
+        foreach (var (donorIndex, nm) in new[] { (3, "molo_testdeer"), (0, "molo_testman") })
+        {
+            Fresh();
+            propTab = PropTab.Ped; ShowPanel = true; pedDonor = donorIndex; pedName = nm;
+            LoadPedDonor();
+            var d = Core.Gta.Forge.PedForge.Donors[donorIndex];
+            Expect(pedBody != null && pedBody.BoneCount > 10 && pedBody.Points.Count > 100 && pedBody.Idx.Count == pedBody.Points.Count * 4,
+                $"donor {d.Model}: {pedBody?.BoneCount} bones, {pedBody?.Points.Count} body points with weights, size {(pedBody == null ? 0 : (pedBody.Max - pedBody.Min).Length()):0.00} m");
+            if (pedBody == null) continue;
+            // a stand-in character: a box twice the donor's size somewhere else, fitted back on it
+            var body = Scene.Add("my_char", Core.Mesh.Primitives.Box(0.6f, 0.4f, 3.6f), new Vector3(5, 3, 2)); body.Name = "my_char";
+            SelectOnly(body);
+            FitPed(ForgeSelection());
+            var w = Bounds(body.Mesh.Verts.Select(v => Vector3.Transform(v, body.World)));
+            Expect(MathF.Abs(w.Min.Z - pedBody.Min.Z) < 0.01f && MathF.Abs((w.Max.Z - w.Min.Z) - (pedBody.Max.Z - pedBody.Min.Z)) < 0.01f, $"fitted on the donor: feet {w.Min.Z:0.000} vs {pedBody.Min.Z:0.000}, height {w.Max.Z - w.Min.Z:0.000}");
+            yield return Frames(4);
+            yield return Shot("pedforge_" + nm);
+            ExportPed(ForgeSelection());
+            var dir = forgeReport?.Folder;
+            string F(string f) => dir == null ? "" : Path.Combine(dir, f);
+            bool ok = forgeReport != null && forgeReport.Ok && new[] { $"stream/{nm}.ydd", $"stream/{nm}.ytd", $"stream/{nm}.ymt", $"stream/{nm}.yft", "peds.meta", "fxmanifest.lua", "client.lua" }.All(f => File.Exists(F(f)));
+            int drawables = 0, skinned = 0;
+            if (ok)
+            {
+                var ydd = new CodeWalker.GameFiles.YddFile(); ydd.Load(File.ReadAllBytes(F($"stream/{nm}.ydd")));
+                drawables = ydd.DrawableDict?.Drawables?.data_items?.Length ?? 0;
+                skinned = ydd.DrawableDict?.Drawables?.data_items?.Count(x => x.DrawableModels?.High?.Any(m => m.HasSkin > 0) == true) ?? 0;
+            }
+            var ymtXml = ok ? Core.Gta.Forge.PedForge.YmtXml(File.ReadAllBytes(F($"stream/{nm}.ymt"))) : "";
+            Expect(ok && drawables == 3 && skinned == 3 && ymtXml.Contains("CPedVariationInfo") && File.ReadAllText(F("peds.meta")).Contains(nm) && File.ReadAllText(F("fxmanifest.lua")).Contains("PED_METADATA_FILE"),
+                $"ped {nm} written: ydd {drawables} skinned drawables ({skinned}), ytd, ymt {(ymtXml.Contains("CPedVariationInfo") ? "reads back" : "BAD")}, yft, peds.meta, fxmanifest" + (forgeReport != null ? " " + string.Join(" | ", forgeReport.Errors.Concat(forgeReport.Warnings)) : ""));
+        }
+        Scene.Objects.RemoveAll(o => o.Folder == ForgeFolder);
+        propTab = PropTab.Object;
+    }
+
     /// <summary>Modeling right on the map: a box made and edited in MAP mode (undo included), MLO rooms built on the ground,
     /// a game model opened in place, and all of it written with the map resource.</summary>
     IEnumerable<object> MapBuildTest(string gtaFolder)
