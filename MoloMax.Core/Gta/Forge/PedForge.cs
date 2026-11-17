@@ -360,6 +360,14 @@ $@"<ShaderGroup>
  </Shaders>
 </ShaderGroup>";
 
+    /// <summary>Drawables in a .ydd and how many are skinned (checks).</summary>
+    public static (int Drawables, int Skinned) YddInfo(byte[] data)
+    {
+        var y = new Cw.YddFile(); y.Load(data);
+        var items = y.DrawableDict?.Drawables?.data_items ?? Array.Empty<Cw.Drawable>();
+        return (items.Length, items.Count(x => x.DrawableModels?.High?.Any(m => m.HasSkin > 0) == true));
+    }
+
     /// <summary>A .ymt read back as CodeWalker XML (checks).</summary>
     public static string YmtXml(byte[] data)
     {

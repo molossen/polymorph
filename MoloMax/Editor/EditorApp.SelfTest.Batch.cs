@@ -778,9 +778,7 @@ public sealed partial class EditorApp
             int drawables = 0, skinned = 0;
             if (ok)
             {
-                var ydd = new CodeWalker.GameFiles.YddFile(); ydd.Load(File.ReadAllBytes(F($"stream/{nm}.ydd")));
-                drawables = ydd.DrawableDict?.Drawables?.data_items?.Length ?? 0;
-                skinned = ydd.DrawableDict?.Drawables?.data_items?.Count(x => x.DrawableModels?.High?.Any(m => m.HasSkin > 0) == true) ?? 0;
+                (drawables, skinned) = Core.Gta.Forge.PedForge.YddInfo(File.ReadAllBytes(F($"stream/{nm}.ydd")));
             }
             var ymtXml = ok ? Core.Gta.Forge.PedForge.YmtXml(File.ReadAllBytes(F($"stream/{nm}.ymt"))) : "";
             Expect(ok && drawables == 3 && skinned == 3 && ymtXml.Contains("CPedVariationInfo") && File.ReadAllText(F("peds.meta")).Contains(nm) && File.ReadAllText(F("fxmanifest.lua")).Contains("PED_METADATA_FILE"),
