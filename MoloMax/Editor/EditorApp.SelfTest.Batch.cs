@@ -784,6 +784,22 @@ public sealed partial class EditorApp
             Expect(ok && drawables == 3 && skinned == 3 && ymtXml.Contains("CPedVariationInfo") && (File.Exists(F("peds.meta")) ? File.ReadAllText(F("peds.meta")) : File.ReadAllText(F("peds_readable.xml"))) is var pm && pm.Contains(nm) && pm.Contains("<Pedtype>") && !(File.Exists(F("peds.meta")) && pm.Contains(">hash_")) && File.ReadAllText(F("fxmanifest.lua")).Contains("PED_METADATA_FILE"),
                 $"ped {nm} written: ydd {drawables} skinned drawables ({skinned}), ytd, ymt {(ymtXml.Contains("CPedVariationInfo") ? "reads back" : "BAD")}, yft, peds.meta, fxmanifest" + (forgeReport != null ? " " + string.Join(" | ", forgeReport.Errors.Concat(forgeReport.Warnings)) : ""));
         }
+        // a real character from an .fbx when one is given (POLYMORPH_PED_FBX): the man donor, ready for the game
+        var fbx = Environment.GetEnvironmentVariable("POLYMORPH_PED_FBX");
+        if (!string.IsNullOrEmpty(fbx) && File.Exists(fbx))
+        {
+            Fresh();
+            propTab = PropTab.Ped; pedDonor = 0; pedName = "molo_pedtest";
+            LoadPedDonor();
+            var objs = ImportFile(fbx, Vector3.Zero);
+            importReportOpen = false;
+            SelectOnly(objs.Where(o => o.Mesh.Faces.Count > 0).ToArray());
+            FitPed(ForgeSelection());
+            yield return Frames(4);
+            yield return Shot("pedforge_fbx");
+            ExportPed(ForgeSelection());
+            Expect(forgeReport != null && forgeReport.Ok, $"{Path.GetFileName(fbx)} made into ped molo_pedtest: " + (forgeReport == null ? "" : string.Join(" | ", forgeReport.Errors.Concat(forgeReport.Warnings).Concat(forgeReport.Info))));
+        }
         Scene.Objects.RemoveAll(o => o.Folder == ForgeFolder);
         propTab = PropTab.Object;
     }
