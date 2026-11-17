@@ -1,7 +1,7 @@
 {
-  "version": "1.7.8",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.8.exe",
-  "size": 70606733,
-  "sha256": "5d0b142aad3a0220979f961049042d428cad9668b34933b6d6b983d15eae53d0",
-  "notes": "- Fix: with several objects selected, the X / Y / Z fields at the bottom now move, turn or scale all of them together\n- Fix: the viewport's [+] menu can be clicked again\n- New in 1.7.7: Scan button (Marble / splat scan to block-out by AI). Video: https://youtu.be/TzMZ-xQp2jI\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "1.7.9",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.9.exe",
+  "size": 70593658,
+  "sha256": "e0b9e44602ae9965323bfba1c040a9471cdfe55a5bbfcc8a366cc354289d4822",
+  "notes": "- FBX import (.fbx, binary and ASCII): meshes, UVs, vertex colours, materials and textures (embedded too), hierarchy and pivots. File > Import, drag and drop, Asset Browser\n- No more 60,000 vertex warning: big models are cut into 65k pieces automatically at export, any size goes to GTA\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
