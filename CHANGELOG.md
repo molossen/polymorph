@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.8.0](#180) | Ped Forge: any character or animal becomes a FiveM ped |
 | [1.7.9](#179) | FBX import, no more 60k vertex warning |
 | [1.7.8](#178) | Multi-selection X / Y / Z fields, viewport [+] menu |
 | [1.7.7](#177) | Scan button in the toolbar, demo video |
@@ -36,6 +37,15 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 1.8.0
+- **Ped Forge** (new tab, next to Weapon and Vehicle): any character or animal becomes a FiveM add-on ped.
+  1. *Show the donor*: a game ped (man, woman, deer, boar, cow, dog, cat, chimp...) comes in as an orange ghost.
+  2. *Fit my model on it*: same height, feet on its feet.
+  3. *Make the ped*: your model is skinned automatically on the donor's skeleton (weights taken from its body); arms held
+     differently (T-pose on an A-pose ped) are brought to the donor's pose by themselves. Writes a ready resource:
+     .ydd, .ytd, .ymt, .yft (donor's skeleton, ragdoll and animations), peds metadata, fxmanifest and a `/name` command.
+  Checked in FiveM: a T-pose .fbx character walks and idles with the game's animations.
 
 ## 1.7.9
 - **FBX import** (binary and ASCII, FBX 2010 and newer): meshes with their polygons, UVs, vertex colours, materials and
