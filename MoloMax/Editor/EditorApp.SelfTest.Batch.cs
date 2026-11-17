@@ -789,7 +789,7 @@ public sealed partial class EditorApp
         if (!string.IsNullOrEmpty(fbx) && File.Exists(fbx))
         {
             Fresh();
-            propTab = PropTab.Ped; pedDonor = 0; pedName = "molo_pedtest";
+            propTab = PropTab.Ped; pedDonor = 0; pedName = "molo_pedfbx";
             LoadPedDonor();
             var objs = ImportFile(fbx, Vector3.Zero);
             importReportOpen = false;
@@ -798,19 +798,19 @@ public sealed partial class EditorApp
             yield return Frames(4);
             yield return Shot("pedforge_fbx");
             ExportPed(ForgeSelection());
-            var yddOut = forgeReport?.Folder != null ? Path.Combine(forgeReport.Folder, "stream", "molo_pedtest.ydd") : null;
+            var yddOut = forgeReport?.Folder != null ? Path.Combine(forgeReport.Folder, "stream", "molo_pedfbx.ydd") : null;
             if (yddOut != null && File.Exists(yddOut))
             {
                 Scene.Objects.RemoveAll(o => o.Folder != ForgeFolder);
                 // read back from a copy (an import writes the textures next to the file: not in the resource)
                 var copyDir = StPath("pedforge_readback"); Directory.CreateDirectory(copyDir);
-                var copy = Path.Combine(copyDir, "molo_pedtest.ydd"); File.Copy(yddOut, copy, true);
+                var copy = Path.Combine(copyDir, "molo_pedfbx.ydd"); File.Copy(yddOut, copy, true);
                 ImportFile(copy, new Vector3(1.2f, 0, 0)); importReportOpen = false;
                 FrameAll();
                 yield return Frames(4);
                 yield return Shot("pedforge_fbx_result");
             }
-            Expect(forgeReport != null && forgeReport.Ok, $"{Path.GetFileName(fbx)} made into ped molo_pedtest: " + (forgeReport == null ? "" : string.Join(" | ", forgeReport.Errors.Concat(forgeReport.Warnings).Concat(forgeReport.Info))));
+            Expect(forgeReport != null && forgeReport.Ok, $"{Path.GetFileName(fbx)} made into ped molo_pedfbx: " + (forgeReport == null ? "" : string.Join(" | ", forgeReport.Errors.Concat(forgeReport.Warnings).Concat(forgeReport.Info))));
         }
         Scene.Objects.RemoveAll(o => o.Folder == ForgeFolder);
         propTab = PropTab.Object;
