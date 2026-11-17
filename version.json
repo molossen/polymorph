@@ -1,7 +1,7 @@
 {
-  "version": "1.7.9",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.7.9.exe",
-  "size": 70593658,
-  "sha256": "e0b9e44602ae9965323bfba1c040a9471cdfe55a5bbfcc8a366cc354289d4822",
-  "notes": "- FBX import (.fbx, binary and ASCII): meshes, UVs, vertex colours, materials and textures (embedded too), hierarchy and pivots. File > Import, drag and drop, Asset Browser\n- No more 60,000 vertex warning: big models are cut into 65k pieces automatically at export, any size goes to GTA\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "1.8.0",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.0.exe",
+  "size": 70602008,
+  "sha256": "31f84d15c49bb1022b7b1369812c2223a8067a9861dea22dc49d38ceeddc6053",
+  "notes": "- NEW: Ped Forge (tab next to Weapon and Vehicle): any character or animal becomes a FiveM add-on ped. Pick a game ped (man, woman, deer, dog, cat...), fit your model on it, Make the ped: skinned automatically, T-pose arms handled, ready resource with a /name command\n- 1.7.9: FBX import, no more 60,000 vertex warning\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
