@@ -6,7 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
-| [1.8.1](#181) | Asset Browser docks at the bottom |
+| [1.8.1](#181) | Asset Browser docks at the bottom, undo in MAP mode |
 | [1.8.0](#180) | Ped Forge: any character or animal becomes a FiveM ped |
 | [1.7.9](#179) | FBX import, no more 60k vertex warning |
 | [1.7.8](#178) | Multi-selection X / Y / Z fields, viewport [+] menu |
@@ -43,6 +43,8 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 - **Asset Browser: Dock at the bottom.** A button in the browser attaches it along the bottom of the views (above the
   timeline), full width between the side panels; drag its top edge to make it taller or shorter. *Float* makes it a free
   window again. Remembered between sessions.
+- **MAP mode undo:** after deleting faces (or any edit) on what you model on the map or on a game model opened in place,
+  Ctrl+Z brings the mesh back and the view redraws it at once. Checked with the real keys (Delete, Ctrl+Z, redo).
 
 ## 1.8.0
 - **Ped Forge** (new tab, next to Weapon and Vehicle): any character or animal becomes a FiveM add-on ped.
