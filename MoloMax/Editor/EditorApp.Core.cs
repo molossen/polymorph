@@ -103,7 +103,7 @@ public sealed partial class EditorApp : IDisposable
 
     void UpdateTitle()
     {
-        var name = CurrentFile != null ? Path.GetFileName(CurrentFile) : "Untitled";
+        var name = MapMode ? (MapWorkFile != null ? Path.GetFileName(MapWorkFile) + " (MAP)" : "MAP") : CurrentFile != null ? Path.GetFileName(CurrentFile) : "Untitled";
         form.Text = $"{name}{(Dirty ? " *" : "")} - Polymorph";
     }
 

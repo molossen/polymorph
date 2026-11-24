@@ -31,6 +31,7 @@ public sealed partial class EditorApp
 
     public void OpenFile(string path)
     {
+        if (MapMode) { OpenMapWork(path); return; }
         try
         {
             Scene = SceneIO.Load(path);
@@ -54,7 +55,7 @@ public sealed partial class EditorApp
 
     public bool Save(bool saveAs)
     {
-        if (MapMode) { SaveMaps(); return true; }
+        if (MapMode) return SaveMapWork(saveAs);
         var path = CurrentFile;
         if (saveAs || path == null)
         {

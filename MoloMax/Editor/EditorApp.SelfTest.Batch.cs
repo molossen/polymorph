@@ -947,6 +947,26 @@ public sealed partial class EditorApp
                 Expect(ey.Entities.Count > 0 && ey.Entities.All(e => Vector2.Distance(new Vector2(e.Position.X, e.Position.Y), new Vector2(legion.X, legion.Y)) < 150),
                     $"the build is placed on the map where it was made ({ey.Entities.Count} exterior entities around Legion Square: {string.Join(", ", ey.Entities.Take(4).Select(e => $"{e.Archetype} at {e.Position.X:0}, {e.Position.Y:0}, {e.Position.Z:0}"))})");
             }
+            // 5. File > Save / Open in MAP mode: what is modeled on the map goes into a .mmx and comes back onto the map
+            {
+                var mmx = StPath("map_work.mmx"); if (File.Exists(mmx)) File.Delete(mmx);
+                var built = Scene.Objects.Where(MapEditable).ToList();
+                int faces0 = built.Sum(o => o.Mesh.Faces.Count);
+                var boxPos = Scene.Find(box.Id).Position;
+                bool ok = SaveMapWork(false, mmx, StPath("map_work_res"));
+                var loaded = File.Exists(mmx) ? SceneIO.Load(mmx) : null;
+                Expect(ok && loaded != null && loaded.Objects.Count == built.Count && loaded.Objects.Sum(o => o.Mesh.Faces.Count) == faces0 && !loaded.Objects.Any(o => o.Gta.MapArchetype != null),
+                    $"MAP mode Save writes what is modeled on the map to a .mmx ({loaded?.Objects.Count} of {built.Count} objects, {loaded?.Objects.Sum(o => o.Mesh.Faces.Count)} of {faces0} faces, no game entity) and the title says {form.Text}");
+                // gone from the map, then File > Open puts it back
+                Do("clear build", () => Scene.Objects.RemoveAll(o => built.Any(b => b.Id == o.Id)));
+                yield return Frames(3);
+                OpenFile(mmx); yield return Frames(5);
+                var again = Scene.Objects.Where(MapEditable).ToList();
+                var box2 = again.FirstOrDefault(o => Vector3.Distance(o.Position, boxPos) < 0.01f);
+                Expect(MapMode && again.Count == built.Count && again.Sum(o => o.Mesh.Faces.Count) == faces0 && box2 != null && entOf.Count > 0,
+                    $"MAP mode Open puts the .mmx back on the map, same place, editable ({again.Count} objects, {again.Sum(o => o.Mesh.Faces.Count)} faces), the map stays loaded ({entOf.Count} game entities)");
+                if (box2 != null) { SelectOnly(box2); SetLevel(SubObject.Polygon); yield return Frames(2); Expect(Level == SubObject.Polygon, "the reopened box can be edited"); SetLevel(SubObject.Object); }
+            }
         }
         SetMapMode(false);
     }

@@ -1,3 +1,4 @@
+using System.Windows.Forms;
 using System.Numerics;
 using ImGuiNET;
 using MoloMax.Core.Gta;
@@ -64,6 +65,112 @@ public sealed partial class EditorApp
         });
         SetStatus($"{o.Name}: your own copy of this game model, edit it freely. Saved as a new model with the map (the game's collision of the original stays in its .ybn).");
         return true;
+    }
+
+    /// <summary>The .mmx that holds what is modeled on the map (MAP mode has its own file: the model scene keeps CurrentFile).</summary>
+    public string MapWorkFile;
+
+    /// <summary>
+    /// File > Save in MAP mode: what you modeled on the map goes into a .mmx (asked the first time, and on Save As), and the
+    /// map resource (.ymap, new models) is written as before. Returns false when the file window was cancelled or saving failed.
+    /// </summary>
+    public bool SaveMapWork(bool saveAs, string pathOverride = null, string mapDir = null)
+    {
+        var path = pathOverride ?? MapWorkFile;
+        // nothing modeled on the map yet: Save only writes the map resource, no file window
+        if (pathOverride == null && !saveAs && path == null && !Scene.Objects.Any(MapEditable)) { SaveMaps(mapDir); Dirty = false; return true; }
+        if (pathOverride == null && (saveAs || path == null))
+        {
+            var start = path ?? (CurrentFile != null && CurrentFile.EndsWith(".mmx", StringComparison.OrdinalIgnoreCase) ? CurrentFile : null);
+            using var d = new SaveFileDialog { Filter = SceneFilter, Title = "Save what you modeled on the map", FileName = start != null ? Path.GetFileName(start) : "my_map.mmx" };
+            if (start != null && Directory.Exists(Path.GetDirectoryName(start))) d.InitialDirectory = Path.GetDirectoryName(start);
+            if (ShowFileDialog(d) != DialogResult.OK) { Input.ReleaseAllKeys(); SetStatus("Save cancelled"); return false; }
+            path = d.FileName; Input.ReleaseAllKeys();
+        }
+        int objs;
+        try
+        {
+            BakeAllPaint();
+            var work = MapWorkScene();
+            objs = work.Objects.Count;
+            BackupBeforeSave(path);
+            SceneIO.Save(work, path);
+            MapWorkFile = path; AddRecent(path);
+        }
+        catch (Exception e)
+        {
+            if (inApi) throw;
+            MessageBox.Show(form, "Could not save:\n" + e.Message, "Polymorph", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+        int n = 0; string mapMsg;
+        try { n = SaveMaps(mapDir); mapMsg = status; } catch (Exception e) { mapMsg = "map resource not written: " + e.Message; }
+        Dirty = false;
+        SetStatus($"Saved {Path.GetFileName(path)} ({objs} objects modeled on the map)" + (n > 0 ? " · " + mapMsg : ""));
+        return true;
+    }
+
+    /// <summary>A scene of its own with the objects modeled on the map (world positions kept) and only the materials they use.</summary>
+    Scene MapWorkScene()
+    {
+        var objs = Scene.Objects.Where(MapEditable).ToList();
+        var sc = new Scene(); sc.Materials.Clear(); sc.Folders.Clear();
+        var used = new HashSet<int>(objs.SelectMany(o => o.Mesh.Faces.Select(f => f.MatId)));
+        sc.Materials.AddRange(Scene.Materials.Where(m => used.Contains(m.Id) || m.Id == 0));
+        if (sc.Materials.Count == 0) sc.Materials.Add(Scene.Material(0));
+        sc.NextMaterialId = Scene.NextMaterialId;
+        var keep = objs.Select(o => o.Id).ToHashSet();
+        foreach (var o in objs)
+        {
+            var c = o.Clone();
+            if (c.ParentId >= 0 && !keep.Contains(c.ParentId)) c.ParentId = -1;
+            sc.Objects.Add(c);
+            if (!string.IsNullOrEmpty(c.Folder) && !sc.Folders.Contains(c.Folder)) sc.Folders.Add(c.Folder);
+        }
+        sc.NextObjectId = Scene.NextObjectId;
+        sc.Plan = Scene.Plan;
+        sc.Gta = (modelScene?.Gta ?? new GtaProjectSettings()).Clone();
+        return sc;
+    }
+
+    /// <summary>File > Open in MAP mode: the objects of a .mmx come onto the map where they were saved (one undo step), editable.</summary>
+    public void OpenMapWork(string path)
+    {
+        Scene src;
+        try { src = SceneIO.Load(path); }
+        catch (Exception e) { if (inApi) throw; MessageBox.Show(form, "Could not open the scene:\n" + e.Message, "Polymorph", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+        int added = 0;
+        Do("Open " + Path.GetFileName(path), () =>
+        {
+            var matMap = new Dictionary<int, int>();
+            foreach (var m in src.Materials)
+            {
+                var same = Scene.Materials.FirstOrDefault(x => x.Name == m.Name && x.Shader == m.Shader && x.DiffuseTexture == m.DiffuseTexture);
+                if (same != null) { matMap[m.Id] = same.Id; continue; }
+                var c = m.Clone(); c.Id = Scene.NextMaterialId++; Scene.Materials.Add(c); matMap[m.Id] = c.Id;
+            }
+            var idMap = new Dictionary<int, int>();
+            foreach (var o in src.Objects) idMap[o.Id] = Scene.NextObjectId++;
+            Selected.Clear();
+            foreach (var o in src.Objects)
+            {
+                var c = o.Clone(); c.Id = idMap[o.Id];
+                c.ParentId = o.ParentId >= 0 && idMap.TryGetValue(o.ParentId, out var pid) ? pid : -1;
+                foreach (var f in c.Mesh.Faces) f.MatId = matMap.TryGetValue(f.MatId, out var mid) ? mid : 0;
+                c.Gta.MapArchetype = null; c.InstanceKey = null;
+                if (string.IsNullOrEmpty(c.Folder)) c.Folder = MapBuildFolder;
+                if (!Scene.Folders.Contains(c.Folder)) Scene.Folders.Add(c.Folder);
+                c.Name = Scene.UniqueName(c.Name);
+                c.Touch();
+                Scene.Objects.Add(c); Selected.Add(c.Id); added++;
+            }
+            if (src.Objects.Count > 0) ActiveId = idMap[src.Objects[0].Id];
+        });
+        MapWorkFile = path; AddRecent(path);
+        renderer.Textures.SearchFolders.Add(Path.GetDirectoryName(Path.GetFullPath(path)));
+        renderer.Textures.ClearResolveCache();
+        Dirty = false;
+        SetStatus($"{Path.GetFileName(path)}: {added} objects put back on the map, editable (Ctrl+S saves them there again)");
     }
 
     /// <summary>New object in MAP mode: in the build folder.</summary>

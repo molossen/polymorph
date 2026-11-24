@@ -151,6 +151,11 @@ public sealed partial class EditorApp
         A.Add("scene.open", "Open a .mmx scene.", new[] { new P("path", "string", "file path", true) }, p => { OpenFile(Str(p, "path")); return new { file = CurrentFile, objects = Scene.Objects.Count }; });
         A.Add("scene.save", "Save the scene (to path, or to the current file).", new[] { new P("path", "string", "file path (.mmx)") }, p =>
         {
+            if (MapMode)
+            {
+                var mp = Str(p, "path") ?? MapWorkFile ?? throw new InvalidOperationException("MAP mode: nothing saved yet, give 'path' (.mmx of what is modeled on the map).");
+                SaveMapWork(false, mp); return new { file = mp, map = true };
+            }
             var path = Str(p, "path") ?? CurrentFile ?? throw new InvalidOperationException("The scene has no file yet: give 'path'.");
             BakeAllPaint(); SceneIO.Save(Scene, path); CurrentFile = path; Dirty = false; AddRecent(path);
             return new { file = path };
