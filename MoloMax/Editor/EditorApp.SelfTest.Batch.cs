@@ -770,47 +770,56 @@ public sealed partial class EditorApp
         Fresh();
         if (!imgui.ViewportsOn) { Expect(false, "panels outside the window are switched off (setting or POLYMORPH_NO_VIEWPORTS)"); yield break; }
         bool was = Settings.AssetsDocked; Settings.AssetsDocked = false;
-        OpenAssetBrowser(); yield return Frames(10);
+        // a smaller main window, so there is desktop beside it to drag the panel onto
+        var ws0 = form.WindowState; var b0 = form.Bounds;
+        var scr = System.Windows.Forms.Screen.FromControl(form).WorkingArea;
+        form.WindowState = System.Windows.Forms.FormWindowState.Normal;
+        form.Bounds = new System.Drawing.Rectangle(scr.X + 20, scr.Y + 20, (int)(scr.Width * 0.55f), (int)(scr.Height * 0.8f));
+        yield return Frames(15);
+        OpenAssetBrowser(); assetPlace = (new Vector2(explorerW + 60, 160), new Vector2(720, 420)); yield return Frames(10);
         UI.ImGuiBackend.SyntheticInput = true;
+        var mainScreen = form.PointToScreen(System.Drawing.Point.Empty);
         // grab the browser by its title bar and drag it out of the main window, to the right, like a user
         var grab = assetWinPos + new Vector2(120, 10);
-        var outside = new Vector2(gpu.Width + 260, grab.Y + 40);
+        var outside = new Vector2(gpu.Width + 120 + (grab.X - assetWinPos.X), grab.Y + 40);
         PostMouse(0x200, grab, 0); yield return Frames(2);
         PostMouse(0x201, grab, 1); yield return Frames(2);
-        for (int i = 1; i <= 12; i++) { PostMouse(0x200, Vector2.Lerp(grab, outside, i / 12f), 1); yield return Frames(2); }
+        for (int i = 1; i <= 15; i++) { PostMouse(0x200, Vector2.Lerp(grab, outside, i / 15f), 1); yield return Frames(2); }
         yield return Frames(6);
         var rects = imgui.OutsideWindowRects.ToList();
-        var mainScreen = form.PointToScreen(System.Drawing.Point.Empty);
-        bool outOfMain = rects.Any(r => r.Screen.Right > mainScreen.X + gpu.Width + 100);
+        var mainRect = new System.Drawing.Rectangle(mainScreen.X, mainScreen.Y, gpu.Width, gpu.Height);
+        bool outOfMain = rects.Any(r => r.Screen.Width > 600 && !r.Screen.IntersectsWith(mainRect));
         Expect(imgui.OutsideWindows >= 1 && outOfMain && assetWinPos.X > gpu.Width,
             $"dragged out of the main window, the Asset Browser is a window of its own on the desktop ({imgui.OutsideWindows} outside: {string.Join(", ", rects.Select(r => $"{r.Screen.X},{r.Screen.Y} {r.Screen.Width}x{r.Screen.Height}"))}; main at {mainScreen.X},{mainScreen.Y} {gpu.Width}x{gpu.Height}; browser at {assetWinPos.X:0},{assetWinPos.Y:0})");
-        // a picture of the desktop where it went (only the main window is in the usual screenshots)
-        if (rects.Count > 0)
-        {
-            try
-            {
-                var r = rects.OrderByDescending(x => x.Screen.Width * x.Screen.Height).First().Screen;
-                using var bmp = new System.Drawing.Bitmap(Math.Max(1, r.Width), Math.Max(1, r.Height));
-                using (var g = System.Drawing.Graphics.FromImage(bmp)) g.CopyFromScreen(r.Location, System.Drawing.Point.Empty, r.Size);
-                bmp.Save(StPath("panel_outside.png"), System.Drawing.Imaging.ImageFormat.Png);
-                Note("desktop capture panel_outside.png");
-            }
-            catch (Exception e) { Note("desktop capture failed: " + e.Message); }
-        }
-        yield return Shot("panel_outside_main");
-        PostMouse(0x202, outside, 0); yield return Frames(6);
+        PostMouse(0x202, outside, 0); yield return Frames(8);
         Expect(imgui.OutsideWindows >= 1 && assetWinPos.X > gpu.Width, $"let go out there, it stays out ({imgui.OutsideWindows} outside, browser at {assetWinPos.X:0})");
+        // a picture of the desktop: the main window and the panel beside it (only the main window is in the usual screenshots)
+        try
+        {
+            var all = mainRect; foreach (var r in imgui.OutsideWindowRects) all = System.Drawing.Rectangle.Union(all, r.Screen);
+            all.Inflate(10, 10);
+            using var bmp = new System.Drawing.Bitmap(all.Width, all.Height);
+            using (var g = System.Drawing.Graphics.FromImage(bmp)) g.CopyFromScreen(all.Location, System.Drawing.Point.Empty, all.Size);
+            bmp.Save(StPath("panel_outside_desktop.png"), System.Drawing.Imaging.ImageFormat.Png);
+            Note("desktop capture panel_outside_desktop.png");
+        }
+        catch (Exception e) { Note("desktop capture failed: " + e.Message); }
+        // the panel still works out there: a click on its Refresh button area keeps it alive, the main window keeps drawing
+        yield return Frames(4);
+        Expect(assetsOpen, "the browser is still open out there");
         // and back over the main window: drawn inside it again
-        var back = new Vector2(explorerW + 200, gpu.Height * 0.45f);
+        var back = new Vector2(explorerW + 200, 200);
         var grab2 = assetWinPos + new Vector2(120, 10);
         PostMouse(0x200, grab2, 0); yield return Frames(2);
         PostMouse(0x201, grab2, 1); yield return Frames(2);
-        for (int i = 1; i <= 12; i++) { PostMouse(0x200, Vector2.Lerp(grab2, back, i / 12f), 1); yield return Frames(2); }
+        for (int i = 1; i <= 15; i++) { PostMouse(0x200, Vector2.Lerp(grab2, back, i / 15f), 1); yield return Frames(2); }
         PostMouse(0x202, back, 0); yield return Frames(8);
         Expect(imgui.OutsideWindows == 0 && assetWinPos.X < gpu.Width && assetWinPos.X > 0, $"dragged back over Polymorph, it is inside again ({imgui.OutsideWindows} outside, browser at {assetWinPos.X:0},{assetWinPos.Y:0})");
+        yield return Shot("panel_back_inside");
         UI.ImGuiBackend.SyntheticInput = false;
         assetsOpen = false; Settings.AssetsDocked = was;
-        yield return Frames(3);
+        form.Bounds = b0; form.WindowState = ws0;
+        yield return Frames(15);
     }
 
     IEnumerable<object> PedForgeTest(string gtaFolder)

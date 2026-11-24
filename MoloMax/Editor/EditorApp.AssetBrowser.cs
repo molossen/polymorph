@@ -15,6 +15,7 @@ namespace MoloMax.Editor;
 public sealed partial class EditorApp
 {
     bool assetsOpen;
+    (Vector2 Pos, Vector2 Size)? assetPlace;
     int assetSource; // 0 my assets, 1 game props
     int assetFamily = 0;
     string assetSearch = "";
@@ -60,6 +61,7 @@ public sealed partial class EditorApp
         {
             ImGui.SetNextWindowSize(new Vector2(980, 520), ImGuiCond.FirstUseEver);
             ImGui.SetNextWindowPos(new Vector2(explorerW + 40, gpu.Height - 560), ImGuiCond.FirstUseEver);
+            if (assetPlace is { } ap) { ImGui.SetNextWindowPos(ap.Pos); ImGui.SetNextWindowSize(ap.Size); assetPlace = null; } // placed once (self test)
         }
         if (!ImGui.Begin("Asset Browser###assets", ref assetsOpen, flags)) { ImGui.End(); return; }
         assetWinPos = ImGui.GetWindowPos(); assetWinSize = ImGui.GetWindowSize();
