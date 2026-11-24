@@ -794,6 +794,7 @@ public sealed partial class EditorApp
         PostMouse(0x202, outside, 0); yield return Frames(8);
         Expect(imgui.OutsideWindows >= 1 && assetWinPos.X > gpu.Width, $"let go out there, it stays out ({imgui.OutsideWindows} outside, browser at {assetWinPos.X:0})");
         // a picture of the desktop: the main window and the panel beside it (only the main window is in the usual screenshots)
+        bool top0 = form.TopMost; form.TopMost = true; yield return Frames(6); // above the other programs for the picture (owned panels stay above it)
         try
         {
             var all = mainRect; foreach (var r in imgui.OutsideWindowRects) all = System.Drawing.Rectangle.Union(all, r.Screen);
@@ -804,6 +805,7 @@ public sealed partial class EditorApp
             Note("desktop capture panel_outside_desktop.png");
         }
         catch (Exception e) { Note("desktop capture failed: " + e.Message); }
+        form.TopMost = top0;
         // the panel still works out there: a click on its Refresh button area keeps it alive, the main window keeps drawing
         yield return Frames(4);
         Expect(assetsOpen, "the browser is still open out there");
