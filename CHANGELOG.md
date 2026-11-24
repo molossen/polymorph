@@ -6,7 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
-| [1.8.1](#181) | Asset Browser docks at the bottom, undo in MAP mode |
+| [1.8.1](#181) | Asset Browser docks at the bottom, MAP mode save and undo |
 | [1.8.0](#180) | Ped Forge: any character or animal becomes a FiveM ped |
 | [1.7.9](#179) | FBX import, no more 60k vertex warning |
 | [1.7.8](#178) | Multi-selection X / Y / Z fields, viewport [+] menu |
@@ -45,6 +45,9 @@ Download the latest version from the [website](https://molossen.github.io/polymo
   window again. Remembered between sessions.
 - **MAP mode undo:** after deleting faces (or any edit) on what you model on the map or on a game model opened in place,
   Ctrl+Z brings the mesh back and the view redraws it at once. Checked with the real keys (Delete, Ctrl+Z, redo).
+- **MAP mode Save / Save As:** File > Save (Ctrl+S) now saves what you modeled on the map into a .mmx (the first time and
+  on Save As a file window asks where), and still writes the map resource (.ymap, new models). File > Open of a .mmx in MAP
+  mode puts its objects back on the map, at the same place, editable. The title bar shows the MAP file.
 
 ## 1.8.0
 - **Ped Forge** (new tab, next to Weapon and Vehicle): any character or animal becomes a FiveM add-on ped.
