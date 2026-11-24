@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.8.2](#182) | Panels can leave the window (other monitors) |
 | [1.8.1](#181) | Asset Browser docks at the bottom, MAP mode save and undo |
 | [1.8.0](#180) | Ped Forge: any character or animal becomes a FiveM ped |
 | [1.7.9](#179) | FBX import, no more 60k vertex warning |
@@ -38,6 +39,12 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 1.8.2
+- **Panels can leave the window.** Drag a floating panel (Asset Browser, Material Editor, any window with a title bar) out
+  of Polymorph by its title: it becomes a window of its own on the desktop, on another monitor too, no longer cut by the
+  main window. Drag it back over Polymorph and it is inside again. Files dropped on it are imported like on the main
+  window. Can be switched off in Edit > Preferences > Interface (applied at the next start).
 
 ## 1.8.1
 - **Asset Browser: Dock at the bottom.** A button in the browser attaches it along the bottom of the views (above the
