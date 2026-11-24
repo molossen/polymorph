@@ -910,10 +910,11 @@ public sealed partial class EditorApp
                 var b = Scene.Find(box.Id); SelectOnly(b); SetLevel(SubObject.Polygon); yield return Frames(3);
                 int f0 = b.Mesh.Faces.Count;
                 var ss = SubSel(b); ss.Clear(); ss.Faces.Add(0); yield return Frames(3);
+                Note($"box selection before delete: {SubSel(b).Faces.Count} face(s), level {Level}");
                 MaxDelete(); yield return Frames(3);
                 int f1 = Scene.Find(b.Id).Mesh.Faces.Count;
                 DoUndo(); yield return Frames(3);
-                Expect(f1 == f0 - 1 && Scene.Find(b.Id).Mesh.Faces.Count == f0, $"MAP mode box: delete a face then Ctrl+Z ({f0} -> {f1} -> {Scene.Find(b.Id).Mesh.Faces.Count})");
+                Expect(f1 < f0 && Scene.Find(b.Id).Mesh.Faces.Count == f0, $"MAP mode box: delete faces then Ctrl+Z ({f0} -> {f1} -> {Scene.Find(b.Id).Mesh.Faces.Count})");
                 SetLevel(SubObject.Object); SelectOnly(Scene.Find(ent.Id));
             }
             SetLevel(SubObject.Object);

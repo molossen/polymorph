@@ -126,7 +126,13 @@ public sealed class UndoStack
     /// </summary>
     Scene Live(Scene state, Scene current)
     {
-        if (ImmutableMeshes) { var im = state.Clone(o => Shared(o) ? o.Mesh : o.Mesh.Clone()); im.SyncInstances(); return im; }
+        if (ImmutableMeshes)
+        {
+            var im = state.Clone(o => Shared(o) ? o.Mesh : o.Mesh.Clone());
+            // what is edited here comes back as a new version: views, picking and modifier caches rebuild from the restored mesh
+            foreach (var o in im.Objects) if (!Shared(o)) o.Touch();
+            im.SyncInstances(); return im;
+        }
         var cur = current?.Objects.GroupBy(o => o.Id).ToDictionary(g => g.Key, g => g.First());
         var reused = new HashSet<int>();
         var copies = new Dictionary<PolyMesh, PolyMesh>(ReferenceEqualityComparer.Instance);
