@@ -887,6 +887,35 @@ public sealed partial class EditorApp
                 $"game model {ent.Name} opened in place: own mesh copy, entity left its .ymap ({n0} -> {doc.Entities.Count})");
             Do("Edit", () => { ent.Mesh.Verts[0] += new Vector3(0, 0, 0.5f); ent.Touch(); });
             Expect(!ReferenceEquals(shared, ent.Mesh) && Vector3.Distance(shared.Verts[0], ent.Mesh.Verts[0]) > 0.4f, "the other places using that model keep the original");
+            // delete faces (Delete key) then Ctrl+Z, as a user does on a game model opened in place
+            {
+                yield return Frames(3);
+                int f0 = ent.Mesh.Faces.Count;
+                var ss = SubSel(ent); ss.Clear(); for (int i = 0; i < 4; i++) ss.Faces.Add(i);
+                yield return Frames(3);
+                MaxDelete(); yield return Frames(3);
+                int f1 = Scene.Find(ent.Id).Mesh.Faces.Count;
+                DoUndo(); yield return Frames(3);
+                int f2 = Scene.Find(ent.Id).Mesh.Faces.Count;
+                if (f2 != f0) { DoUndo(); yield return Frames(3); }
+                int f3 = Scene.Find(ent.Id).Mesh.Faces.Count;
+                Expect(f1 == f0 - 4 && f2 == f0, $"MAP mode: delete 4 faces then Ctrl+Z brings them back ({f0} -> {f1} -> undo {f2}{(f3 != f2 ? $" -> 2nd undo {f3}" : "")}) [{Undo.UndoName}]");
+                DoRedo(); yield return Frames(3);
+                Expect(Scene.Find(ent.Id).Mesh.Faces.Count == f0 - 4, "redo deletes them again");
+                DoUndo(); yield return Frames(3);
+                ent = Scene.Find(ent.Id);
+            }
+            // the same on the box modeled on the map
+            {
+                var b = Scene.Find(box.Id); SelectOnly(b); SetLevel(SubObject.Polygon); yield return Frames(3);
+                int f0 = b.Mesh.Faces.Count;
+                var ss = SubSel(b); ss.Clear(); ss.Faces.Add(0); yield return Frames(3);
+                MaxDelete(); yield return Frames(3);
+                int f1 = Scene.Find(b.Id).Mesh.Faces.Count;
+                DoUndo(); yield return Frames(3);
+                Expect(f1 == f0 - 1 && Scene.Find(b.Id).Mesh.Faces.Count == f0, $"MAP mode box: delete a face then Ctrl+Z ({f0} -> {f1} -> {Scene.Find(b.Id).Mesh.Faces.Count})");
+                SetLevel(SubObject.Object); SelectOnly(Scene.Find(ent.Id));
+            }
             SetLevel(SubObject.Object);
             yield return Frames(5);
             yield return Shot("map_build");
