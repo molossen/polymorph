@@ -894,6 +894,7 @@ public sealed partial class EditorApp
                 var ss = SubSel(ent); ss.Clear(); for (int i = 0; i < 4; i++) ss.Faces.Add(i);
                 yield return Frames(3);
                 // real keys, through the window like a user: Delete, then Ctrl+Z
+                UI.ImGuiBackend.SyntheticInput = true; // posted keys carry their own Ctrl state
                 PostKey(System.Windows.Forms.Keys.Delete, true); yield return Frames(2); PostKey(System.Windows.Forms.Keys.Delete, false); yield return Frames(4);
                 int f1 = Scene.Find(ent.Id).Mesh.Faces.Count;
                 int vDel = Scene.Find(ent.Id).Version;
@@ -923,6 +924,7 @@ public sealed partial class EditorApp
                 PostKey(System.Windows.Forms.Keys.Z, false); PostKey(System.Windows.Forms.Keys.ControlKey, false); yield return Frames(4);
                 Expect(f1 == f0 - 1 && Scene.Find(b.Id).Mesh.Faces.Count == f0, $"MAP mode box: delete faces then Ctrl+Z ({f0} -> {f1} -> {Scene.Find(b.Id).Mesh.Faces.Count})");
                 SetLevel(SubObject.Object); SelectOnly(Scene.Find(ent.Id));
+                UI.ImGuiBackend.SyntheticInput = false;
             }
             SetLevel(SubObject.Object);
             yield return Frames(5);
