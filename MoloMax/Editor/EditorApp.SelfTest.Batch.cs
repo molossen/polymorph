@@ -893,10 +893,15 @@ public sealed partial class EditorApp
                 int f0 = ent.Mesh.Faces.Count;
                 var ss = SubSel(ent); ss.Clear(); for (int i = 0; i < 4; i++) ss.Faces.Add(i);
                 yield return Frames(3);
-                MaxDelete(); yield return Frames(3);
+                // real keys, through the window like a user: Delete, then Ctrl+Z
+                PostKey(System.Windows.Forms.Keys.Delete, true); yield return Frames(2); PostKey(System.Windows.Forms.Keys.Delete, false); yield return Frames(4);
                 int f1 = Scene.Find(ent.Id).Mesh.Faces.Count;
-                DoUndo(); yield return Frames(3);
+                int vDel = Scene.Find(ent.Id).Version;
+                PostKey(System.Windows.Forms.Keys.ControlKey, true); PostKey(System.Windows.Forms.Keys.Z, true); yield return Frames(2);
+                PostKey(System.Windows.Forms.Keys.Z, false); PostKey(System.Windows.Forms.Keys.ControlKey, false); yield return Frames(4);
                 int f2 = Scene.Find(ent.Id).Mesh.Faces.Count;
+                var eu = Scene.Find(ent.Id);
+                Expect(eu.Version != vDel && renderer.DebugVersion(eu) == eu.Version, $"after Ctrl+Z the view draws the restored mesh (object v{eu.Version}, view v{renderer.DebugVersion(eu)}, deleted state v{vDel})");
                 if (f2 != f0) { DoUndo(); yield return Frames(3); }
                 int f3 = Scene.Find(ent.Id).Mesh.Faces.Count;
                 Expect(f1 == f0 - 4 && f2 == f0, $"MAP mode: delete 4 faces then Ctrl+Z brings them back ({f0} -> {f1} -> undo {f2}{(f3 != f2 ? $" -> 2nd undo {f3}" : "")}) [{Undo.UndoName}]");
@@ -907,14 +912,16 @@ public sealed partial class EditorApp
             }
             // the same on the box modeled on the map
             {
+                SetLevel(SubObject.Object); yield return Frames(2);
                 var b = Scene.Find(box.Id); SelectOnly(b); SetLevel(SubObject.Polygon); yield return Frames(3);
                 int f0 = b.Mesh.Faces.Count;
                 var ss = SubSel(b); ss.Clear(); ss.Faces.Add(0); yield return Frames(3);
                 Note($"box selection before delete: {SubSel(b).Faces.Count} face(s), level {Level}");
-                MaxDelete(); yield return Frames(3);
+                PostKey(System.Windows.Forms.Keys.Delete, true); yield return Frames(2); PostKey(System.Windows.Forms.Keys.Delete, false); yield return Frames(4);
                 int f1 = Scene.Find(b.Id).Mesh.Faces.Count;
-                DoUndo(); yield return Frames(3);
-                Expect(f1 < f0 && Scene.Find(b.Id).Mesh.Faces.Count == f0, $"MAP mode box: delete faces then Ctrl+Z ({f0} -> {f1} -> {Scene.Find(b.Id).Mesh.Faces.Count})");
+                PostKey(System.Windows.Forms.Keys.ControlKey, true); PostKey(System.Windows.Forms.Keys.Z, true); yield return Frames(2);
+                PostKey(System.Windows.Forms.Keys.Z, false); PostKey(System.Windows.Forms.Keys.ControlKey, false); yield return Frames(4);
+                Expect(f1 == f0 - 1 && Scene.Find(b.Id).Mesh.Faces.Count == f0, $"MAP mode box: delete faces then Ctrl+Z ({f0} -> {f1} -> {Scene.Find(b.Id).Mesh.Faces.Count})");
                 SetLevel(SubObject.Object); SelectOnly(Scene.Find(ent.Id));
             }
             SetLevel(SubObject.Object);
