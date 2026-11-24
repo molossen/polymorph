@@ -752,7 +752,7 @@ public sealed partial class EditorApp
         Fresh();
         bool was = Settings.AssetsDocked; float wasH = Settings.AssetsDockHeight;
         Settings.AssetsDocked = true; Settings.AssetsDockHeight = 280;
-        OpenAssetBrowser(); yield return Frames(6);
+        OpenAssetBrowser(); yield return Frames(20);
         var vp = Viewports[ActiveViewport];
         float bottom = gpu.Height - statusH - (TimelineOpen ? TimelineH : 0);
         float vpBottom = Viewports.Max(v => v.Y + v.H);

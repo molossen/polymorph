@@ -48,7 +48,7 @@ public sealed partial class EditorApp
             float yb = gpu.Height - statusH - (TimelineOpen ? TimelineH : 0), dh = AssetDockH;
             ImGui.SetNextWindowPos(new Vector2(x0, yb - dh));
             ImGui.SetNextWindowSize(new Vector2(x1 - x0, dh));
-            flags |= ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoBringToFrontOnFocus;
+            flags |= ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse;
             // drag its top edge to make it taller or shorter
             if (HSplitter("##splitAssets", x0, x1 - x0, yb - dh, out float dy))
                 Settings.AssetsDockHeight = Math.Clamp(Settings.AssetsDockHeight - dy, 140, (gpu.Height - menuH - toolbarH - statusH) * 0.7f);
