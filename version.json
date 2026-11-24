@@ -1,7 +1,7 @@
 {
   "version": "1.8.1",
   "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.1.exe",
-  "size": 70609081,
-  "sha256": "f394d7d902de07654e760badcae8da13f74ecb3b6cb47200b48509fa9105722b",
-  "notes": "- NEW: the Asset Browser docks at the bottom (button 'Dock at the bottom' in the browser; drag its top edge to resize, 'Float' to free it again)\n- MAP mode: Ctrl+Z after deleting faces brings them back and the view redraws at once\n- 1.8.0: Ped Forge, any character or animal becomes a FiveM ped\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "size": 70627132,
+  "sha256": "494aedd7d84b6cf59a0ad2f6e8e033d1320c8fd124faecacf3b1a2d293c02351",
+  "notes": "- NEW: the Asset Browser docks at the bottom (button 'Dock at the bottom' in the browser; drag its top edge to resize, 'Float' to free it again)\n- MAP mode: File > Save / Save As now save what you modeled on the map to a .mmx (and the map resource); File > Open puts it back on the map\n- MAP mode: Ctrl+Z after deleting faces brings them back\n- 1.8.0: Ped Forge, any character or animal becomes a FiveM ped\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
