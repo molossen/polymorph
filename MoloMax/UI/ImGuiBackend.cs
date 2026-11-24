@@ -11,7 +11,7 @@ using Device = SharpDX.Direct3D11.Device;
 namespace MoloMax.UI;
 
 /// <summary>Dear ImGui renderer for D3D11 (SharpDX) plus WinForms input forwarding.</summary>
-public sealed class ImGuiBackend : IDisposable
+public sealed partial class ImGuiBackend : IDisposable
 {
     readonly Device device;
     readonly DeviceContext ctx;
@@ -44,6 +44,7 @@ float4 PSMain(PS_INPUT i) : SV_Target { return i.col * texture0.Sample(sampler0,
         CreateObjects();
         Hook(control);
         host = control;
+        try { InitViewports(control); } catch (Exception e) { ViewportsOn = false; System.Diagnostics.Debug.WriteLine("viewports off: " + e.Message); }
     }
 
     public ImFontPtr FontBold { get; private set; }
@@ -140,6 +141,7 @@ float4 PSMain(PS_INPUT i) : SV_Target { return i.col * texture0.Sample(sampler0,
         var io = ImGui.GetIO();
         io.DisplaySize = new Vector2(width, height);
         io.DeltaTime = dt > 0 ? dt : 1f / 60f;
+        ViewportsNewFrame();
         ImGui.NewFrame();
     }
 
@@ -159,8 +161,13 @@ float4 PSMain(PS_INPUT i) : SV_Target { return i.col * texture0.Sample(sampler0,
             };
         }
         ImGui.Render();
-        var dd = ImGui.GetDrawData();
-        if (dd.CmdListsCount == 0 || dd.DisplaySize.X <= 0) return;
+        RenderDrawData(ImGui.GetDrawData());
+        RenderViewports();
+    }
+
+    unsafe void RenderDrawData(ImDrawDataPtr dd)
+    {
+        if (dd.NativePtr == null || dd.CmdListsCount == 0 || dd.DisplaySize.X <= 0) return;
         int vsz = Marshal.SizeOf<ImDrawVert>();
         if (vb == null || vbSize < dd.TotalVtxCount) { vb?.Dispose(); vbSize = dd.TotalVtxCount + 5000; vb = null; }
         if (ib == null || ibSize < dd.TotalIdxCount) { ib?.Dispose(); ibSize = dd.TotalIdxCount + 10000; ib = null; }
@@ -284,6 +291,8 @@ float4 PSMain(PS_INPUT i) : SV_Target { return i.col * texture0.Sample(sampler0,
     {
         if (disposed) return;
         disposed = true;
+        if (ViewportsOn) { try { ImGui.DestroyPlatformWindows(); } catch { } ViewportsOn = false; }
+        DisposeViewports();
         fontSrv?.Dispose(); sampler?.Dispose(); depth?.Dispose(); raster?.Dispose(); blend?.Dispose();
         cb?.Dispose(); layout?.Dispose(); ps?.Dispose(); vs?.Dispose(); ib?.Dispose(); vb?.Dispose();
         ImGui.DestroyContext();

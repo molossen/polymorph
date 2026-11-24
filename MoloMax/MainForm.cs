@@ -38,7 +38,9 @@ public sealed class MainForm : Form
         Splash.Step("Starting the 3D view", 0.2f);
         gpu = new GpuDevice(Handle, ClientSize.Width, ClientSize.Height);
         Splash.Step("Loading fonts and interface", 0.4f);
+        try { ImGuiBackend.ViewportsWanted = MoloMax.Editor.AppSettings.Load().PanelsOutside && Environment.GetEnvironmentVariable("POLYMORPH_NO_VIEWPORTS") == null; } catch { }
         imgui = new ImGuiBackend(gpu.Device, this);
+        imgui.DroppedOnViewport += e => { if (e.Data?.GetData(DataFormats.FileDrop) is string[] files) foreach (var f in files) app?.DropFile(f); };
         Splash.Step("Compiling shaders", 0.6f);
         app = new EditorApp(gpu, imgui, this);
         if (!string.IsNullOrEmpty(startFile)) { Splash.Step("Opening " + Path.GetFileName(startFile), 0.85f); app.OpenFile(startFile); }

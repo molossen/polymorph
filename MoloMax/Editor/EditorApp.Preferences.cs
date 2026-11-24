@@ -192,6 +192,9 @@ public sealed partial class EditorApp : IAddonHost
         bool ea = Settings.ExtrudeArrow;
         if (ImGui.Checkbox("Extrude arrow on selected polygons (yellow)", ref ea)) { Settings.ExtrudeArrow = ea; Settings.Save(); }
         Theme.Tip("Off: extrude with E or the Extrude button.");
+        bool po = Settings.PanelsOutside;
+        if (ImGui.Checkbox("Panels can leave the window (other monitors)", ref po)) { Settings.PanelsOutside = po; Settings.Save(); SetStatus("Applied at the next start of Polymorph."); }
+        Theme.Tip("Drag a floating panel (Asset Browser, Material Editor...) out of Polymorph by its title: it becomes a window of its own, on another monitor too. Drag it back over Polymorph to put it inside again. Applied at the next start.");
         Ui.TextColored(Theme.Gold, "Normals colours");
         bool ColourPref(string label, float[] c, Action<float[]> set)
         {

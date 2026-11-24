@@ -81,6 +81,8 @@ public sealed class AppSettings
     /// <summary>The Asset Browser docked along the bottom of the views (instead of a floating window), and its height.</summary>
     public bool AssetsDocked { get; set; }
     public float AssetsDockHeight { get; set; } = 300;
+    /// <summary>Panels dragged out of the main window become windows of their own (other monitors). Read at start.</summary>
+    public bool PanelsOutside { get; set; } = true;
     /// <summary>Game models put in other families by hand (right-click > Families): "name.ext" -> family bits.</summary>
     public Dictionary<string, long> FamilyOverrides { get; set; } = new();
     /// <summary>Last folder of each kind of window (by its title).</summary>
