@@ -1,7 +1,7 @@
 {
-  "version": "1.8.0",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.0.exe",
-  "size": 70602008,
-  "sha256": "31f84d15c49bb1022b7b1369812c2223a8067a9861dea22dc49d38ceeddc6053",
-  "notes": "- NEW: Ped Forge (tab next to Weapon and Vehicle): any character or animal becomes a FiveM add-on ped. Pick a game ped (man, woman, deer, dog, cat...), fit your model on it, Make the ped: skinned automatically, T-pose arms handled, ready resource with a /name command\n- 1.7.9: FBX import, no more 60,000 vertex warning\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "1.8.1",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.1.exe",
+  "size": 70609081,
+  "sha256": "f394d7d902de07654e760badcae8da13f74ecb3b6cb47200b48509fa9105722b",
+  "notes": "- NEW: the Asset Browser docks at the bottom (button 'Dock at the bottom' in the browser; drag its top edge to resize, 'Float' to free it again)\n- MAP mode: Ctrl+Z after deleting faces brings them back and the view redraws at once\n- 1.8.0: Ped Forge, any character or animal becomes a FiveM ped\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
