@@ -1,7 +1,7 @@
 {
-  "version": "1.8.1",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.1.exe",
-  "size": 70627132,
-  "sha256": "494aedd7d84b6cf59a0ad2f6e8e033d1320c8fd124faecacf3b1a2d293c02351",
-  "notes": "- NEW: the Asset Browser docks at the bottom (button 'Dock at the bottom' in the browser; drag its top edge to resize, 'Float' to free it again)\n- MAP mode: File > Save / Save As now save what you modeled on the map to a .mmx (and the map resource); File > Open puts it back on the map\n- MAP mode: Ctrl+Z after deleting faces brings them back\n- 1.8.0: Ped Forge, any character or animal becomes a FiveM ped\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "1.8.2",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.2.exe",
+  "size": 70606426,
+  "sha256": "f01088276fb47746250a126e8d63d528fe61e2e333abbed500d38099994f0040",
+  "notes": "- NEW: panels can leave the window. Drag a floating panel (Asset Browser, Material Editor...) out of Polymorph by its title: it becomes a window of its own, on another monitor too. Drag it back over Polymorph to put it inside again (Preferences > Interface to switch it off)\n- 1.8.1: Asset Browser docks at the bottom; MAP mode Save / Save As to .mmx; undo after deleting faces in MAP mode\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
