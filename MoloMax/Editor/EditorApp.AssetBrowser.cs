@@ -46,12 +46,15 @@ public sealed partial class EditorApp
             // docked: a strip along the bottom of the views (above the timeline), full width between the side panels
             float x0 = ShowExplorer ? explorerW : 0, x1 = gpu.Width - (ShowPanel ? panelW : 0);
             float yb = gpu.Height - statusH - (TimelineOpen ? TimelineH : 0), dh = AssetDockH;
+            // drag its top edge to make it taller or shorter (its own little window: before the browser's SetNextWindow*)
+            if (HSplitter("##splitAssets", x0, x1 - x0, yb - dh, out float dy))
+            {
+                Settings.AssetsDockHeight = Math.Clamp(AssetDockH - dy, 140, (gpu.Height - menuH - toolbarH - statusH) * 0.7f);
+                dh = AssetDockH;
+            }
             ImGui.SetNextWindowPos(new Vector2(x0, yb - dh));
             ImGui.SetNextWindowSize(new Vector2(x1 - x0, dh));
             flags |= ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse;
-            // drag its top edge to make it taller or shorter
-            if (HSplitter("##splitAssets", x0, x1 - x0, yb - dh, out float dy))
-                Settings.AssetsDockHeight = Math.Clamp(Settings.AssetsDockHeight - dy, 140, (gpu.Height - menuH - toolbarH - statusH) * 0.7f);
         }
         else
         {
@@ -59,6 +62,7 @@ public sealed partial class EditorApp
             ImGui.SetNextWindowPos(new Vector2(explorerW + 40, gpu.Height - 560), ImGuiCond.FirstUseEver);
         }
         if (!ImGui.Begin("Asset Browser###assets", ref assetsOpen, flags)) { ImGui.End(); return; }
+        assetWinPos = ImGui.GetWindowPos(); assetWinSize = ImGui.GetWindowSize();
         float h = ImGui.GetContentRegionAvail().Y;
 
         // ---- sources
@@ -372,6 +376,8 @@ public sealed partial class EditorApp
         using (var g = System.Drawing.Graphics.FromImage(bmp)) g.Clear(System.Drawing.Color.FromArgb(255, 42, 42, 46));
         bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
     }
+
+    Vector2 assetWinPos, assetWinSize;
 
     /// <summary>Height taken by the docked Asset Browser at the bottom of the views (0 when floating or closed).</summary>
     float AssetDockH => assetsOpen && Settings.AssetsDocked

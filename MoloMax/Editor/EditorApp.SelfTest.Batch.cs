@@ -756,7 +756,7 @@ public sealed partial class EditorApp
         var vp = Viewports[ActiveViewport];
         float bottom = gpu.Height - statusH - (TimelineOpen ? TimelineH : 0);
         float vpBottom = Viewports.Max(v => v.Y + v.H);
-        Expect(MathF.Abs(AssetDockH - 280) < 1 && vpBottom <= bottom - 279, $"docked: strip {AssetDockH:0} px, views end at {vpBottom:0} (strip from {bottom - AssetDockH:0})");
+        Expect(MathF.Abs(AssetDockH - 280) < 1 && vpBottom <= bottom - 279 && MathF.Abs(assetWinPos.Y - (bottom - 280)) < 2 && assetWinSize.X > 600, $"docked: strip {AssetDockH:0} px, views end at {vpBottom:0}, browser window at y {assetWinPos.Y:0} size {assetWinSize.X:0} x {assetWinSize.Y:0}");
         yield return Shot("assets_docked");
         Settings.AssetsDocked = false; yield return Frames(4);
         vpBottom = Viewports.Max(v => v.Y + v.H);
