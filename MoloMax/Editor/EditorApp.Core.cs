@@ -280,7 +280,7 @@ public sealed partial class EditorApp : IDisposable
         // 3ds Max: explorer left, command panel right. Blender: outliner above the properties, both on the right.
         // outliner on the left, properties / modifiers on the right (both keymaps)
         float x0 = ShowExplorer ? explorerW : 0, y0 = menuH + toolbarH;
-        float x1 = gpu.Width - (ShowPanel ? panelW : 0), y1 = gpu.Height - statusH - (TimelineOpen ? TimelineH : 0);
+        float x1 = gpu.Width - (ShowPanel ? panelW : 0), y1 = gpu.Height - statusH - (TimelineOpen ? TimelineH : 0) - AssetDockH;
         // Molo Paint: the shelf (materials, decals, smart materials) docks as a column at the right of the viewport
         if (PaintShelfVisible) { x1 -= ShelfW; shelfRect = (x1, y0, ShelfW, y1 - y0); }
         float w = MathF.Max(x1 - x0, 50), h = MathF.Max(y1 - y0, 50);

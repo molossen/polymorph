@@ -747,6 +747,24 @@ public sealed partial class EditorApp
         propTab = PropTab.Object;
     }
 
+    IEnumerable<object> AssetsDockTest()
+    {
+        Fresh();
+        bool was = Settings.AssetsDocked; float wasH = Settings.AssetsDockHeight;
+        Settings.AssetsDocked = true; Settings.AssetsDockHeight = 280;
+        OpenAssetBrowser(); yield return Frames(6);
+        var vp = Viewports[ActiveViewport];
+        float bottom = gpu.Height - statusH - (TimelineOpen ? TimelineH : 0);
+        float vpBottom = Viewports.Max(v => v.Y + v.H);
+        Expect(MathF.Abs(AssetDockH - 280) < 1 && vpBottom <= bottom - 279, $"docked: strip {AssetDockH:0} px, views end at {vpBottom:0} (strip from {bottom - AssetDockH:0})");
+        yield return Shot("assets_docked");
+        Settings.AssetsDocked = false; yield return Frames(4);
+        vpBottom = Viewports.Max(v => v.Y + v.H);
+        Expect(AssetDockH == 0 && vpBottom > bottom - 10, $"floating again: views back to {vpBottom:0}");
+        assetsOpen = false; Settings.AssetsDocked = was; Settings.AssetsDockHeight = wasH;
+        yield return Frames(2);
+    }
+
     IEnumerable<object> PedForgeTest(string gtaFolder)
     {
         Fresh();

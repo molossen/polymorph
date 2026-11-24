@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.8.1](#181) | Asset Browser docks at the bottom |
 | [1.8.0](#180) | Ped Forge: any character or animal becomes a FiveM ped |
 | [1.7.9](#179) | FBX import, no more 60k vertex warning |
 | [1.7.8](#178) | Multi-selection X / Y / Z fields, viewport [+] menu |
@@ -37,6 +38,11 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 1.8.1
+- **Asset Browser: Dock at the bottom.** A button in the browser attaches it along the bottom of the views (above the
+  timeline), full width between the side panels; drag its top edge to make it taller or shorter. *Float* makes it a free
+  window again. Remembered between sessions.
 
 ## 1.8.0
 - **Ped Forge** (new tab, next to Weapon and Vehicle): any character or animal becomes a FiveM add-on ped.

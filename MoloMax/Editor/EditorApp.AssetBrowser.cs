@@ -39,9 +39,26 @@ public sealed partial class EditorApp
     void DrawAssetBrowser()
     {
         if (!assetsOpen) return;
-        ImGui.SetNextWindowSize(new Vector2(980, 520), ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowPos(new Vector2(explorerW + 40, gpu.Height - 560), ImGuiCond.FirstUseEver);
-        if (!ImGui.Begin("Asset Browser###assets", ref assetsOpen, ImGuiWindowFlags.NoSavedSettings)) { ImGui.End(); return; }
+        bool docked = Settings.AssetsDocked;
+        var flags = ImGuiWindowFlags.NoSavedSettings;
+        if (docked)
+        {
+            // docked: a strip along the bottom of the views (above the timeline), full width between the side panels
+            float x0 = ShowExplorer ? explorerW : 0, x1 = gpu.Width - (ShowPanel ? panelW : 0);
+            float yb = gpu.Height - statusH - (TimelineOpen ? TimelineH : 0), dh = AssetDockH;
+            ImGui.SetNextWindowPos(new Vector2(x0, yb - dh));
+            ImGui.SetNextWindowSize(new Vector2(x1 - x0, dh));
+            flags |= ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoBringToFrontOnFocus;
+            // drag its top edge to make it taller or shorter
+            if (HSplitter("##splitAssets", x0, x1 - x0, yb - dh, out float dy))
+                Settings.AssetsDockHeight = Math.Clamp(Settings.AssetsDockHeight - dy, 140, (gpu.Height - menuH - toolbarH - statusH) * 0.7f);
+        }
+        else
+        {
+            ImGui.SetNextWindowSize(new Vector2(980, 520), ImGuiCond.FirstUseEver);
+            ImGui.SetNextWindowPos(new Vector2(explorerW + 40, gpu.Height - 560), ImGuiCond.FirstUseEver);
+        }
+        if (!ImGui.Begin("Asset Browser###assets", ref assetsOpen, flags)) { ImGui.End(); return; }
         float h = ImGui.GetContentRegionAvail().Y;
 
         // ---- sources
@@ -88,6 +105,8 @@ public sealed partial class EditorApp
         ImGui.InputTextWithHint("##asearch", assetSource == 1 ? "search a prop (bench, chair, prop_bin...)" : "search my assets", ref assetSearch, 80);
         ImGui.SameLine(); ImGui.SetNextItemWidth(120); ImGui.SliderFloat("##acell", ref assetCell, 72, 200, "size %.0f");
         ImGui.SameLine(); if (ImGui.SmallButton("Refresh")) assetKey = null;
+        ImGui.SameLine(); if (ImGui.SmallButton(docked ? "Float" : "Dock at the bottom")) { Settings.AssetsDocked = !docked; Settings.Save(); }
+        Theme.Tip(docked ? "Make the Asset Browser a free window again" : "Attach the Asset Browser along the bottom of the views (drag its top edge to resize)");
         RefreshAssetItems();
         ImGui.SameLine(); Ui.TextDisabled($"{assetItems.Count:N0}{(assetItems.Count >= 3000 ? "+" : "")} assets");
         if (assetSel != null) { ImGui.SameLine(); Ui.TextDisabled("· double-click or drag into the view to place " + assetSel.Name); }
@@ -352,5 +371,36 @@ public sealed partial class EditorApp
         using var bmp = new System.Drawing.Bitmap(8, 8);
         using (var g = System.Drawing.Graphics.FromImage(bmp)) g.Clear(System.Drawing.Color.FromArgb(255, 42, 42, 46));
         bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+    }
+
+    /// <summary>Height taken by the docked Asset Browser at the bottom of the views (0 when floating or closed).</summary>
+    float AssetDockH => assetsOpen && Settings.AssetsDocked
+        ? MathF.Floor(Math.Clamp(Settings.AssetsDockHeight, 140, MathF.Max(140, (gpu.Height - menuH - toolbarH - statusH - (TimelineOpen ? TimelineH : 0)) * 0.7f)))
+        : 0;
+
+    /// <summary>A thin horizontal grip on the line y; returns the vertical drag this frame.</summary>
+    bool HSplitter(string id, float x, float w, float y, out float dy)
+    {
+        dy = 0;
+        const float h = 6;
+        ImGui.SetNextWindowPos(new Vector2(x, y - h / 2));
+        ImGui.SetNextWindowSize(new Vector2(w, h));
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, new Vector2(1, 1));
+        ImGui.SetNextWindowBgAlpha(0);
+        ImGui.Begin(id, ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoBackground);
+        ImGui.InvisibleButton(id + "b", new Vector2(w, h));
+        bool hover = ImGui.IsItemHovered(), active = ImGui.IsItemActive();
+        if (hover || active)
+        {
+            ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeNS);
+            var p = ImGui.GetItemRectMin();
+            ImGui.GetWindowDrawList().AddRectFilled(p + new Vector2(0, h / 2 - 1), p + new Vector2(w, h / 2 + 1), ImGui.ColorConvertFloat4ToU32(Theme.ToggleOnHover));
+        }
+        if (active) { dy = ImGui.GetIO().MouseDelta.Y; splitDragging = true; }
+        ImGui.End();
+        ImGui.PopStyleVar(3);
+        return active && dy != 0;
     }
 }

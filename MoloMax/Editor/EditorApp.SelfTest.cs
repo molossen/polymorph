@@ -158,6 +158,7 @@ public sealed partial class EditorApp
         T("bridge", BridgeTest);
         T("boolean subtract + undo / redo", BooleanTest);
         T("knife / slice", Knife);
+        T("ASSETS DOCK: the Asset Browser docks at the bottom and the views make room", AssetsDockTest);
         T("scale box: drag a side, a corner, in edit mode", ScaleBoxTest);
         T("edge click inside a room: edges with one end behind the camera, overlapping piece", EdgeInsideTest);
         T("smart UV + UV editor", Uv);
