@@ -64,7 +64,7 @@ public sealed partial class ImGuiBackend
         protected override void OnPaintBackground(PaintEventArgs e) { }
         protected override bool IsInputKey(Keys keyData) => true;
         const int WM_MOUSEACTIVATE = 0x21, MA_NOACTIVATE = 3;
-        protected override void WndProc(ref Message m)
+        protected override void WndProc(ref System.Windows.Forms.Message m)
         {
             if (m.Msg == WM_MOUSEACTIVATE && NoActivate) { m.Result = (IntPtr)MA_NOACTIVATE; return; }
             base.WndProc(ref m);
