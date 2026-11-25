@@ -3377,7 +3377,7 @@ room.Mesh.Faces.Count");
         Expect(assetItems.Count == 1 && assetItems[0].Name == "two_crates", $"my assets: {assetItems.Count} item(s) in the folder");
         var tp = assetItems.Count > 0 ? ThumbPath(assetItems[0]) : null;
         if (tp != null && File.Exists(tp)) File.Delete(tp);
-        if (assetItems.Count > 0) thumbAsked.Remove(assetItems[0].Key);
+        if (assetItems.Count > 0) thumbDone.Remove(assetItems[0].Key);
         yield return Settle(() => tp != null && File.Exists(tp), 20);
         Expect(tp != null && File.Exists(tp) && new FileInfo(tp).Length > 2000, $"thumbnail rendered and saved ({(tp != null && File.Exists(tp) ? new FileInfo(tp).Length : 0)} bytes)");
         int before = Scene.Objects.Count;
@@ -3392,10 +3392,33 @@ room.Mesh.Faces.Count");
             assetSource = 1; assetFamily = 0; assetKey = null; // chairs & seats
             yield return Frames(3);
             var first = assetItems.Take(6).ToList();
-            foreach (var x in first) { var p = ThumbPath(x); if (File.Exists(p)) File.Delete(p); thumbAsked.Remove(x.Key); }
+            foreach (var x in first) { var p = ThumbPath(x); if (File.Exists(p)) File.Delete(p); thumbDone.Remove(x.Key); }
             assetKey = null;
             yield return Settle(() => first.All(x => File.Exists(ThumbPath(x))), 40);
             Expect(assetItems.Count > 20 && first.Count(x => File.Exists(ThumbPath(x)) && new FileInfo(ThumbPath(x)).Length > 2000) >= 4, $"game props 'Chairs & seats': {assetItems.Count} props, thumbnails for {first.Count(x => File.Exists(ThumbPath(x)))}/6 ({string.Join(", ", first.Select(x => x.Name))})");
+            // scrolled down: what is on screen now is made before what scrolled away (asked earlier)
+            if (assetItems.Count > 60)
+            {
+                var early = assetItems.Skip(assetItems.Count - 12).Take(6).ToList(); var late = assetItems.Skip(assetItems.Count - 6).ToList();
+                foreach (var x in early.Concat(late)) { var p = ThumbPath(x); if (File.Exists(p)) File.Delete(p); thumbDone.Remove(x.Key); thumbWant.Remove(x.Key); }
+                int pinned = int.MaxValue;
+                foreach (var x in early) thumbWant[x.Key] = (x, thumbFrame - 3); // on screen a moment ago, then the list scrolled
+                var stamp = thumbFrame;
+                for (int k = 0; k < 4; k++) { foreach (var x in late) RequestThumb(x); yield return Frames(1); }
+                yield return Settle(() => late.All(x => File.Exists(ThumbPath(x))), 40);
+                int earlyDone = early.Count(x => File.Exists(ThumbPath(x)));
+                Expect(late.All(x => File.Exists(ThumbPath(x))) && earlyDone == 0, $"scrolled: the 6 on screen made first ({late.Count(x => File.Exists(ThumbPath(x)))}/6), the 6 that scrolled away wait ({earlyDone}/6 made)");
+                _ = pinned; _ = stamp;
+            }
+            // Refresh makes the pictures of the list again
+            {
+                var x0 = assetItems[0]; var p0 = ThumbPath(x0); var t0 = File.Exists(p0) ? File.GetLastWriteTimeUtc(p0) : default;
+                RefreshAssetThumbs(); yield return Frames(2);
+                bool gone = !File.Exists(p0);
+                yield return Settle(() => File.Exists(p0), 40);
+                Expect(gone && File.Exists(p0) && File.GetLastWriteTimeUtc(p0) > t0, $"Refresh: the list's pictures are made again ({x0.Name}: removed {gone}, made again {File.Exists(p0)})");
+            }
+            Expect(!renderer.Textures.SearchFolders.Any(d => d.StartsWith(GameExtractDir, StringComparison.OrdinalIgnoreCase)), $"no search folder added per thumbnail ({renderer.Textures.SearchFolders.Count} folders)");
             yield return Frames(5);
             yield return Shot("asset_browser");
         }

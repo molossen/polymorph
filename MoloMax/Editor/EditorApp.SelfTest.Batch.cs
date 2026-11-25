@@ -765,6 +765,29 @@ public sealed partial class EditorApp
         yield return Frames(2);
     }
 
+    IEnumerable<object> GizmoFarPivotTest()
+    {
+        Fresh();
+        // a model imported with its pivot at the scene origin, its geometry 300 m away (a city piece from another program)
+        var m = Core.Mesh.Primitives.Box(4, 4, 6);
+        for (int i = 0; i < m.Verts.Count; i++) m.Verts[i] += new Vector3(300, 120, 3);
+        var far = Scene.Add("far_pivot", m, Vector3.Zero);
+        var near = Scene.Add("near_pivot", Core.Mesh.Primitives.Box(2, 2, 2), new Vector3(10, 0, 1));
+        SelectOnly(far); Tool = Tool.Move; yield return Frames(3);
+        SelectionPivot(out var p1, out _);
+        var (mn, mx) = far.WorldBounds();
+        Expect(Vector3.Distance(p1, (mn + mx) * 0.5f) < 0.01f, $"pivot far from the model: the gizmo is on the model ({p1.X:0.0}, {p1.Y:0.0}, {p1.Z:0.0}), not at its pivot (0, 0, 0)");
+        SelectOnly(near); yield return Frames(2);
+        SelectionPivot(out var p2, out _);
+        Expect(Vector3.Distance(p2, near.Position) < 0.001f, "a normal pivot keeps the gizmo on the pivot");
+        // moving with the gizmo still moves the model by the drag
+        SelectOnly(far); var before = far.Position;
+        Do("move", () => far.Position += new Vector3(1, 0, 0));
+        SelectionPivot(out var p3, out _);
+        Expect(Vector3.Distance(p3, p1 + new Vector3(1, 0, 0)) < 0.01f, "the gizmo follows the model when it moves");
+        yield return Frames(2);
+    }
+
     IEnumerable<object> PanelsOutsideTest()
     {
         Fresh();

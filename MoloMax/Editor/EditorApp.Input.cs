@@ -77,6 +77,19 @@ public sealed partial class EditorApp
         return ptsCache;
     }
 
+    /// <summary>
+    /// Where an object's gizmo goes: its pivot, unless the pivot is far away from the object (models imported with their
+    /// pivot at the scene origin, map pieces whose pivot is elsewhere): then the middle of the object, so the gizmo is on it.
+    /// </summary>
+    public static Vector3 GizmoPoint(SceneObject o)
+    {
+        if (o.Mesh == null || o.Mesh.Verts.Count == 0) return o.Position;
+        var (mn, mx) = o.FastWorldBounds();
+        var size = (mx - mn).Length();
+        var outside = Vector3.Max(Vector3.Max(mn - o.Position, o.Position - mx), Vector3.Zero).Length();
+        return outside > MathF.Max(5f, size * 1.5f) ? (mn + mx) * 0.5f : o.Position;
+    }
+
     /// <summary>Median of the selection (objects' origins, or the selected vertices in edit mode).</summary>
     bool SelectionPivot(out Vector3 pivot, out Matrix4x4 orient)
     {
@@ -101,8 +114,8 @@ public sealed partial class EditorApp
         }
         var objs = Selected.Select(Scene.Find).Where(o => o != null && !o.Hidden).ToList();
         if (objs.Count == 0) return false;
-        if (objs.Count == 1) { pivot = objs[0].Position; if (LocalCoords) orient = Matrix4x4.CreateFromQuaternion(objs[0].Rotation); return true; }
-        var acc = Vector3.Zero; foreach (var o in objs) acc += o.Position;
+        if (objs.Count == 1) { pivot = GizmoPoint(objs[0]); if (LocalCoords) orient = Matrix4x4.CreateFromQuaternion(objs[0].Rotation); return true; }
+        var acc = Vector3.Zero; foreach (var o in objs) acc += GizmoPoint(o);
         pivot = acc / objs.Count;
         if (LocalCoords && cur != null) orient = Matrix4x4.CreateFromQuaternion(cur.Rotation);
         return true;

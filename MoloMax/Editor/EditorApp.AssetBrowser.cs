@@ -29,7 +29,7 @@ public sealed partial class EditorApp
         public string Key => Game != null ? "game_" + Game.Name + Game.Ext : "file_" + File.GetHashCode().ToString("X8") + "_" + System.IO.Path.GetFileName(File);
     }
 
-    static string AssetThumbDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Polymorph", "Thumbnails");
+    static string AssetThumbDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Polymorph", "Thumbnails", "v2");
     static string DefaultAssetFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Polymorph", "Assets");
     static readonly string[] AssetExts = { ".mmx", ".fbx", ".glb", ".gltf", ".obj", ".ydr", ".yft", ".ydd" };
 
@@ -110,7 +110,8 @@ public sealed partial class EditorApp
         ImGui.SetNextItemWidth(260);
         ImGui.InputTextWithHint("##asearch", assetSource == 1 ? "search a prop (bench, chair, prop_bin...)" : "search my assets", ref assetSearch, 80);
         ImGui.SameLine(); ImGui.SetNextItemWidth(120); ImGui.SliderFloat("##acell", ref assetCell, 72, 200, "size %.0f");
-        ImGui.SameLine(); if (ImGui.SmallButton("Refresh")) assetKey = null;
+        ImGui.SameLine(); if (ImGui.SmallButton("Refresh")) RefreshAssetThumbs();
+        Theme.Tip("Read the folder again and make the pictures of this list again");
         ImGui.SameLine(); if (ImGui.SmallButton(docked ? "Float" : "Dock at the bottom")) { Settings.AssetsDocked = !docked; Settings.Save(); }
         Theme.Tip(docked ? "Make the Asset Browser a free window again" : "Attach the Asset Browser along the bottom of the views (drag its top edge to resize)");
         RefreshAssetItems();
@@ -276,41 +277,66 @@ public sealed partial class EditorApp
 
     // ---------------------------------------------------------------- thumbnails
 
-    readonly Queue<AssetItem> thumbQueue = new();
-    readonly HashSet<string> thumbAsked = new();
-    System.Threading.Tasks.Task<Scene> thumbTask; AssetItem thumbItem;
+    // what the grid asks for: the frame it was last on screen (the pictures on screen are made first, the newest first)
+    readonly Dictionary<string, (AssetItem Item, int Frame)> thumbWant = new();
+    readonly HashSet<string> thumbDone = new();
+    readonly List<(System.Threading.Tasks.Task<Scene> Task, AssetItem Item, int Tries)> thumbJobs = new();
     PreviewTarget thumbRt;
+    int thumbFrame;
+    const int ThumbLoaders = 3;
 
     void RequestThumb(AssetItem a)
     {
-        if (thumbAsked.Add(a.Key)) thumbQueue.Enqueue(a);
+        if (thumbDone.Contains(a.Key)) return;
+        thumbWant[a.Key] = (a, thumbFrame);
     }
 
-    /// <summary>One thumbnail at a time: the model loads in the background, then it is drawn once and saved as a PNG.</summary>
+    /// <summary>Refresh: the list is read again and the pictures of what it shows are made again.</summary>
+    void RefreshAssetThumbs()
+    {
+        var paths = assetItems.Select(ThumbPath).ToList();
+        foreach (var p in paths) { try { if (File.Exists(p)) File.Delete(p); } catch { } }
+        renderer.Textures.ForgetThumbs(paths);
+        foreach (var a in assetItems) thumbDone.Remove(a.Key);
+        thumbWant.Clear();
+        assetKey = null;
+        SetStatus($"Asset Browser: list read again, {paths.Count} pictures to make again");
+    }
+
+    /// <summary>
+    /// Up to three models load in the background, the ones on screen first; each is then drawn once (its textures loaded
+    /// for real, never the white stand-in of a texture still on its way) and saved as a PNG.
+    /// </summary>
     void PumpThumbs()
     {
+        thumbFrame++;
         if (!assetsOpen) return;
-        if (thumbTask == null)
+        // forget what scrolled away long ago: asked again when it comes back on screen
+        if (thumbFrame % 30 == 0)
+            foreach (var k in thumbWant.Where(kv => thumbFrame - kv.Value.Frame > 90).Select(kv => kv.Key).ToList()) thumbWant.Remove(k);
+        while (thumbJobs.Count < ThumbLoaders && thumbWant.Count > 0)
         {
-            while (thumbQueue.Count > 0)
-            {
-                var a = thumbQueue.Dequeue();
-                if (File.Exists(ThumbPath(a))) continue;
-                thumbItem = a;
-                var g = game; var opt = ImportOpts();
-                thumbTask = System.Threading.Tasks.Task.Run(() => LoadThumbScene(a, g, opt));
-                break;
-            }
-            return;
+            var next = thumbWant.Values.Where(w => thumbFrame - w.Frame <= 2).OrderByDescending(w => w.Frame).FirstOrDefault();
+            if (next.Item == null) break; // nothing on screen waits
+            thumbWant.Remove(next.Item.Key);
+            if (File.Exists(ThumbPath(next.Item))) { thumbDone.Add(next.Item.Key); continue; }
+            var a = next.Item; var g = game; var opt = ImportOpts();
+            thumbJobs.Add((System.Threading.Tasks.Task.Run(() => LoadThumbScene(a, g, opt)), a, 0));
         }
-        if (!thumbTask.IsCompleted) return;
-        var t = thumbTask; thumbTask = null;
-        var path = ThumbPath(thumbItem);
-        if (t.IsFaulted || t.Result == null) { try { WriteBlankThumb(path); } catch { } return; }
+        // one picture drawn per frame
+        int i = thumbJobs.FindIndex(j => j.Task.IsCompleted);
+        if (i < 0) return;
+        var (t, item, tries) = thumbJobs[i];
+        var path = ThumbPath(item);
+        if (t.IsFaulted || t.Result == null) { thumbJobs.RemoveAt(i); thumbDone.Add(item.Key); try { WriteBlankThumb(path); } catch { } return; }
         var sc = t.Result;
-        try { RenderThumb(sc, path); }
+        bool saved = true;
+        try { saved = RenderThumb(sc, path, tries >= 40); }
         catch { try { WriteBlankThumb(path); } catch { } }
-        finally { renderer.FreePreview(sc.Objects.Select(o => o.Id)); }
+        if (!saved) { thumbJobs[i] = (t, item, tries + 1); return; } // a texture is still being read: drawn again next frame
+        thumbJobs.RemoveAt(i); thumbDone.Add(item.Key);
+        renderer.FreePreview(sc.Objects.Select(o => o.Id));
+        renderer.Textures.ForgetThumbs(new[] { path });
     }
 
     static Scene LoadThumbScene(AssetItem a, GameFiles g, MoloMax.Core.IO.ImportOptions opt)
@@ -330,16 +356,39 @@ public sealed partial class EditorApp
         if (sc.Materials.Count == 0) sc.Materials.Add(MoloMax.Core.Gta.GtaMaterial.CreateDefault(0, "default", new Vector3(0.7f)));
         int nid = -200000;
         foreach (var im in r.Meshes) if (im.GtaType != GtaObjectType.Collision) sc.Objects.Add(new SceneObject { Id = nid--, Name = im.Name, Mesh = im.Mesh, GtaType = im.GtaType });
-        foreach (var tex in r.TexturesWritten) sc.Gta.ResourceName = Path.GetDirectoryName(tex); // texture folder, picked up below
+        // the model's own textures: their full paths go into its materials, found at once when it is drawn
+        var dirs = r.TexturesWritten.Select(Path.GetDirectoryName).Where(d => d != null).Distinct().ToList();
+        if (dirs.Count > 0)
+        {
+            string Full(string n)
+            {
+                if (string.IsNullOrEmpty(n) || n.IndexOfAny(new[] { '/', '\\', ':' }) >= 0) return n;
+                foreach (var d in dirs) foreach (var ext in new[] { "", ".dds", ".png", ".jpg" }) { var p = Path.Combine(d, n + ext); if (File.Exists(p)) return p; }
+                return n;
+            }
+            foreach (var m in sc.Materials) { m.DiffuseTexture = Full(m.DiffuseTexture); m.BumpTexture = Full(m.BumpTexture); m.SpecTexture = Full(m.SpecTexture); m.DetailTexture = Full(m.DetailTexture); }
+        }
         return sc;
     }
 
-    void RenderThumb(Scene sc, string path)
+    /// <summary>Draws the picture; false (nothing saved) while one of its textures is still being read, unless <paramref name="force"/>.</summary>
+    bool RenderThumb(Scene sc, string path, bool force = false)
     {
         const int T = 192;
         thumbRt ??= new PreviewTarget(gpu.Device, T, T);
-        if (!string.IsNullOrEmpty(sc.Gta.ResourceName) && Directory.Exists(sc.Gta.ResourceName) && !renderer.Textures.SearchFolders.Contains(sc.Gta.ResourceName))
-        { renderer.Textures.SearchFolders.Add(sc.Gta.ResourceName); renderer.Textures.ClearResolveCache(); }
+        // its textures load now, whatever the map streaming spends per frame (else they are drawn white and kept white)
+        var tc = renderer.Textures;
+        bool waiting = false;
+        var onlyHere = new List<string>();
+        double budget = tc.FrameBudgetMs; tc.FrameBudgetMs = 0;
+        try
+        {
+            foreach (var m in sc.Materials)
+                foreach (var n in new[] { m.DiffuseTexture, m.BumpTexture, m.SpecTexture })
+                    if (!string.IsNullOrEmpty(n)) { if (!tc.IsLoaded(n)) onlyHere.Add(n); tc.Get(n); waiting |= tc.LastGetPending; }
+        }
+        finally { tc.FrameBudgetMs = budget; }
+        if (waiting && !force) return false;
         var draw = sc.Objects.Where(o => o.Mesh != null && o.Mesh.Faces.Count > 0 && o.GtaType != GtaObjectType.Collision).ToList();
         var mn = new Vector3(float.MaxValue); var mx = new Vector3(float.MinValue);
         foreach (var o in draw) { var (a, b) = o.WorldBounds(); mn = Vector3.Min(mn, a); mx = Vector3.Max(mx, b); }
@@ -369,6 +418,9 @@ public sealed partial class EditorApp
         foreach (var o in draw) renderer.DrawObject(sc, o, true, Vector4.Zero, false);
         gpu.BindBackBuffer();
         thumbRt.SavePng(ctx, path);
+        renderer.FreePreview(sc.Objects.Select(o => o.Id));
+        tc.Unload(onlyHere); // loaded for this picture only
+        return true;
     }
 
     static void WriteBlankThumb(string path)

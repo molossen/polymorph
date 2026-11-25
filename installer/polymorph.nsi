@@ -93,9 +93,18 @@ FunctionEnd
   free:
 !macroend
 
+; the MCP server (pyembed\python.exe, started by an AI app such as Claude or ChatGPT) keeps running after Polymorph is
+; closed and holds the Python files: stop everything that runs from the install folder (the AI app starts it again)
+!macro StopFromInstallDir
+  nsExec::ExecToLog `powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-Process | Where-Object { $$_.Path -and $$_.Path.StartsWith('$INSTDIR\', [StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue"`
+  Pop $0
+  Sleep 800
+!macroend
+
 Section "$(SecApp)" SecMain
   SectionIn RO
   !insertmacro WaitClosed
+  !insertmacro StopFromInstallDir
   SetOutPath "$INSTDIR"
   ; an update replaces the program files; settings, autosaves and the texture library live elsewhere and stay
   File /r "${SRC}\*.*"
@@ -136,6 +145,7 @@ FunctionEnd
 
 Section "Uninstall"
   !insertmacro WaitClosed
+  !insertmacro StopFromInstallDir
   StrCpy $1 "$INSTDIR" "" -9
   StrCmp $1 "Polymorph" 0 +2
   RMDir /r "$INSTDIR"

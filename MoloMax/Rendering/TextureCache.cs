@@ -189,6 +189,23 @@ public sealed class TextureCache : IDisposable
         catch { thumbFailed.Add(path); return null; }
     }
 
+    /// <summary>Is this texture on the GPU already?</summary>
+    public bool IsLoaded(string nameOrPath) { var p = Resolve(nameOrPath); return p != null && cache.ContainsKey(p); }
+
+    /// <summary>Frees textures that were loaded for one picture only (Asset Browser thumbnails): the GPU memory does not grow.</summary>
+    public void Unload(IEnumerable<string> namesOrPaths)
+    {
+        bool any = false;
+        foreach (var n in namesOrPaths) { var p = Resolve(n); if (p != null && cache.Remove(p, out var s)) { s?.Dispose(); any = true; } }
+        if (any) Epoch++;
+    }
+
+    /// <summary>Drops loaded thumbnails (Refresh of the Asset Browser: the pictures are made again).</summary>
+    public void ForgetThumbs(IEnumerable<string> paths)
+    {
+        foreach (var p in paths) { if (thumbs.Remove(p, out var s)) s?.Dispose(); thumbFailed.Remove(p); }
+    }
+
     /// <summary>96 px thumbnail (small on the GPU even with thousands of materials).</summary>
     ShaderResourceView LoadThumb(string path)
     {
