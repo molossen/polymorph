@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.8.5](#185) | View radius in MODEL mode, whole game map can be hidden |
 | [1.8.4](#184) | MAP mode view radius for big custom maps |
 | [1.8.3](#183) | Asset Browser pictures, gizmo on the model, updates over a running AI app |
 | [1.8.2](#182) | Panels can leave the window (other monitors) |
@@ -41,6 +42,13 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 1.8.5
+- **View radius in MODEL mode too:** Views > *Only show what is near the camera* + *View radius*. On a very big scene only
+  the objects within that distance of the camera are drawn and can be picked (the selected one always shows). Same
+  setting as in the MAP panel.
+- **MAP mode:** with the view radius on, the game's far models (LOD / SLOD) beyond it go too (before, the objects only
+  switched to their LOD). New **None** button in the map levels: hides the whole game map, only your own objects stay.
 
 ## 1.8.4
 - **MAP mode view radius:** in the MAP panel, *Only show what is near the camera* + *View radius* (50 to 3000 m). On a big
