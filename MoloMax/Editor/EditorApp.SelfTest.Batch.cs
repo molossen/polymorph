@@ -793,7 +793,7 @@ public sealed partial class EditorApp
         Fresh();
         var cam = Viewports[ActiveViewport].Camera;
         var near = Scene.Add("near_box", Core.Mesh.Primitives.Box(2, 2, 2), cam.Target);
-        var far = Scene.Add("far_box", Core.Mesh.Primitives.Box(2, 2, 2), cam.Target + new Vector3(2000, 0, 0));
+        var far = Scene.Add("far_box", Core.Mesh.Primitives.Box(30, 30, 30), cam.Target + cam.Forward * 600); // in view, far away
         Selected.Clear();
         bool on0 = Settings.MapViewRadiusOn; float r0 = Settings.MapViewRadius;
         Settings.MapViewRadiusOn = false; yield return Frames(3);
@@ -806,7 +806,7 @@ public sealed partial class EditorApp
         bool farSel = drawList.Contains(far);
         Settings.MapViewRadiusOn = on0; Settings.MapViewRadius = r0;
         Expect(bothOff && nearOn && farOff && farUnpickable && farSel,
-            $"MODEL mode view radius {Vector3.Distance(cam.Eye, cam.Target) + 100:0} m: the box near the camera is drawn ({nearOn}), the one 2 km away is not ({farOff}) and cannot be picked ({farUnpickable}); setting off both drawn ({bothOff}); selected, it shows ({farSel})");
+            $"MODEL mode view radius {Vector3.Distance(cam.Eye, cam.Target) + 100:0} m: the box near the camera is drawn ({nearOn}), the one 600 m away is not ({farOff}) and cannot be picked ({farUnpickable}); setting off both drawn ({bothOff}); selected, it shows ({farSel})");
     }
 
     IEnumerable<object> PanelsOutsideTest()
