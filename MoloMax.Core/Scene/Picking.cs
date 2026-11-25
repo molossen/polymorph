@@ -165,13 +165,13 @@ public static class Picking
         return best;
     }
 
-    public static PickHit? PickObject(Scene s, in Ray worldRay)
+    public static PickHit? PickObject(Scene s, in Ray worldRay, Func<SceneObject, bool> skip = null)
     {
         // plain meshes: the fast local-space test; objects with modifiers: their evaluated mesh
-        var best = PickNearest(s.Objects, worldRay, o => o.Frozen || o.Modifiers is { Count: > 0 } || o.Gta is { BoundsOnly: true });
+        var best = PickNearest(s.Objects, worldRay, o => o.Frozen || o.Modifiers is { Count: > 0 } || o.Gta is { BoundsOnly: true } || (skip != null && skip(o)));
         foreach (var o in s.Objects)
         {
-            if (o.Hidden || o.Frozen || o.Modifiers is not { Count: > 0 }) continue;
+            if (o.Hidden || o.Frozen || o.Modifiers is not { Count: > 0 } || (skip != null && skip(o))) continue;
             var h = PickFace(o, worldRay, evaluated: true);
             if (h.HasValue && (!best.HasValue || h.Value.Distance < best.Value.Distance)) best = h;
         }

@@ -285,6 +285,9 @@ public sealed partial class EditorApp
             Theme.Tip("SLOD2 + SLOD3 only: the lightest far world");
             ImGui.SameLine();
             if (ImGui.SmallButton("All")) for (int l = 0; l <= 5; l++) SetMapLevel(l, true);
+            ImGui.SameLine();
+            if (ImGui.SmallButton("None")) for (int l = 0; l <= 5; l++) SetMapLevel(l, false);
+            Theme.Tip("Hide the whole game map: only your own objects (custom map, what you model) stay");
             ImGui.TreePop();
         }
         Ui.TextDisabled("Click the map to load that area (its .ymap) for editing.");

@@ -160,6 +160,7 @@ public sealed partial class EditorApp
         T("knife / slice", Knife);
         T("ASSETS DOCK: the Asset Browser docks at the bottom and the views make room", AssetsDockTest);
         T("GIZMO: a model whose pivot is far away gets its gizmo on itself", GizmoFarPivotTest);
+        T("VIEW RADIUS: in MODEL mode only what is near the camera is drawn and picked", ViewRadiusModelTest);
         T("PANELS OUTSIDE: a panel dragged out of the window becomes a window of its own, and comes back inside", PanelsOutsideTest);
         T("scale box: drag a side, a corner, in edit mode", ScaleBoxTest);
         T("edge click inside a room: edges with one end behind the camera, overlapping piece", EdgeInsideTest);

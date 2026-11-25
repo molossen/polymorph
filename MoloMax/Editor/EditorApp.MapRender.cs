@@ -44,12 +44,15 @@ public sealed partial class EditorApp
         SyncInteriorHidden();
         UpdateHiddenClip(eye);
         var live = MapLive();
+        float vr2 = Settings.MapViewRadiusOn ? MathF.Max(20, Settings.MapViewRadius) * MathF.Max(20, Settings.MapViewRadius) : 0;
         for (int i = 0, n = live.Count + backdrop.Count; i < n; i++)
         {
             var o = i < live.Count ? live[i] : backdrop[i - live.Count];
             if (o.Hidden || o.Mesh == null || o.Mesh.Faces.Count == 0) continue;
             if (o.Id < 0 && (FarSteppedAside(o, eye) || !FarLodVisible(o, eye))) continue; // far model: area loaded for editing, or another LOD level shows here
             var (mn, mx) = o.FastWorldBounds();
+            // view radius: the game's far models (LOD / SLOD) go too, not only the editable entities
+            if (vr2 > 0 && i >= live.Count && Vector3.DistanceSquared(Vector3.Clamp(eye, mn, mx), eye) > vr2) continue;
             if (!BoxVisible(planes, mn, mx)) continue;
             // smaller than ~1.5 px on screen: skip (far props)
             if (pix > 0)

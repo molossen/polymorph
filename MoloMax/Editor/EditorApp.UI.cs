@@ -184,6 +184,9 @@ public sealed partial class EditorApp
             if (ImGui.MenuItem("Statistics", null, ShowStats)) ShowStats = !ShowStats;
             if (ImGui.MenuItem("Backface Cull", null, BackfaceCull)) BackfaceCull = !BackfaceCull;
             if (ImGui.MenuItem("Face Orientation", null, FaceOrientation)) FaceOrientation = !FaceOrientation;
+            ImGui.Separator();
+            ViewRadiusMenu();
+            ImGui.Separator();
             if (ImGui.MenuItem("Scene Explorer", K("T", "Ctrl+["), ShowExplorer)) ShowExplorer = !ShowExplorer;
             if (ImGui.MenuItem(Theme.IsBlender ? "Properties" : "Command Panel", K("N", "Ctrl+]"), ShowPanel)) ShowPanel = !ShowPanel;
             ImGui.EndMenu();

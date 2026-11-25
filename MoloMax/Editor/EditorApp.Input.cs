@@ -78,6 +78,30 @@ public sealed partial class EditorApp
     }
 
     /// <summary>
+    /// View radius (Views menu, MAP panel): on a big scene only what is within this distance of the camera is drawn and can
+    /// be picked, in MODEL and MAP mode. The selected object and the one being edited always show.
+    /// </summary>
+    public bool OutOfViewRadius(SceneObject o, Vector3 eye)
+    {
+        if (!Settings.MapViewRadiusOn || o.Mesh == null || o.Mesh.Verts.Count == 0 || Selected.Contains(o.Id) || o == Current) return false;
+        float r = MathF.Max(20, Settings.MapViewRadius);
+        var (mn, mx) = o.FastWorldBounds();
+        return Vector3.DistanceSquared(Vector3.Clamp(eye, mn, mx), eye) > r * r;
+    }
+
+    void ViewRadiusMenu()
+    {
+        bool on = Settings.MapViewRadiusOn;
+        if (ImGui.MenuItem("Only show what is near the camera", null, on)) { Settings.MapViewRadiusOn = !on; Settings.Save(); mapLiveCount = -1; }
+        if (Settings.MapViewRadiusOn)
+        {
+            float r = Settings.MapViewRadius; ImGui.SetNextItemWidth(220);
+            if (ImGui.SliderFloat("View radius", ref r, 50, 3000, "%.0f m", ImGuiSliderFlags.Logarithmic)) { Settings.MapViewRadius = r; mapLiveCount = -1; }
+            if (ImGui.IsItemDeactivatedAfterEdit()) Settings.Save();
+        }
+    }
+
+    /// <summary>
     /// Where an object's gizmo goes: its pivot, unless the pivot is far away from the object (models imported with their
     /// pivot at the scene origin, map pieces whose pivot is elsewhere): then the middle of the object, so the gizmo is on it.
     /// </summary>
@@ -426,7 +450,7 @@ public sealed partial class EditorApp
     void PlaceCursor(Viewport vp, Vector2 screen)
     {
         var ray = RayAt(vp, screen);
-        var hit = Picking.PickObject(Scene, ray);
+        var hit = Picking.PickObject(Scene, ray, o => OutOfViewRadius(o, vp.Camera.Eye));
         Vector3 p;
         if (hit.HasValue) p = hit.Value.Point;
         else if (!Picking.RayGround(ray, 0, out p) && !Picking.RayPlane(ray, vp.Camera.Target, -vp.Camera.Forward, out p)) return;
@@ -696,7 +720,7 @@ public sealed partial class EditorApp
             }
             return;
         }
-        var pick = Picking.PickObject(Scene, ray);
+        var pick = Picking.PickObject(Scene, ray, o => OutOfViewRadius(o, vp.Camera.Eye));
         // lights and Drawable nodes have no faces: they are picked by their marker on screen
         SceneObject empty = null; float bestPx = 12f;
         foreach (var e in Scene.Objects)

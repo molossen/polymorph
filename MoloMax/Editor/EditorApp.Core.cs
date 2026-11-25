@@ -365,9 +365,11 @@ public sealed partial class EditorApp : IDisposable
         if (!(MapMode && !wireOnly(vp)) && !wireOnly(vp))
         {
             var planes = FrustumPlanes(viewProj);
+            var eyeR = vp.Camera.Eye;
             foreach (var o in Scene.Objects)
             {
                 if (o.Hidden || IsVolumeOnly(o)) continue;
+                if (OutOfViewRadius(o, eyeR)) continue; // view radius: far parts of a big scene are not drawn
                 if (o.SplatFile != null) { if (o.SplatCloud != null) splatDraws.Add(o); continue; } // scans: drawn after the transparent pass
                 if (o.Modifiers is not { Count: > 0 } && o.Mesh != null && o.Mesh.Verts.Count > 0)
                 {
@@ -408,6 +410,7 @@ public sealed partial class EditorApp : IDisposable
         foreach (var o in MapMode ? MapLive() : Scene.Objects) // MAP: what is within draw distance (selected objects always are)
         {
             if (o.Hidden) continue;
+            if (!MapMode && OutOfViewRadius(o, vp.Camera.Eye)) continue;
             if (o.GtaType == GtaObjectType.Model) { DrawableMarker(o, Selected.Contains(o.Id)); continue; }
             if (o.GtaType == GtaObjectType.Light) { LightGizmo(o, Selected.Contains(o.Id) || nodeKids != null && nodeKids.Contains(o.Id)); continue; }
             bool sel = Selected.Contains(o.Id) || nodeKids != null && nodeKids.Contains(o.Id);

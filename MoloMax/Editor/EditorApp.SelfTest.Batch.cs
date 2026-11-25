@@ -788,6 +788,27 @@ public sealed partial class EditorApp
         yield return Frames(2);
     }
 
+    IEnumerable<object> ViewRadiusModelTest()
+    {
+        Fresh();
+        var cam = Viewports[ActiveViewport].Camera;
+        var near = Scene.Add("near_box", Core.Mesh.Primitives.Box(2, 2, 2), cam.Target);
+        var far = Scene.Add("far_box", Core.Mesh.Primitives.Box(2, 2, 2), cam.Target + new Vector3(2000, 0, 0));
+        Selected.Clear();
+        bool on0 = Settings.MapViewRadiusOn; float r0 = Settings.MapViewRadius;
+        Settings.MapViewRadiusOn = false; yield return Frames(3);
+        bool bothOff = drawList.Contains(near) && drawList.Contains(far);
+        Settings.MapViewRadiusOn = true; Settings.MapViewRadius = Vector3.Distance(cam.Eye, cam.Target) + 100; yield return Frames(3);
+        bool nearOn = drawList.Contains(near), farOff = !drawList.Contains(far);
+        var ray = new Ray(far.Position + new Vector3(0, 0, 50), -Vector3.UnitZ);
+        bool farUnpickable = Picking.PickObject(Scene, ray, o => OutOfViewRadius(o, cam.Eye)) is not { } h || h.Object != far;
+        SelectOnly(far); yield return Frames(2);
+        bool farSel = drawList.Contains(far);
+        Settings.MapViewRadiusOn = on0; Settings.MapViewRadius = r0;
+        Expect(bothOff && nearOn && farOff && farUnpickable && farSel,
+            $"MODEL mode view radius {Vector3.Distance(cam.Eye, cam.Target) + 100:0} m: the box near the camera is drawn ({nearOn}), the one 2 km away is not ({farOff}) and cannot be picked ({farUnpickable}); setting off both drawn ({bothOff}); selected, it shows ({farSel})");
+    }
+
     IEnumerable<object> PanelsOutsideTest()
     {
         Fresh();
@@ -1044,6 +1065,11 @@ public sealed partial class EditorApp
                 Selected.Clear(); Settings.MapViewRadiusOn = on0; Settings.MapViewRadius = r0;
                 Scene.Objects.Remove(farBox); UpdateMapCull();
                 Expect(shownOff && hiddenOn && selShown, $"view radius 300 m: an object 900 m away is not drawn nor picked ({liveOn} of {all} drawn), it is with the setting off, and when it is selected");
+                // the game's far models (LOD / SLOD) go too, not only the editable entities
+                Settings.MapViewRadiusOn = false; yield return Frames(4); int visOff = MapVisible;
+                Settings.MapViewRadiusOn = true; Settings.MapViewRadius = 150; mapLiveCount = -1; yield return Frames(4); int visOn = MapVisible;
+                Settings.MapViewRadiusOn = on0; Settings.MapViewRadius = r0; mapLiveCount = -1;
+                Expect(visOn < visOff, $"with the view radius the far game models are not drawn either ({visOff} models drawn -> {visOn})");
                 yield return Frames(2);
             }
             // 5. File > Save / Open in MAP mode: what is modeled on the map goes into a .mmx and comes back onto the map
