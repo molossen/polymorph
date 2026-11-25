@@ -1,7 +1,7 @@
 {
-  "version": "1.8.5",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.5.exe",
-  "size": 70625299,
-  "sha256": "9aa22281a6d079d92c0b071dbfef26e09e365e48dd77655091af4dfc1701acd5",
-  "notes": "- NEW: view radius in MODEL mode too (Views > Only show what is near the camera): on a very big scene only what is near the camera is drawn and picked\n- MAP mode: the game's far models go too with the view radius; map levels > None hides the whole game map\n- 1.8.4: MAP mode view radius\n- 1.8.3: Asset Browser pictures, gizmo on the model, installer stops the MCP server\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "1.8.6",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.6.exe",
+  "size": 70637128,
+  "sha256": "021f39107e796bdb9113e64465aead5c65478824a9865e9044fe4a32d7b90936",
+  "notes": "- Very big scenes: Delete and Ctrl+Z are quick again (3.4 s -> 0.1 s on 8.5 M faces) and the undo history no longer keeps a full copy of the scene (memory budget 1.5 GB)\n- 1.8.5: view radius in MODEL mode, None button hides the whole game map\n- 1.8.4: MAP mode view radius\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
