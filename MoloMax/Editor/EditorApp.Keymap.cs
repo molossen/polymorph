@@ -85,6 +85,9 @@ public sealed partial class EditorApp
             return;
         }
         if (ctrl && P(ImGuiKey.Y)) { DoRedo(); return; }
+        // copy / paste objects (also from MAP to MODEL and back); 3ds Max keymap: Ctrl+V clones when nothing was copied
+        if (ctrl && !alt && !shift && P(ImGuiKey.C) && Level == SubObject.Object) { CopySelection(); return; }
+        if (ctrl && !alt && P(ImGuiKey.V) && (ClipboardCount > 0 || !MaxKeymap)) { PasteClipboard(atCursor: shift); return; }
         if (ctrl && P(ImGuiKey.S)) { if (MapMode && !shift) Save(false); else if (MapMode && SelectedMapDoc() is { } smd) SaveMapDoc(smd, saveAs: true); else Save(shift); return; }
         if (ctrl && shift && P(ImGuiKey.O)) { ImportDialog(); return; }
         if (ctrl && P(ImGuiKey.O)) { OpenDialog(); return; }

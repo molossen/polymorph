@@ -68,6 +68,10 @@ public sealed partial class EditorApp
             if (ImGui.MenuItem(Undo.CanUndo ? $"Undo {Undo.UndoName}" : "Undo", "Ctrl+Z", false, Undo.CanUndo)) DoUndo();
             if (ImGui.MenuItem(Undo.CanRedo ? $"Redo {Undo.RedoName}" : "Redo", K("Ctrl+Shift+Z", "Ctrl+Shift+Z", "Ctrl+Y"), false, Undo.CanRedo)) DoRedo();
             ImGui.Separator();
+            if (ImGui.MenuItem("Copy objects", "Ctrl+C", false, Selected.Count > 0)) CopySelection();
+            if (ImGui.MenuItem(ClipboardCount > 0 ? $"Paste {ClipboardCount} object(s)" : "Paste objects", "Ctrl+V", false, ClipboardCount > 0)) PasteClipboard();
+            if (ImGui.MenuItem("Paste at the 3D cursor", "Ctrl+Shift+V", false, ClipboardCount > 0)) PasteClipboard(atCursor: true);
+            ImGui.Separator();
             if (ImGui.MenuItem("Delete", K("X", "Del"))) DeleteSelection();
             if (ImGui.MenuItem(K("Duplicate", "Duplicate", "Clone"), K("Shift+D", "Ctrl+D", "Ctrl+V"))) { if (Settings.Keymap == Keymap.Blender) DuplicateAndGrab(); else CloneSelection(false); }
             if (ImGui.MenuItem("Instance", K("Alt+D", "", "Ctrl+V"), false, Selected.Count > 0)) CloneSelection(true);

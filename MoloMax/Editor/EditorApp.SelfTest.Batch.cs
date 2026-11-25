@@ -1134,6 +1134,38 @@ public sealed partial class EditorApp
                     $"MAP mode Open puts the .mmx back on the map, same place, editable ({again.Count} objects, {again.Sum(o => o.Mesh.Faces.Count)} faces), the map stays loaded ({entOf.Count} game entities)");
                 if (box2 != null) { SelectOnly(box2); SetLevel(SubObject.Polygon); yield return Frames(2); Expect(Level == SubObject.Polygon, "the reopened box can be edited"); SetLevel(SubObject.Object); }
             }
+            // 6. Ctrl+C a game prop on the map, Ctrl+V in MODEL mode: same place, a plain editable model
+            {
+                var gameEnt = Scene.Objects.Where(o => entOf.ContainsKey(o.Id) && o.Mesh.Faces.Count is > 20 and < 5000)
+                    .OrderBy(o => Vector3.DistanceSquared(o.Position, Viewports[ActiveViewport].Camera.Target)).FirstOrDefault();
+                if (gameEnt == null) Note("no game prop near the square to copy");
+                else
+                {
+                    var gPos = gameEnt.Position; int gFaces = gameEnt.Mesh.Faces.Count; var gName = gameEnt.Name;
+                    SelectOnly(gameEnt); SetLevel(SubObject.Object); yield return Frames(2);
+                    UI.ImGuiBackend.SyntheticInput = true;
+                    PostKey(System.Windows.Forms.Keys.ControlKey, true); PostKey(System.Windows.Forms.Keys.C, true); yield return Frames(2);
+                    PostKey(System.Windows.Forms.Keys.C, false); PostKey(System.Windows.Forms.Keys.ControlKey, false); yield return Frames(2);
+                    int copied = ClipboardCount;
+                    SetMapMode(false); yield return Frames(6);
+                    int n0 = Scene.Objects.Count;
+                    PostKey(System.Windows.Forms.Keys.ControlKey, true); PostKey(System.Windows.Forms.Keys.V, true); yield return Frames(2);
+                    PostKey(System.Windows.Forms.Keys.V, false); PostKey(System.Windows.Forms.Keys.ControlKey, false); yield return Frames(3);
+                    var pastedObj = Scene.Objects.Skip(n0).FirstOrDefault();
+                    Expect(!MapMode && copied == 1 && pastedObj != null && Vector3.Distance(pastedObj.Position, gPos) < 0.01f && pastedObj.Mesh.Faces.Count == gFaces && pastedObj.Gta.MapArchetype == null && pastedObj.InstanceKey == null,
+                        $"Ctrl+C on the map ({gName}, {gFaces} faces), Ctrl+V in MODEL mode: pasted at the same place, own mesh, editable ({pastedObj?.Name}, {pastedObj?.Mesh.Faces.Count} faces)");
+                    if (pastedObj != null) { SelectOnly(pastedObj); SetLevel(SubObject.Polygon); yield return Frames(2); Expect(Level == SubObject.Polygon, "the pasted prop can be edited"); SetLevel(SubObject.Object); }
+                    Cursor3D = new Vector3(5, 5, 0);
+                    PostKey(System.Windows.Forms.Keys.ControlKey, true); PostKey(System.Windows.Forms.Keys.ShiftKey, true); PostKey(System.Windows.Forms.Keys.V, true); yield return Frames(2);
+                    PostKey(System.Windows.Forms.Keys.V, false); PostKey(System.Windows.Forms.Keys.ShiftKey, false); PostKey(System.Windows.Forms.Keys.ControlKey, false); yield return Frames(3);
+                    var atCur = Scene.Objects.LastOrDefault();
+                    Expect(atCur != null && atCur != pastedObj && Vector3.Distance(atCur.Position, Cursor3D) < 0.01f, $"Ctrl+Shift+V pastes it at the 3D cursor ({atCur?.Position.X:0.0}, {atCur?.Position.Y:0.0})");
+                    DoUndo(); DoUndo(); yield return Frames(2);
+                    Expect(Scene.Objects.Count == n0, $"Ctrl+Z takes the pastes back ({Scene.Objects.Count} objects, {n0} before)");
+                    UI.ImGuiBackend.SyntheticInput = false;
+                    yield break;
+                }
+            }
         }
         SetMapMode(false);
     }
