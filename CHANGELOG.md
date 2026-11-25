@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.8.3](#183) | Asset Browser pictures, gizmo on the model, updates over a running AI app |
 | [1.8.2](#182) | Panels can leave the window (other monitors) |
 | [1.8.1](#181) | Asset Browser docks at the bottom, MAP mode save and undo |
 | [1.8.0](#180) | Ped Forge: any character or animal becomes a FiveM ped |
@@ -39,6 +40,16 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 1.8.3
+- **Asset Browser pictures:** the ones on screen are made first (scroll down a long list: no wait for what you scrolled
+  past), three models load at once, their textures are loaded for real before the picture is taken (no more white
+  props), and freed after (it no longer slows down with time). **Refresh** reads the folder again and makes the pictures
+  of the list again. Pictures made white by older versions are not reused.
+- **Gizmo on the model:** a model whose pivot is far from it (imported with its pivot at the scene origin) gets the move /
+  rotate / scale gizmo on itself, not far away.
+- **Updates:** the installer stops the Polymorph MCP server (the Python an AI app such as ChatGPT or Claude keeps running)
+  before replacing files, so no more "Error opening file for writing ... pyembed". No need to uninstall first.
 
 ## 1.8.2
 - **Panels can leave the window.** Drag a floating panel (Asset Browser, Material Editor, any window with a title bar) out
