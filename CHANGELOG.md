@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.8.8](#188) | Ctrl+C / Ctrl+V of objects, also from MAP to MODEL mode |
 | [1.8.7](#187) | F frames the view while painting terrain layers |
 | [1.8.6](#186) | Delete / Ctrl+Z quick on very big scenes, less memory |
 | [1.8.5](#185) | View radius in MODEL mode, whole game map can be hidden |
@@ -44,6 +45,14 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 1.8.8
+
+- **Copy / paste objects**: Ctrl+C copies the selected objects (with their children and materials), Ctrl+V pastes them at
+  the same place, Ctrl+Shift+V pastes them at the 3D cursor. Also in the Edit menu.
+- Works between modes: copy a game prop in MAP mode, switch to MODEL mode, Ctrl+V gives a plain editable model at the
+  same place. Paste back in MAP mode adds it to your build.
+- Ctrl+Z takes a paste back.
 
 ## 1.8.7
 - **Terrain painting (4 layers): F frames the view on the object** like everywhere else. It used to switch to the fill
