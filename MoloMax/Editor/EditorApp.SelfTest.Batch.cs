@@ -809,6 +809,42 @@ public sealed partial class EditorApp
             $"MODEL mode view radius {Vector3.Distance(cam.Eye, cam.Target) + 100:0} m: the box near the camera is drawn ({nearOn}), the one 600 m away is not ({farOff}) and cannot be picked ({farUnpickable}); setting off both drawn ({bothOff}); selected, it shows ({farSel})");
     }
 
+    IEnumerable<object> BigSceneUndoTest()
+    {
+        Fresh();
+        // a big custom map: 20 000 pieces (road / building tiles) of 800 faces + one big 1M-face terrain
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var tile = Core.Mesh.Primitives.Plane(20, 20, 20, 20);
+        for (int i = 0; i < 20000; i++) Scene.Add("tile", tile.Clone(), new Vector3((i % 150) * 22, (i / 150) * 22, 0));
+        var big = Scene.Add("terrain", Core.Mesh.Primitives.Plane(3000, 3000, 707, 707), new Vector3(1500, 1500, -1));
+        Undo.Clear();
+        long faces = Scene.Objects.Sum(o => (long)o.Mesh.Faces.Count);
+        Note($"scene built in {sw.ElapsedMilliseconds} ms: {Scene.Objects.Count} objects, {faces / 1000} k faces");
+        yield return Frames(5);
+        GC.Collect(); long mem0 = GC.GetTotalMemory(true);
+        // 1. delete an object, Ctrl+Z
+        var victim = Scene.Objects[100]; SelectOnly(victim); Level = SubObject.Object;
+        sw.Restart(); DeleteSelection(); long tDel = sw.ElapsedMilliseconds; yield return Frames(2);
+        sw.Restart(); DoUndo(); long tUndo = sw.ElapsedMilliseconds; yield return Frames(2);
+        sw.Restart(); DoRedo(); long tRedo = sw.ElapsedMilliseconds; yield return Frames(2);
+        DoUndo(); yield return Frames(2);
+        // 2. delete faces of the big mesh, Ctrl+Z
+        var b = Scene.Find(big.Id); SelectOnly(b); SetLevel(SubObject.Polygon); yield return Frames(2);
+        var ss = SubSel(b); ss.Clear(); for (int f = 0; f < 50; f++) ss.Faces.Add(f);
+        sw.Restart(); MaxDelete(); long tDelF = sw.ElapsedMilliseconds; yield return Frames(2);
+        sw.Restart(); DoUndo(); long tUndoF = sw.ElapsedMilliseconds; yield return Frames(2);
+        SetLevel(SubObject.Object);
+        // 3. ten edits of the big mesh: how much memory the history keeps
+        for (int k = 0; k < 10; k++) { SelectOnly(Scene.Find(big.Id)); Do("move " + k, () => { var o = Scene.Find(big.Id); o.Position += Vector3.UnitZ * 0.01f; }); }
+        for (int k = 0; k < 5; k++) { var o = Scene.Find(big.Id); SelectOnly(o); SetLevel(SubObject.Polygon); var s2 = SubSel(o); s2.Clear(); s2.Faces.Add(k); MaxDelete(); SetLevel(SubObject.Object); }
+        yield return Frames(2);
+        GC.Collect(); long mem1 = GC.GetTotalMemory(true);
+        Note($"times: delete object {tDel} ms, Ctrl+Z {tUndo} ms, redo {tRedo} ms; delete 50 faces of the 1M-face mesh {tDelF} ms, Ctrl+Z {tUndoF} ms; history after 15 edits: +{(mem1 - mem0) / 1048576} MB");
+        Expect(tDel < 400 && tUndo < 800 && tDelF < 1500 && tUndoF < 1500, $"big scene: delete / Ctrl+Z stay quick (object {tDel} / {tUndo} ms, faces {tDelF} / {tUndoF} ms)");
+        Expect(mem1 - mem0 < 600L * 1048576, $"big scene: the undo history stays within its memory budget (+{(mem1 - mem0) / 1048576} MB after 15 edits of a 1M-face mesh)");
+        Undo.Clear();
+    }
+
     IEnumerable<object> PanelsOutsideTest()
     {
         Fresh();
