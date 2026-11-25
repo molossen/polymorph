@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.8.7](#187) | F frames the view while painting terrain layers |
 | [1.8.6](#186) | Delete / Ctrl+Z quick on very big scenes, less memory |
 | [1.8.5](#185) | View radius in MODEL mode, whole game map can be hidden |
 | [1.8.4](#184) | MAP mode view radius for big custom maps |
@@ -43,6 +44,10 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 1.8.7
+- **Terrain painting (4 layers): F frames the view on the object** like everywhere else. It used to switch to the fill
+  tool, which also stopped the terrain brush.
 
 ## 1.8.6
 - **Very big scenes (millions of faces, tens of thousands of objects): Delete and Ctrl+Z are quick again.** The undo
