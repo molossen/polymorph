@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.8.4](#184) | MAP mode view radius for big custom maps |
 | [1.8.3](#183) | Asset Browser pictures, gizmo on the model, updates over a running AI app |
 | [1.8.2](#182) | Panels can leave the window (other monitors) |
 | [1.8.1](#181) | Asset Browser docks at the bottom, MAP mode save and undo |
@@ -40,6 +41,11 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 1.8.4
+- **MAP mode view radius:** in the MAP panel, *Only show what is near the camera* + *View radius* (50 to 3000 m). On a big
+  custom map only the objects around the camera are drawn and can be picked, so the editor stays smooth whatever the
+  angle (no more looking straight down to avoid lag). The selected object always shows. Remembered between sessions.
 
 ## 1.8.3
 - **Asset Browser pictures:** the ones on screen are made first (scroll down a long list: no wait for what you scrolled
