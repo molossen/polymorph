@@ -3404,8 +3404,8 @@ room.Mesh.Faces.Count");
                 int pinned = int.MaxValue;
                 foreach (var x in early) thumbWant[x.Key] = (x, thumbFrame - 3); // on screen a moment ago, then the list scrolled
                 var stamp = thumbFrame;
-                for (int k = 0; k < 4; k++) { foreach (var x in late) RequestThumb(x); yield return Frames(1); }
-                yield return Settle(() => late.All(x => File.Exists(ThumbPath(x))), 40);
+                // the grid asks every frame for what it shows
+                for (int k = 0; k < 900 && !late.All(x => File.Exists(ThumbPath(x))); k++) { foreach (var x in late) RequestThumb(x); yield return Frames(1); }
                 int earlyDone = early.Count(x => File.Exists(ThumbPath(x)));
                 Expect(late.All(x => File.Exists(ThumbPath(x))) && earlyDone == 0, $"scrolled: the 6 on screen made first ({late.Count(x => File.Exists(ThumbPath(x)))}/6), the 6 that scrolled away wait ({earlyDone}/6 made)");
                 _ = pinned; _ = stamp;
