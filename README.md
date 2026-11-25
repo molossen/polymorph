@@ -33,6 +33,19 @@ then export a FiveM resource that is ready to `ensure` — in one free program, 
 
 ## What's new
 
+- **1.8.9 — My own shortcuts**: give any command your own key (Preferences > Keymap, or right-click it in the search), replace or free the keymap's keys, export / import your keymap as a .json to share it. **Ctrl+X** cuts objects.
+- **1.8.8 — Copy / paste objects**: Ctrl+C / Ctrl+V, Ctrl+Shift+V at the 3D cursor; copy a game prop in MAP mode and paste it in MODEL mode as a plain editable model.
+- **1.8.7 — Terrain painting**: F frames the view on the object while painting the 4 terrain layers.
+- **1.8.6 — Very big scenes**: Delete and Ctrl+Z quick again on millions of faces / tens of thousands of objects (3.4 s → 0.1 s), much less memory for the undo history.
+- **1.8.5 — View radius in MODEL mode**: only the objects near the camera are drawn and picked; the **None** button hides the whole game map in MAP mode.
+- **1.8.4 — MAP mode view radius** for big custom maps.
+- **1.8.3 — Fixes**: Asset Browser pictures (no more white items, Refresh works, faster), the gizmo stays on the model even with a far-away pivot, updates install over a running copy.
+- **1.8.2 — Other monitors**: floating panels (Asset Browser, Material Editor...) can be dragged out of the window, onto another screen.
+- **1.8.1 — MAP mode Save and Undo**: Save / Save As write your map work to a .mmx, Ctrl+Z after deleting faces on the map; the Asset Browser docks at the bottom.
+- **1.8.0 — Ped Forge**: any character or animal becomes a FiveM ped.
+- **1.7.9 — FBX import**, no more 60k vertex warning.
+- **1.7.8 — Multi-selection X / Y / Z fields**, viewport [+] menu.
+- **1.7.5 – 1.7.7 — Scan to block-out**: Scan button in the toolbar, the AI sees the block-out clearly over the scan and goes on to a clean room.
 - **1.7.4 — Scan to block-out**: one button copies the prompt; your AI connected through MCP stands the scan up, scales it and models the room over it.
 - **1.7.2 — Bone animations**: keyed bones go to GTA as a .ycd clip the model plays by itself.
 - **1.7.1 — Skinned export**: a mesh with a Skin modifier goes to GTA as a skinned .ydr (skeleton + weights).
@@ -88,6 +101,9 @@ All of them, with chapters, on the [website](https://molossen.github.io/polymorp
 - Vertex, edge and face snaps with visible targets: corner on corner, face against face.
 - **Line tool**: draw a path point by point on the snaps, then make it a door frame casing, a beam, a pipe or an extrusion.
 - Game-style fly camera (right button + ZQSD / WASD) and a view cube you can drag.
+- **Ctrl+C / Ctrl+X / Ctrl+V** objects, also from the game map into your model.
+- **Your own shortcuts** for any command, with keymaps you can export and share; Standard (Blender-like) or Industry Compatible base keymap.
+- Panels you can take out onto other monitors; a view radius that keeps huge scenes smooth.
 
 **Surface**
 - GTA shaders, drag & drop materials, Smart UV, Lightmap Pack, Cube / Cylinder / Sphere / From View projections.
@@ -102,6 +118,7 @@ All of them, with chapters, on the [website](https://molossen.github.io/polymorp
 - **GTA lights**: point, spot and capsule with every game field, written the way Sollumz reads them.
 - **MAP mode**: the whole map with its levels of detail, real models loading around the camera; move, delete and place props,
   edit game interiors, model right on the map, save everything as one FiveM resource.
+- **Ped Forge**: any character or animal becomes a FiveM ped.
 - **Weapon Forge** and **Vehicle Forge**: a game weapon or car lends its skeleton, your model is fitted on it, the metas are written.
 - One key (F10) exports a FiveM resource with its `fxmanifest.lua`; it can be sent to your test server and restarted.
 
