@@ -1,7 +1,7 @@
 {
-  "version": "1.8.8",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.8.exe",
-  "size": 70634301,
-  "sha256": "45332218edc35e919b77df1d605df536b719b3b8e266104f9be61fc3c1e6ed38",
-  "notes": "- Copy / paste objects: Ctrl+C, Ctrl+V (same place), Ctrl+Shift+V (at the 3D cursor), also in the Edit menu\n- Copy a game prop in MAP mode, Ctrl+V in MODEL mode: a plain editable model at the same place\n- 1.8.7: F frames the view while painting terrain layers\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "1.8.9",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.9.exe",
+  "size": 70637996,
+  "sha256": "3e93c4090d30680614fb75036319c7fcfb2e22ef7b87b267291123e000d3dd74",
+  "notes": "- My own shortcuts: Preferences > Keymap, give any command your own key (Ctrl / Shift / Alt), replace or free keymap keys\n- Right-click a command in the search to give it a key\n- Export / import my keymap (.json) to share it\n- Ctrl+X cuts objects (also MAP <-> MODEL)\n- 1.8.8: Ctrl+C / Ctrl+V of objects\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
