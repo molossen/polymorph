@@ -1768,6 +1768,12 @@ public sealed partial class EditorApp
         DoUndo(); yield return Frames(4); g = Scene.Find(g.Id);
         int left = g.Mesh.Faces.Sum(f => f.Col1?.Count(c => c.Y > 0.8f) ?? 0);
         Note($"after Ctrl+Z: {left} green corners");
+        // F while painting the layers: the view goes onto the object, the terrain brush stays
+        vp.Camera.Frame(new Vector3(40, 40, 0), new Vector3(42, 42, 1)); yield return Frames(3);
+        var far0 = vp.Camera.Target;
+        PostKey(System.Windows.Forms.Keys.F, true); yield return Frames(2); PostKey(System.Windows.Forms.Keys.F, false); yield return Frames(4);
+        Expect(paintMode && terrainPaintLayer >= 0 && paintTool == PaintTool.VertexColour && Vector3.Distance(vp.Camera.Target, Vector3.Zero) < 2f && Vector3.Distance(far0, Vector3.Zero) > 20f,
+            $"F while painting the 4 layers frames the object (view on {vp.Camera.Target.X:0.0}, {vp.Camera.Target.Y:0.0}, {vp.Camera.Target.Z:0.0}), the terrain brush stays ({paintTool}, layer {terrainPaintLayer})");
         paintMode = false; terrainPaintLayer = -1;
         UI.ImGuiBackend.SyntheticInput = false;
     }

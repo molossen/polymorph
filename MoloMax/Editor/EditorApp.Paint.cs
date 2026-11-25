@@ -504,7 +504,8 @@ public sealed partial class EditorApp
         {
             if (P(ImGuiKey.B)) { SetPaintTool(PaintTool.Brush); return true; }
             if (P(ImGuiKey.E)) { SetPaintTool(PaintTool.Eraser); return true; }
-            if (P(ImGuiKey.F)) { SetPaintTool(PaintTool.Fill); return true; }
+            // painting terrain layers (4 textures): F frames the view on the object, like outside paint mode (no fill tool there)
+            if (P(ImGuiKey.F)) { if (terrainPaintLayer >= 0 && paintTool == PaintTool.VertexColour) FrameSelection(); else SetPaintTool(PaintTool.Fill); return true; }
             if (P(ImGuiKey.I)) { paintPick = !paintPick; SetStatus(paintPick ? "Eyedropper: click the model to pick its colour." : "Eyedropper off"); return true; }
         }
         if (P(ImGuiKey.Escape)) { paintMode = false; SetStatus("Paint mode off"); return true; }
