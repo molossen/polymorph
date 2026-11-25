@@ -830,12 +830,12 @@ public sealed partial class EditorApp
         Expect(FreeKeys.Contains("X") && Scene.Objects.Count == n0, $"X freed: it no longer deletes ({Scene.Objects.Count} objects, {n0} before)");
         FreeKeys.Clear();
         // 5. Ctrl+X cuts, Ctrl+V pastes back at the same place
-        SelectOnly(b); var bPos = b.Position; yield return Frames(2);
+        SelectOnly(b); var bPos = b.Position; var bName = b.Name; yield return Frames(2);
         foreach (var f in Press(System.Windows.Forms.Keys.ControlKey, System.Windows.Forms.Keys.X)) yield return f;
-        bool gone = Scene.Objects.All(o => o.Name != "key_box_b");
+        bool gone = !Scene.Objects.Contains(b) && Scene.Objects.All(o => o.Name != bName);
         foreach (var f in Press(System.Windows.Forms.Keys.ControlKey, System.Windows.Forms.Keys.V)) yield return f;
         var back = Scene.Objects.LastOrDefault();
-        Expect(gone && ClipboardCount == 1 && back != null && Vector3.Distance(back.Position, bPos) < 0.001f, $"Ctrl+X cuts the box (gone: {gone}), Ctrl+V puts it back at the same place ({back?.Name})");
+        Expect(gone && ClipboardCount == 1 && back != null && Vector3.Distance(back.Position, bPos) < 0.001f && back.Name == bName, $"Ctrl+X cuts the box (gone: {gone}), Ctrl+V puts it back at the same place, same name ({bName} -> {back?.Name})");
         // 6. export / import a keymap file
         var file = Path.Combine(SelfTestDir ?? Path.GetTempPath(), "my_keymap.json");
         ExportKeymap(file);

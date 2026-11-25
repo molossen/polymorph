@@ -78,7 +78,9 @@ public sealed partial class EditorApp
                 c.Position += shift;
                 if (MapMode && string.IsNullOrEmpty(c.Folder)) c.Folder = MapBuildFolder;
                 if (!string.IsNullOrEmpty(c.Folder) && !Scene.Folders.Contains(c.Folder)) Scene.Folders.Add(c.Folder);
-                c.Name = Scene.UniqueName(c.Name);
+                // a cut object pasted back keeps its name; a copy next to the original gets the next number (box001 -> box002)
+                if (Scene.Objects.Any(x => string.Equals(x.Name, c.Name, StringComparison.OrdinalIgnoreCase)))
+                    c.Name = Scene.UniqueName(System.Text.RegularExpressions.Regex.Replace(c.Name, @"\d{3}$", ""));
                 c.Touch();
                 Scene.Objects.Add(c); pasted.Add(c);
                 if (c.ParentId < 0) Selected.Add(c.Id);
