@@ -1,7 +1,7 @@
 {
-  "version": "1.8.7",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.7.exe",
-  "size": 70634977,
-  "sha256": "edd1811fbdfff843c4a88eaf6aba4cd5230fd72dcc8b0327f3d140f3d2377a4e",
-  "notes": "- Terrain painting (4 layers): F frames the view on the object (it used to switch to the fill tool)\n- 1.8.6: very big scenes, Delete and Ctrl+Z quick again, much less memory\n- 1.8.5: view radius in MODEL mode, None button hides the whole game map\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "1.8.8",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.8.exe",
+  "size": 70634301,
+  "sha256": "45332218edc35e919b77df1d605df536b719b3b8e266104f9be61fc3c1e6ed38",
+  "notes": "- Copy / paste objects: Ctrl+C, Ctrl+V (same place), Ctrl+Shift+V (at the 3D cursor), also in the Edit menu\n- Copy a game prop in MAP mode, Ctrl+V in MODEL mode: a plain editable model at the same place\n- 1.8.7: F frames the view while painting terrain layers\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
