@@ -1,7 +1,7 @@
 {
-  "version": "1.8.6",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.6.exe",
-  "size": 70637128,
-  "sha256": "021f39107e796bdb9113e64465aead5c65478824a9865e9044fe4a32d7b90936",
-  "notes": "- Very big scenes: Delete and Ctrl+Z are quick again (3.4 s -> 0.1 s on 8.5 M faces) and the undo history no longer keeps a full copy of the scene (memory budget 1.5 GB)\n- 1.8.5: view radius in MODEL mode, None button hides the whole game map\n- 1.8.4: MAP mode view radius\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "1.8.7",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.7.exe",
+  "size": 70634977,
+  "sha256": "edd1811fbdfff843c4a88eaf6aba4cd5230fd72dcc8b0327f3d140f3d2377a4e",
+  "notes": "- Terrain painting (4 layers): F frames the view on the object (it used to switch to the fill tool)\n- 1.8.6: very big scenes, Delete and Ctrl+Z quick again, much less memory\n- 1.8.5: view radius in MODEL mode, None button hides the whole game map\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
