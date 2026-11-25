@@ -1148,10 +1148,10 @@ public sealed partial class EditorApp
                     PostKey(System.Windows.Forms.Keys.C, false); PostKey(System.Windows.Forms.Keys.ControlKey, false); yield return Frames(2);
                     int copied = ClipboardCount;
                     SetMapMode(false); yield return Frames(6);
-                    int n0 = Scene.Objects.Count;
+                    int nPre = Scene.Objects.Count;
                     PostKey(System.Windows.Forms.Keys.ControlKey, true); PostKey(System.Windows.Forms.Keys.V, true); yield return Frames(2);
                     PostKey(System.Windows.Forms.Keys.V, false); PostKey(System.Windows.Forms.Keys.ControlKey, false); yield return Frames(3);
-                    var pastedObj = Scene.Objects.Skip(n0).FirstOrDefault();
+                    var pastedObj = Scene.Objects.Skip(nPre).FirstOrDefault();
                     Expect(!MapMode && copied == 1 && pastedObj != null && Vector3.Distance(pastedObj.Position, gPos) < 0.01f && pastedObj.Mesh.Faces.Count == gFaces && pastedObj.Gta.MapArchetype == null && pastedObj.InstanceKey == null,
                         $"Ctrl+C on the map ({gName}, {gFaces} faces), Ctrl+V in MODEL mode: pasted at the same place, own mesh, editable ({pastedObj?.Name}, {pastedObj?.Mesh.Faces.Count} faces)");
                     if (pastedObj != null) { SelectOnly(pastedObj); SetLevel(SubObject.Polygon); yield return Frames(2); Expect(Level == SubObject.Polygon, "the pasted prop can be edited"); SetLevel(SubObject.Object); }
@@ -1161,7 +1161,7 @@ public sealed partial class EditorApp
                     var atCur = Scene.Objects.LastOrDefault();
                     Expect(atCur != null && atCur != pastedObj && Vector3.Distance(atCur.Position, Cursor3D) < 0.01f, $"Ctrl+Shift+V pastes it at the 3D cursor ({atCur?.Position.X:0.0}, {atCur?.Position.Y:0.0})");
                     DoUndo(); DoUndo(); yield return Frames(2);
-                    Expect(Scene.Objects.Count == n0, $"Ctrl+Z takes the pastes back ({Scene.Objects.Count} objects, {n0} before)");
+                    Expect(Scene.Objects.Count == nPre, $"Ctrl+Z takes the pastes back ({Scene.Objects.Count} objects, {nPre} before)");
                     UI.ImGuiBackend.SyntheticInput = false;
                     yield break;
                 }
