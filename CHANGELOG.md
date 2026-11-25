@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.8.6](#186) | Delete / Ctrl+Z quick on very big scenes, less memory |
 | [1.8.5](#185) | View radius in MODEL mode, whole game map can be hidden |
 | [1.8.4](#184) | MAP mode view radius for big custom maps |
 | [1.8.3](#183) | Asset Browser pictures, gizmo on the model, updates over a running AI app |
@@ -42,6 +43,13 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 1.8.6
+- **Very big scenes (millions of faces, tens of thousands of objects): Delete and Ctrl+Z are quick again.** The undo
+  history no longer keeps a full copy of the scene: it shares every mesh with the scene and only the meshes an edit may
+  change (the selection) are copied; a copy the edit did not need is given back at once. The history has a memory budget
+  (1.5 GB), the oldest steps go past it. Measured on 20 000 objects / 8.5 M faces: delete 3.4 s -> 0.1 s, Ctrl+Z
+  0.8 s -> 0.1 s, history after 15 edits 2.8 GB -> 1.0 GB, and no more extra copy of the whole scene in memory.
 
 ## 1.8.5
 - **View radius in MODEL mode too:** Views > *Only show what is near the camera* + *View radius*. On a very big scene only
