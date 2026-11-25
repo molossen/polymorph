@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.8.9](#189) | My own shortcuts (any command, export / import), Ctrl+X cut |
 | [1.8.8](#188) | Ctrl+C / Ctrl+V of objects, also from MAP to MODEL mode |
 | [1.8.7](#187) | F frames the view while painting terrain layers |
 | [1.8.6](#186) | Delete / Ctrl+Z quick on very big scenes, less memory |
@@ -45,6 +46,17 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 1.8.9
+
+- **My own shortcuts** (Edit > Preferences > Keymap): give any command your own key, with Ctrl / Shift / Alt. Click
+  **Set key** and press the key; Esc cancels, Backspace removes it. Your keys go before the keymap's, so they can also
+  replace one. A key belongs to one command (giving it to another moves it).
+- **Right-click a command in the search** (F3 / X) to give it a key straight away. The search shows your keys.
+- **Free a key**: a keymap key you don't want does nothing anymore.
+- **Export / import my keymap** as a .json file, to keep it or share it with other people.
+- **Ctrl+X cuts objects** (copy + delete), Ctrl+V pastes them back, also in the other mode (MAP / MODEL). A cut object
+  pasted back keeps its name.
 
 ## 1.8.8
 
