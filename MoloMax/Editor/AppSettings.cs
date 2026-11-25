@@ -16,6 +16,10 @@ public sealed class AppSettings
     public Keymap Keymap { get; set; } = Keymap.Blender;
     /// <summary>False until the user picked a keymap in the first-run dialog.</summary>
     public bool KeymapChosen { get; set; }
+    /// <summary>My shortcuts: command name (as in the search) -> key like "Ctrl+Shift+D". They go before the keymap's keys.</summary>
+    public Dictionary<string, string> CustomKeys { get; set; } = new();
+    /// <summary>Keymap keys switched off by the user (they do nothing).</summary>
+    public List<string> FreeKeys { get; set; } = new();
     public float GridStep { get; set; } = 0.1f;
     public bool ImportYUp { get; set; } = true;
     public float ImportScale { get; set; } = 1f;

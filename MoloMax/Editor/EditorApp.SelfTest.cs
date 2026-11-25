@@ -160,6 +160,7 @@ public sealed partial class EditorApp
         T("knife / slice", Knife);
         T("ASSETS DOCK: the Asset Browser docks at the bottom and the views make room", AssetsDockTest);
         T("GIZMO: a model whose pivot is far away gets its gizmo on itself", GizmoFarPivotTest);
+        T("MY KEYS: record my own key, replace and free keymap keys, Ctrl+X cut, export / import", MyKeysTest);
         T("VIEW RADIUS: in MODEL mode only what is near the camera is drawn and picked", ViewRadiusModelTest);
         T("BIG SCENE UNDO: delete and Ctrl+Z stay quick on a very big scene", BigSceneUndoTest);
         T("PANELS OUTSIDE: a panel dragged out of the window becomes a window of its own, and comes back inside", PanelsOutsideTest);

@@ -69,6 +69,7 @@ public sealed partial class EditorApp
             if (ImGui.MenuItem(Undo.CanRedo ? $"Redo {Undo.RedoName}" : "Redo", K("Ctrl+Shift+Z", "Ctrl+Shift+Z", "Ctrl+Y"), false, Undo.CanRedo)) DoRedo();
             ImGui.Separator();
             if (ImGui.MenuItem("Copy objects", "Ctrl+C", false, Selected.Count > 0)) CopySelection();
+            if (ImGui.MenuItem("Cut objects", "Ctrl+X", false, Selected.Count > 0)) CutSelection();
             if (ImGui.MenuItem(ClipboardCount > 0 ? $"Paste {ClipboardCount} object(s)" : "Paste objects", "Ctrl+V", false, ClipboardCount > 0)) PasteClipboard();
             if (ImGui.MenuItem("Paste at the 3D cursor", "Ctrl+Shift+V", false, ClipboardCount > 0)) PasteClipboard(atCursor: true);
             ImGui.Separator();

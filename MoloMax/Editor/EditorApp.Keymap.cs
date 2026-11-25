@@ -62,12 +62,14 @@ public sealed partial class EditorApp
     void HandleShortcuts()
     {
         var io = ImGui.GetIO();
+        if (keyCapture != null) { KeyCaptureFrame(); return; } // Preferences > Keymap: recording a key
         if (io.WantTextInput) return; // Standard shortcuts work before first-run mode choice.
         if (FlyKeysActive) return; // right button held: the letters move the camera (game-style)
         if (ModalActive) { ModalKeys(); return; }
         if (transforming) { if (ImGui.IsKeyPressed(ImGuiKey.Escape, false)) CancelTransform(); return; }
         bool ctrl = io.KeyCtrl, shift = io.KeyShift, alt = io.KeyAlt;
         if ((uvHover || UvCanvasUnderMouse) && !ctrl) return; // the UV editor uses the letters, digits and arrows itself
+        if (CustomKeyPressed(ctrl, shift, alt)) return; // your own keys (Preferences > Keymap) go first
         if (PaintKeys(ctrl)) return;
         if (!SculptMode && !paintMode && AnimKeys(ctrl, io.KeyShift, io.KeyAlt)) return;
         // menu search: F3 (Standard), Space (Industry Compatible: Tab is the edit mode toggle there too); preferences: Ctrl+,
@@ -87,6 +89,7 @@ public sealed partial class EditorApp
         if (ctrl && P(ImGuiKey.Y)) { DoRedo(); return; }
         // copy / paste objects (also from MAP to MODEL and back); 3ds Max keymap: Ctrl+V clones when nothing was copied
         if (ctrl && !alt && !shift && P(ImGuiKey.C) && Level == SubObject.Object) { CopySelection(); return; }
+        if (ctrl && !alt && !shift && P(ImGuiKey.X) && Level == SubObject.Object && !MaxKeymap) { CutSelection(); return; }
         if (ctrl && !alt && P(ImGuiKey.V) && (ClipboardCount > 0 || !MaxKeymap)) { PasteClipboard(atCursor: shift); return; }
         if (ctrl && P(ImGuiKey.S)) { if (MapMode && !shift) Save(false); else if (MapMode && SelectedMapDoc() is { } smd) SaveMapDoc(smd, saveAs: true); else Save(shift); return; }
         if (ctrl && shift && P(ImGuiKey.O)) { ImportDialog(); return; }

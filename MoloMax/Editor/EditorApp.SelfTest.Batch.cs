@@ -788,6 +788,66 @@ public sealed partial class EditorApp
         yield return Frames(2);
     }
 
+    IEnumerable<object> MyKeysTest()
+    {
+        Fresh();
+        SetKeymap(Keymap.Blender);
+        CustomKeys.Clear(); FreeKeys.Clear();
+        var a = Scene.Add("key_box_a", Core.Mesh.Primitives.Box(1, 1, 1), new Vector3(0, 0, 0.5f));
+        var b = Scene.Add("key_box_b", Core.Mesh.Primitives.Box(1, 1, 1), new Vector3(3, 0, 0.5f));
+        SetLevel(SubObject.Object); SelectOnly(a); yield return Frames(3);
+        UI.ImGuiBackend.SyntheticInput = true;
+        IEnumerable<object> Press(params System.Windows.Forms.Keys[] keys)
+        {
+            foreach (var k in keys) PostKey(k, true);
+            yield return Frames(2);
+            foreach (var k in keys.Reverse()) PostKey(k, false);
+            yield return Frames(2);
+        }
+        // 1. record a key like a user: Preferences > Keymap, "Set key" on Select All, press Ctrl+Shift+Q
+        prefsOpen = true; prefsSection = 0; keyFilter = "Select All"; keyCapture = "Select All"; yield return Frames(3);
+        yield return Shot("my_keys_recording");
+        foreach (var f in Press(System.Windows.Forms.Keys.ControlKey, System.Windows.Forms.Keys.ShiftKey, System.Windows.Forms.Keys.Q)) yield return f;
+        Expect(keyCapture == null && CustomKeyFor("Select All") == "Ctrl+Shift+Q", $"Set key, then Ctrl+Shift+Q: Select All gets it ({CustomKeyFor("Select All")})");
+        yield return Shot("my_keys_set");
+        prefsOpen = false; SelectOnly(a); yield return Frames(2);
+        foreach (var f in Press(System.Windows.Forms.Keys.ControlKey, System.Windows.Forms.Keys.ShiftKey, System.Windows.Forms.Keys.Q)) yield return f;
+        Expect(Selected.Count == 2, $"Ctrl+Shift+Q now selects all ({Selected.Count} of 2)");
+        // 2. a custom key replaces a keymap key: J (free in object mode) -> Select None, then A -> Select None over the keymap's Select All
+        SetCustomKey("Select None", "A");
+        SelectOnly(a); yield return Frames(2);
+        foreach (var f in Press(System.Windows.Forms.Keys.A)) yield return f;
+        Expect(Selected.Count == 0, $"my key A = Select None goes before the keymap's A = Select All ({Selected.Count} selected)");
+        // 3. one key, one command: giving A to another command takes it from the first
+        SetCustomKey("Frame All", "A");
+        Expect(CustomKeyFor("Select None") == null && CustomKeyFor("Frame All") == "A", "a key goes to one command only (A moved to Frame All)");
+        SetCustomKey("Frame All", null);
+        // 4. free a key: X (delete in the Standard keymap) does nothing
+        keyCapture = NoCommand; yield return Frames(1);
+        foreach (var f in Press(System.Windows.Forms.Keys.X)) yield return f;
+        int n0 = Scene.Objects.Count; SelectOnly(b); yield return Frames(2);
+        foreach (var f in Press(System.Windows.Forms.Keys.X)) yield return f;
+        Expect(FreeKeys.Contains("X") && Scene.Objects.Count == n0, $"X freed: it no longer deletes ({Scene.Objects.Count} objects, {n0} before)");
+        FreeKeys.Clear();
+        // 5. Ctrl+X cuts, Ctrl+V pastes back at the same place
+        SelectOnly(b); var bPos = b.Position; yield return Frames(2);
+        foreach (var f in Press(System.Windows.Forms.Keys.ControlKey, System.Windows.Forms.Keys.X)) yield return f;
+        bool gone = Scene.Objects.All(o => o.Name != "key_box_b");
+        foreach (var f in Press(System.Windows.Forms.Keys.ControlKey, System.Windows.Forms.Keys.V)) yield return f;
+        var back = Scene.Objects.LastOrDefault();
+        Expect(gone && ClipboardCount == 1 && back != null && Vector3.Distance(back.Position, bPos) < 0.001f, $"Ctrl+X cuts the box (gone: {gone}), Ctrl+V puts it back at the same place ({back?.Name})");
+        // 6. export / import a keymap file
+        var file = Path.Combine(SelfTestDir ?? Path.GetTempPath(), "my_keymap.json");
+        ExportKeymap(file);
+        CustomKeys.Clear();
+        int got = ImportKeymap(file);
+        Expect(got >= 1 && CustomKeyFor("Select All") == "Ctrl+Shift+Q", $"export then import the keymap file: {got} key(s) back");
+        // 7. the search shows my key
+        Expect(ParseChord("Ctrl+Shift+Q", out var pk, out var pc, out var ps, out var pa) && pk == ImGuiNET.ImGuiKey.Q && pc && ps && !pa && ChordText(ImGuiNET.ImGuiKey.Keypad7, false, false, true) == "Alt+Numpad 7", "key names read and written back (Ctrl+Shift+Q, Alt+Numpad 7)");
+        CustomKeys.Clear(); FreeKeys.Clear(); Settings.Save();
+        UI.ImGuiBackend.SyntheticInput = false;
+    }
+
     IEnumerable<object> ViewRadiusModelTest()
     {
         Fresh();

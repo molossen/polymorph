@@ -35,6 +35,16 @@ public sealed partial class EditorApp
         SetStatus($"Copied {clipObjects.Count} object(s) - Ctrl+V pastes them (also in the other mode), Ctrl+Shift+V around the 3D cursor");
     }
 
+    /// <summary>Ctrl+X: copy, then delete (Ctrl+Z puts them back, Ctrl+V pastes them elsewhere / in the other mode).</summary>
+    public void CutSelection()
+    {
+        if (Selected.Count == 0) { SetStatus("Select the objects to cut first."); return; }
+        CopySelection();
+        int n = ClipboardCount;
+        DeleteSelection();
+        SetStatus($"Cut {n} object(s) - Ctrl+V pastes them (also in the other mode), Ctrl+Shift+V around the 3D cursor");
+    }
+
     public void PasteClipboard(bool atCursor = false)
     {
         if (clipObjects is not { Count: > 0 }) { SetStatus("Nothing copied yet (Ctrl+C on selected objects)."); return; }

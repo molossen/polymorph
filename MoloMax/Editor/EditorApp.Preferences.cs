@@ -161,6 +161,9 @@ public sealed partial class EditorApp : IAddonHost
             ? "Standard keymap, left-click select. Search: F3."
             : "Industry Compatible keymap (Alt+mouse navigation). Tab: edit mode. Search: Space.");
         ImGui.Separator();
+        PrefsCustomKeys();
+        ImGui.Separator();
+        Ui.TextColored(Theme.Gold, "Keymap keys");
         if (ImGui.BeginTable("##keys", 2, ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.ScrollY, new Vector2(0, 0)))
         {
             ImGui.TableSetupColumn("Keys", ImGuiTableColumnFlags.WidthFixed, 230);

@@ -44,6 +44,10 @@ public sealed partial class EditorApp
             new("Export FiveM Resource", "GTA", () => { OpenHub(1); }, Help: "GTA panel > Export"),
             new("Preferences", "Edit", () => prefsOpen = true, Key: () => "Ctrl+,"),
             new("Undo", "Edit", DoUndo, Key: () => "Ctrl+Z"),
+            new("Copy objects", "Edit", CopySelection, () => Selected.Count > 0, () => "Ctrl+C"),
+            new("Cut objects", "Edit", CutSelection, () => Selected.Count > 0, () => "Ctrl+X"),
+            new("Paste objects", "Edit", () => PasteClipboard(), () => ClipboardCount > 0, () => "Ctrl+V"),
+            new("Paste objects at the 3D cursor", "Edit", () => PasteClipboard(atCursor: true), () => ClipboardCount > 0, () => "Ctrl+Shift+V"),
             new("Redo", "Edit", DoRedo, Key: () => "Ctrl+Shift+Z"),
             new("Keyboard Shortcuts", "Help", () => shortcutsOpen = true),
             // select
@@ -225,12 +229,15 @@ public sealed partial class EditorApp
             if (!enabled) ImGui.BeginDisabled();
             if (ImGui.Selectable($"{cmd.Name}##{i}", i == searchIndex)) { searchIndex = i; run = true; }
             if (i == searchIndex && ImGui.IsKeyPressed(ImGuiKey.DownArrow) || i == searchIndex && ImGui.IsKeyPressed(ImGuiKey.UpArrow)) ImGui.SetScrollHereY();
-            var key = cmd.Key?.Invoke();
+            if (ImGui.IsItemClicked(ImGuiMouseButton.Right)) { searchOpen = false; StartKeyCapture(cmd.Name); }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Right-click: give it my own key");
+            var key = CustomKeyFor(cmd.Name) ?? cmd.Key?.Invoke();
             ImGui.SameLine(330); Ui.TextDisabled(cmd.Category);
             if (!string.IsNullOrEmpty(key)) { ImGui.SameLine(430); Ui.TextDisabled(key); }
             if (!enabled) ImGui.EndDisabled();
         }
         if (found.Count == 0) Ui.TextDisabled("No command found.");
+        else Ui.TextDisabled("Right-click a command to give it your own key.");
         ImGui.EndChild();
         ImGui.End();
         if (run && found.Count > 0)
