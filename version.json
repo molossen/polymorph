@@ -1,7 +1,7 @@
 {
-  "version": "1.8.2",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.2.exe",
-  "size": 70606426,
-  "sha256": "f01088276fb47746250a126e8d63d528fe61e2e333abbed500d38099994f0040",
-  "notes": "- NEW: panels can leave the window. Drag a floating panel (Asset Browser, Material Editor...) out of Polymorph by its title: it becomes a window of its own, on another monitor too. Drag it back over Polymorph to put it inside again (Preferences > Interface to switch it off)\n- 1.8.1: Asset Browser docks at the bottom; MAP mode Save / Save As to .mmx; undo after deleting faces in MAP mode\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "1.8.3",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.3.exe",
+  "size": 70622970,
+  "sha256": "9b99f9a9d9289db6a6253253eab15630ec929dcec4f74fe930ac6d59e650db71",
+  "notes": "- Asset Browser: pictures on screen made first, textures loaded for real (no more white props), Refresh makes the pictures again, no slow-down with time\n- Gizmo on the model when its pivot is far away\n- Updates: the installer stops the Polymorph MCP server before replacing files (no more 'Error opening file for writing'). No need to uninstall first\n- 1.8.2: panels can leave the window (other monitors)\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
