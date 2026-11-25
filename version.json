@@ -1,7 +1,7 @@
 {
-  "version": "1.8.3",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.3.exe",
-  "size": 70622970,
-  "sha256": "9b99f9a9d9289db6a6253253eab15630ec929dcec4f74fe930ac6d59e650db71",
-  "notes": "- Asset Browser: pictures on screen made first, textures loaded for real (no more white props), Refresh makes the pictures again, no slow-down with time\n- Gizmo on the model when its pivot is far away\n- Updates: the installer stops the Polymorph MCP server before replacing files (no more 'Error opening file for writing'). No need to uninstall first\n- 1.8.2: panels can leave the window (other monitors)\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "1.8.4",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.8.4.exe",
+  "size": 70621057,
+  "sha256": "34dff524124453a6b54af57c33a570825583e45065384ff66ba00fd723df46a5",
+  "notes": "- NEW: MAP mode view radius (MAP panel > Only show what is near the camera): on big custom maps only what is around the camera is drawn and picked, the editor stays smooth at any angle\n- 1.8.3: Asset Browser pictures (on screen first, no more white props, Refresh), gizmo on the model, installer stops the MCP server before updating\n- 1.8.2: panels can leave the window (other monitors)\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
