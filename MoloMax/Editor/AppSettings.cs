@@ -83,6 +83,9 @@ public sealed class AppSettings
     public float AssetsDockHeight { get; set; } = 300;
     /// <summary>Panels dragged out of the main window become windows of their own (other monitors). Read at start.</summary>
     public bool PanelsOutside { get; set; } = true;
+    /// <summary>MAP mode: only what is within this distance of the camera is drawn and picked (big custom maps).</summary>
+    public bool MapViewRadiusOn { get; set; }
+    public float MapViewRadius { get; set; } = 400;
     /// <summary>Game models put in other families by hand (right-click > Families): "name.ext" -> family bits.</summary>
     public Dictionary<string, long> FamilyOverrides { get; set; } = new();
     /// <summary>Last folder of each kind of window (by its title).</summary>

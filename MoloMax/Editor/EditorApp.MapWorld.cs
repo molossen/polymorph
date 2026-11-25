@@ -300,6 +300,16 @@ public sealed partial class EditorApp
         ImGui.Checkbox("Show the interiors (MLO)", ref MapShowInteriors);
         Theme.Tip("The inside of the game interiors near the camera shows by itself (view only). Pick something inside to edit that interior.");
         if (MapShowInteriors) { ImGui.SetNextItemWidth(-90); ImGui.SliderFloat("Interiors within", ref MapInteriorRadius, 20, 300, "%.0f m"); }
+        bool vro = Settings.MapViewRadiusOn;
+        if (ImGui.Checkbox("Only show what is near the camera", ref vro)) { Settings.MapViewRadiusOn = vro; Settings.Save(); mapLiveCount = -1; }
+        Theme.Tip("For big custom maps: only the objects within this distance of the camera are drawn and can be picked, so the view stays smooth whatever the angle. The selected object always shows.");
+        if (Settings.MapViewRadiusOn)
+        {
+            float vr = Settings.MapViewRadius; ImGui.SetNextItemWidth(-90);
+            if (ImGui.SliderFloat("View radius", ref vr, 50, 3000, "%.0f m", ImGuiSliderFlags.Logarithmic)) { Settings.MapViewRadius = vr; mapLiveCount = -1; }
+            if (ImGui.IsItemDeactivatedAfterEdit()) Settings.Save();
+            Ui.TextDisabled($"drawn: {mapLive.Count} of {Scene.Objects.Count} objects");
+        }
         if (mapDocs.Count > 0 && ImGui.Button("Unload the unchanged maps", new Vector2(-1, 0)))
             { var ch = ChangedMapDocs(); UnloadMapDocs(mapDocs.Values.Where(d => d.FromGame && !d.Modified && !ch.Contains(d.Name) && d.Name != mapActive).ToList()); }
     }

@@ -373,12 +373,21 @@ public sealed partial class EditorApp
     {
         mapCulled.Clear(); mapLive.Clear();
         var eye = Viewports[ActiveViewport].Camera.Eye;
+        // view radius (setting): on a big custom map only what is around the camera is drawn and picked
+        float vr = Settings.MapViewRadiusOn ? MathF.Max(20, Settings.MapViewRadius) : 0, vr2 = vr * vr;
+        int cur = Current?.Id ?? int.MinValue;
         foreach (var o in Scene.Objects)
         {
-            if (entOf.TryGetValue(o.Id, out var de))
+            bool keep = o.Id == cur || Selected.Contains(o.Id);
+            if (!keep && entOf.TryGetValue(o.Id, out var de))
             {
                 float lod = MathF.Max(de.Ent.LodDist, 30) * 1.15f;
-                if (Vector3.DistanceSquared(o.Position, eye) > lod * lod && !Selected.Contains(o.Id)) { mapCulled.Add(o.Id); continue; }
+                if (Vector3.DistanceSquared(o.Position, eye) > lod * lod) { mapCulled.Add(o.Id); continue; }
+            }
+            if (!keep && vr > 0 && o.Mesh != null && o.Mesh.Verts.Count > 0)
+            {
+                var (mn, mx) = o.FastWorldBounds();
+                if (Vector3.DistanceSquared(Vector3.Clamp(eye, mn, mx), eye) > vr2) { mapCulled.Add(o.Id); continue; }
             }
             mapLive.Add(o);
         }

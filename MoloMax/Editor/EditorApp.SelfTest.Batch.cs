@@ -1029,6 +1029,23 @@ public sealed partial class EditorApp
                 Expect(ey.Entities.Count > 0 && ey.Entities.All(e => Vector2.Distance(new Vector2(e.Position.X, e.Position.Y), new Vector2(legion.X, legion.Y)) < 150),
                     $"the build is placed on the map where it was made ({ey.Entities.Count} exterior entities around Legion Square: {string.Join(", ", ey.Entities.Take(4).Select(e => $"{e.Archetype} at {e.Position.X:0}, {e.Position.Y:0}, {e.Position.Z:0}"))})");
             }
+            // 4b. view radius: on a big custom map only what is near the camera is drawn
+            {
+                var farBox = Scene.Add("far_box", Core.Mesh.Primitives.Box(4, 4, 4), Viewports[ActiveViewport].Camera.Eye + new Vector3(900, 0, 0));
+                farBox.Folder = MapBuildFolder;
+                bool on0 = Settings.MapViewRadiusOn; float r0 = Settings.MapViewRadius;
+                Settings.MapViewRadiusOn = false; UpdateMapCull();
+                bool shownOff = mapLive.Contains(farBox);
+                Settings.MapViewRadiusOn = true; Settings.MapViewRadius = 300; UpdateMapCull();
+                bool hiddenOn = !mapLive.Contains(farBox) && mapCulled.Contains(farBox.Id);
+                int liveOn = mapLive.Count, all = Scene.Objects.Count;
+                SelectOnly(farBox); UpdateMapCull();
+                bool selShown = mapLive.Contains(farBox);
+                Selected.Clear(); Settings.MapViewRadiusOn = on0; Settings.MapViewRadius = r0;
+                Scene.Objects.Remove(farBox); UpdateMapCull();
+                Expect(shownOff && hiddenOn && selShown, $"view radius 300 m: an object 900 m away is not drawn nor picked ({liveOn} of {all} drawn), it is with the setting off, and when it is selected");
+                yield return Frames(2);
+            }
             // 5. File > Save / Open in MAP mode: what is modeled on the map goes into a .mmx and comes back onto the map
             {
                 var mmx = StPath("map_work.mmx"); if (File.Exists(mmx)) File.Delete(mmx);
