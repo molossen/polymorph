@@ -25,7 +25,21 @@ public sealed partial class EditorApp : IDisposable
     public readonly InputState Input = new();
 
     public Scene Scene = new();
-    public UndoStack Undo = new();
+    UndoStack undoStack;
+    /// <summary>The history. On big scenes it is copy-on-write: only what an edit may change is copied (see <see cref="EditableNow"/>).</summary>
+    public UndoStack Undo { get => undoStack ??= new UndoStack { Editable = EditableNow }; set { undoStack = value; if (value != null && value.Editable == null) value.Editable = EditableNow; } }
+
+    /// <summary>What an edit may change in place: the selection, the object being edited, their children, the objects holding a
+    /// sub-object selection.</summary>
+    IEnumerable<SceneObject> EditableNow(Scene s)
+    {
+        var ids = new HashSet<int>(Selected);
+        if (ActiveId >= 0) ids.Add(ActiveId);
+        foreach (var k in subSel.Keys) ids.Add(k);
+        var res = new List<SceneObject>();
+        foreach (var id in ids) if (s.Find(id) is { } o) { res.Add(o); res.AddRange(s.Descendants(o)); }
+        return res;
+    }
     public readonly HashSet<int> Selected = new();
     public SubObject Level = SubObject.Object;
     readonly Dictionary<int, PolySelection> subSel = new();

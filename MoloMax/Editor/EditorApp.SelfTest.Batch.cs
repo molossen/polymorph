@@ -841,7 +841,13 @@ public sealed partial class EditorApp
         GC.Collect(); long mem1 = GC.GetTotalMemory(true);
         Note($"times: delete object {tDel} ms, Ctrl+Z {tUndo} ms, redo {tRedo} ms; delete 50 faces of the 1M-face mesh {tDelF} ms, Ctrl+Z {tUndoF} ms; history after 15 edits: +{(mem1 - mem0) / 1048576} MB");
         Expect(tDel < 400 && tUndo < 800 && tDelF < 1500 && tUndoF < 1500, $"big scene: delete / Ctrl+Z stay quick (object {tDel} / {tUndo} ms, faces {tDelF} / {tUndoF} ms)");
-        Expect(mem1 - mem0 < 600L * 1048576, $"big scene: the undo history stays within its memory budget (+{(mem1 - mem0) / 1048576} MB after 15 edits of a 1M-face mesh)");
+        Expect(Undo.CopyOnWrite && Undo.HistoryBytes <= Undo.BudgetBytes && mem1 - mem0 < Undo.BudgetBytes + 300L * 1048576,
+            $"big scene: copy-on-write history ({Undo.CopyOnWrite}), within its memory budget (history {Undo.HistoryBytes / 1048576} MB of {Undo.BudgetBytes / 1048576}, process +{(mem1 - mem0) / 1048576} MB after 15 edits)");
+        // the history is still right: undo the 5 face deletes and the 10 moves, the big mesh is back as it was
+        int fBack = 0; for (int k = 0; k < 15; k++) DoUndo();
+        yield return Frames(2);
+        var bb = Scene.Find(big.Id); fBack = bb?.Mesh.Faces.Count ?? -1;
+        Expect(bb != null && fBack == 707 * 707 && MathF.Abs(bb.Position.Z - (-1)) < 0.001f, $"15 x Ctrl+Z gives the big mesh back as it was ({fBack} faces, z {bb?.Position.Z:0.000})");
         Undo.Clear();
     }
 

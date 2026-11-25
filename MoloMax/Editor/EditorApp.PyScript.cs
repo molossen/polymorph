@@ -69,7 +69,7 @@ public sealed partial class EditorApp
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var run = new ScriptRun();
         if (!EnsurePython()) { run.Error = "Python is not available: " + pyError; return run; }
-        Undo.Record("Python script", Scene);
+        Undo.Record("Python script", Scene, anyObject: true);
         long scriptStamp = Undo.LastStamp;
         long sig0 = ScriptSceneSig();
         try
@@ -150,7 +150,7 @@ public sealed partial class EditorApp
     {
         var run = new ScriptRun();
         if (!EnsurePython()) { run.Error = pyError; return run; }
-        Undo.Record(index < pyMenu.Count ? pyMenu[index] : "Add-on", Scene);
+        Undo.Record(index < pyMenu.Count ? pyMenu[index] : "Add-on", Scene, anyObject: true);
         long stamp = Undo.LastStamp;
         try
         {

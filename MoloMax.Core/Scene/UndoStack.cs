@@ -28,6 +28,82 @@ public sealed class UndoStack
     public Func<SceneObject, bool> MutableMesh;
     bool Shared(SceneObject o) => ImmutableMeshes && (MutableMesh == null || !MutableMesh(o));
 
+    // ---- big scenes: copy-on-write history. A full copy of a huge custom map (millions of faces) doubled the memory and
+    // made the first Delete / Ctrl+Z take seconds. On such scenes the history shares every mesh with the live scene and
+    // only the meshes about to be edited (the selection) get a fresh copy for the live scene before the edit: the stored
+    // states keep the untouched originals. A step that did not change a copied mesh gives the original back (no copy kept).
+    /// <summary>On (sticky until <see cref="Clear"/>) once the scene is big: see <see cref="BigFaces"/> / <see cref="BigObjects"/>.</summary>
+    public bool CopyOnWrite { get; private set; }
+    public long BigFaces = 2_500_000; public int BigObjects = 15000;
+    /// <summary>The objects an edit may change in place (the editor: selection, object being edited, its children).</summary>
+    public Func<Scene, IEnumerable<SceneObject>> Editable;
+    /// <summary>Memory the history may keep (mesh copies + object copies); the oldest steps go past it.</summary>
+    public long BudgetBytes = 1536L * 1024 * 1024;
+    readonly LinkedList<long> undoBytes = new();
+    readonly List<(int Id, PolyMesh Original, PolyMesh Copy, int Ver, long Sig, long Bytes)> pendingCopies = new();
+    LinkedListNode<long> pendingStep;
+
+    public static long MeshBytes(PolyMesh m) => m == null ? 0 : m.Faces.Count * 280L + m.Verts.Count * 16L + 200;
+    static long Sig(PolyMesh m)
+    {
+        unchecked
+        {
+            long h = m.Verts.Count * 31L + m.Faces.Count;
+            int step = Math.Max(1, m.Verts.Count / 4096);
+            for (int i = 0; i < m.Verts.Count; i += step) { var v = m.Verts[i]; h = h * 1000003 ^ (v.X.GetHashCode() * 3 + v.Y.GetHashCode() * 7 + v.Z.GetHashCode()); }
+            int fs = Math.Max(1, m.Faces.Count / 4096);
+            for (int i = 0; i < m.Faces.Count; i += fs) { var f = m.Faces[i]; h = h * 1000003 ^ (f.V.Length * 17 + f.V[0] + f.MatId * 131); }
+            return h;
+        }
+    }
+
+    bool IsBig(Scene s)
+    {
+        if (s.Objects.Count >= BigObjects) return true;
+        long f = 0; foreach (var o in s.Objects) { f += o.Mesh?.Faces.Count ?? 0; if (f >= BigFaces) return true; }
+        return false;
+    }
+
+    /// <summary>Meshes copied for the last step that the edit left unchanged go back to their original (shared with the history).</summary>
+    void ReleaseUnchanged(Scene live)
+    {
+        if (pendingCopies.Count == 0) return;
+        var byId = live?.Objects.GroupBy(o => o.Id).ToDictionary(g => g.Key, g => g.First());
+        long freed = 0;
+        foreach (var (id, orig, copy, ver, sig, bytes) in pendingCopies)
+        {
+            if (byId == null || !byId.TryGetValue(id, out var o) || !ReferenceEquals(o.Mesh, copy)) continue;
+            if (o.Version != ver || copy.Verts.Count != orig.Verts.Count || copy.Faces.Count != orig.Faces.Count || Sig(copy) != sig) continue;
+            foreach (var other in live.Objects) if (ReferenceEquals(other.Mesh, copy)) other.Mesh = orig; // instances too
+            freed += bytes;
+        }
+        if (pendingStep != null && pendingStep.List != null) pendingStep.Value = Math.Max(0, pendingStep.Value - freed);
+        pendingCopies.Clear(); pendingStep = null;
+    }
+
+    /// <summary>The live scene gets its own copy of each mesh the edit may change; the stored state keeps the original.</summary>
+    long ProtectForEdit(Scene live, IEnumerable<SceneObject> objs)
+    {
+        long bytes = 0;
+        var done = new HashSet<PolyMesh>(ReferenceEqualityComparer.Instance);
+        foreach (var o in objs)
+        {
+            if (o?.Mesh == null || !done.Add(o.Mesh)) continue;
+            var orig = o.Mesh; var copy = orig.Clone(); long b = MeshBytes(orig);
+            if (o.InstanceKey != null) { foreach (var other in live.Objects) if (ReferenceEquals(other.Mesh, orig)) other.Mesh = copy; }
+            else o.Mesh = copy;
+            pendingCopies.Add((o.Id, orig, copy, o.Version, Sig(orig), b));
+            bytes += b;
+        }
+        return bytes;
+    }
+
+    void TrimToBudget()
+    {
+        long total = 0; foreach (var b in undoBytes) total += b;
+        while (undo.Count > 1 && total > BudgetBytes) { total -= undoBytes.First.Value; undo.RemoveFirst(); undoStamp.RemoveFirst(); undoBytes.RemoveFirst(); }
+    }
+
     public bool CanUndo => undo.Count > 0;
     public bool CanRedo => redo.Count > 0;
     public string UndoName => undo.Last?.Value.Name;
@@ -71,7 +147,7 @@ public sealed class UndoStack
     /// <summary>Call from the UI thread when idle: starts copying the meshes the next snapshot would copy.</summary>
     public void Prefreeze(Scene s, int minFaces = 50000)
     {
-        if (ImmutableMeshes) return;
+        if (ImmutableMeshes || CopyOnWrite) return;
         if (prefreeze != null) { if (prefreeze.IsCompleted) Merge(); else return; }
         var stale = s.Objects.Where(o => !Fresh(o) && o.Mesh.Faces.Count > 0).Select(o => (o.Id, o.Version, o.Mesh)).ToList();
         if (stale.Sum(x => (long)x.Mesh.Faces.Count) < minFaces) return;
@@ -101,6 +177,7 @@ public sealed class UndoStack
     Scene Snapshot(Scene s)
     {
         if (ImmutableMeshes) return s.Clone(FrozenMesh);
+        if (CopyOnWrite) return s.Clone(o => o.Mesh);
         Merge();
         // meshes changed since the last snapshot (e.g. a big import): copied in parallel first
         var stale = s.Objects.Where(o => !Fresh(o)).ToList();
@@ -126,6 +203,7 @@ public sealed class UndoStack
     /// </summary>
     Scene Live(Scene state, Scene current)
     {
+        if (CopyOnWrite && !ImmutableMeshes) { var cw = state.Clone(o => o.Mesh); cw.SyncInstances(); return cw; } // shared: the next edit copies what it changes
         if (ImmutableMeshes)
         {
             var im = state.Clone(o => Shared(o) ? o.Mesh : o.Mesh.Clone());
@@ -150,19 +228,38 @@ public sealed class UndoStack
         return s;
     }
 
-    public void Record(string name, Scene current)
+    /// <summary>Records the state before an edit. <paramref name="anyObject"/>: the edit may change any mesh (scripts).</summary>
+    public void Record(string name, Scene current, bool anyObject = false)
     {
-        undo.AddLast((name, Snapshot(current))); undoStamp.AddLast(Tick());
-        while (undo.Count > Capacity) { undo.RemoveFirst(); undoStamp.RemoveFirst(); }
+        ReleaseUnchanged(current);
+        if (!ImmutableMeshes && !CopyOnWrite && IsBig(current)) { try { prefreeze?.Wait(); } catch { } prefreeze = null; frozen.Clear(); frozenByLiveT.Clear(); CopyOnWrite = true; }
+        long bytes = 0;
+        var snap = Snapshot(current);
+        if (CopyOnWrite && !ImmutableMeshes)
+        {
+            bytes = current.Objects.Count * 1500L; // the object copies of this step
+            bytes += ProtectForEdit(current, anyObject || Editable == null ? current.Objects.ToList() : Editable(current).ToList());
+        }
+        undo.AddLast((name, snap)); undoStamp.AddLast(Tick()); undoBytes.AddLast(bytes);
+        pendingStep = undoBytes.Last;
+        while (undo.Count > Capacity) { undo.RemoveFirst(); undoStamp.RemoveFirst(); undoBytes.RemoveFirst(); }
+        if (CopyOnWrite) TrimToBudget();
         redoBackup = redo.Reverse().ToArray();
         redo.Clear();
     }
+
+    /// <summary>After an edit (end of a Do): the copies it did not need are given back at once.</summary>
+    public void EditDone(Scene current) { if (CopyOnWrite) ReleaseUnchanged(current); }
+
+    /// <summary>Memory the history keeps now (copy-on-write mode), for the status / tests.</summary>
+    public long HistoryBytes { get { long t = 0; foreach (var b in undoBytes) t += b; return t; } }
 
     /// <summary>Returns the scene to show after undoing, or null if there is nothing to undo.</summary>
     public Scene Undo(Scene current)
     {
         if (undo.Count == 0) return null;
-        var (name, state) = undo.Last.Value; undo.RemoveLast(); undoStamp.RemoveLast();
+        ReleaseUnchanged(current);
+        var (name, state) = undo.Last.Value; undo.RemoveLast(); undoStamp.RemoveLast(); if (undoBytes.Count > 0) undoBytes.RemoveLast();
         redo.Push((name, Snapshot(current)));
         return Live(state, current);
     }
@@ -170,28 +267,29 @@ public sealed class UndoStack
     public Scene Redo(Scene current)
     {
         if (redo.Count == 0) return null;
+        ReleaseUnchanged(current);
         var (name, state) = redo.Pop();
-        undo.AddLast((name, Snapshot(current))); undoStamp.AddLast(Tick());
+        undo.AddLast((name, Snapshot(current))); undoStamp.AddLast(Tick()); undoBytes.AddLast(current.Objects.Count * 1500L);
         return Live(state, current);
     }
 
     /// <summary>Forgets the last recorded state without restoring it (a cancelled modal tool restores by itself).</summary>
     public void DropLast()
     {
-        if (undo.Count > 0) { undo.RemoveLast(); undoStamp.RemoveLast(); }
+        if (undo.Count > 0) { undo.RemoveLast(); undoStamp.RemoveLast(); if (undoBytes.Count > 0) undoBytes.RemoveLast(); }
         if (redoBackup != null) { redo.Clear(); foreach (var r in redoBackup) redo.Push(r); redoBackup = null; }
     }
 
     /// <summary>Forgets the last recorded state, redo untouched (steps folded into an earlier one).</summary>
-    public void DropLastKeepRedo() { if (undo.Count > 0) { undo.RemoveLast(); undoStamp.RemoveLast(); } }
+    public void DropLastKeepRedo() { if (undo.Count > 0) { undo.RemoveLast(); undoStamp.RemoveLast(); if (undoBytes.Count > 0) undoBytes.RemoveLast(); } }
 
     /// <summary>Returns the last recorded state and forgets it, without touching redo.</summary>
     public Scene PopLast(Scene current = null)
     {
         if (undo.Count == 0) return null;
-        var s = undo.Last.Value.State; undo.RemoveLast(); undoStamp.RemoveLast();
+        var s = undo.Last.Value.State; undo.RemoveLast(); undoStamp.RemoveLast(); if (undoBytes.Count > 0) undoBytes.RemoveLast();
         return Live(s, current);
     }
 
-    public void Clear() { try { prefreeze?.Wait(); } catch { } prefreeze = null; undo.Clear(); undoStamp.Clear(); redo.Clear(); frozen.Clear(); frozenByLiveT.Clear(); }
+    public void Clear() { try { prefreeze?.Wait(); } catch { } prefreeze = null; undo.Clear(); undoStamp.Clear(); undoBytes.Clear(); redo.Clear(); frozen.Clear(); frozenByLiveT.Clear(); pendingCopies.Clear(); pendingStep = null; CopyOnWrite = false; }
 }

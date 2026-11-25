@@ -43,7 +43,7 @@ public sealed partial class EditorApp
         var g = new ScriptGlobals(this);
         var run = new ScriptRun();
         long sig0 = ScriptSceneSig();
-        Undo.Record("Script", Scene);
+        Undo.Record("Script", Scene, anyObject: true);
         long scriptStamp = Undo.LastStamp;
         try
         {

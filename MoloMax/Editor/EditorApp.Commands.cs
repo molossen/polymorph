@@ -15,6 +15,7 @@ public sealed partial class EditorApp
         lastAdd = null;
         try { action(); }
         catch (Exception e) { SetStatus($"{name} failed: {e.Message}"); }
+        Undo.EditDone(Scene); // big scenes: a copy the edit did not need is given back at once
         Dirty = true;
     }
 
