@@ -57,6 +57,9 @@ public sealed class UndoStack
         }
     }
 
+    /// <summary>Big scene from now on: the full copies are dropped (a background copy still running is left to finish and forgotten).</summary>
+    void GoCopyOnWrite() { prefreeze = null; frozen.Clear(); frozenByLiveT.Clear(); CopyOnWrite = true; }
+
     bool IsBig(Scene s)
     {
         if (s.Objects.Count >= BigObjects) return true;
@@ -148,6 +151,7 @@ public sealed class UndoStack
     public void Prefreeze(Scene s, int minFaces = 50000)
     {
         if (ImmutableMeshes || CopyOnWrite) return;
+        if (IsBig(s)) { GoCopyOnWrite(); return; } // a huge scene is never copied whole
         if (prefreeze != null) { if (prefreeze.IsCompleted) Merge(); else return; }
         var stale = s.Objects.Where(o => !Fresh(o) && o.Mesh.Faces.Count > 0).Select(o => (o.Id, o.Version, o.Mesh)).ToList();
         if (stale.Sum(x => (long)x.Mesh.Faces.Count) < minFaces) return;
@@ -232,7 +236,7 @@ public sealed class UndoStack
     public void Record(string name, Scene current, bool anyObject = false)
     {
         ReleaseUnchanged(current);
-        if (!ImmutableMeshes && !CopyOnWrite && IsBig(current)) { try { prefreeze?.Wait(); } catch { } prefreeze = null; frozen.Clear(); frozenByLiveT.Clear(); CopyOnWrite = true; }
+        if (!ImmutableMeshes && !CopyOnWrite && IsBig(current)) GoCopyOnWrite();
         long bytes = 0;
         var snap = Snapshot(current);
         if (CopyOnWrite && !ImmutableMeshes)
