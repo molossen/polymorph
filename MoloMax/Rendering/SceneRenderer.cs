@@ -43,7 +43,7 @@ struct MaterialVarsCB
     public Vector3 SpecMapIntMask; public float EmissiveMult;
     public Vector4 DetailSettings;
     public Vector4 ViewportColour;
-    public uint IsTerrain, IsTint, TerrainPad1, TerrainPad2;
+    public uint IsTerrain, IsTint, TerrainMode, VertexColoured;
 }
 
 /// <summary>One scene light as the shader sees it.</summary>
@@ -204,6 +204,7 @@ public sealed class SceneRenderer : IDisposable
                 new InputElement("TEXCOORD", 0, Format.R32G32_Float, 40, 0),
                 new InputElement("TANGENT", 0, Format.R32G32B32A32_Float, 48, 0),
                 new InputElement("COLOR", 1, Format.R8G8B8A8_UNorm, 64, 0),
+                new InputElement("TEXCOORD", 1, Format.R32G32_Float, 68, 0),
             });
         }
         using (var vsi = ShaderLoader.Compile("gta_basic.hlsl", "VSInstanced", "vs_4_0"))
@@ -217,6 +218,7 @@ public sealed class SceneRenderer : IDisposable
                 new InputElement("TEXCOORD", 0, Format.R32G32_Float, 40, 0),
                 new InputElement("TANGENT", 0, Format.R32G32B32A32_Float, 48, 0),
                 new InputElement("COLOR", 1, Format.R8G8B8A8_UNorm, 64, 0),
+                new InputElement("TEXCOORD", 1, Format.R32G32_Float, 68, 0),
                 new InputElement("TEXCOORD", 4, Format.R32G32B32A32_Float, 0, 1, InputClassification.PerInstanceData, 1),
                 new InputElement("TEXCOORD", 5, Format.R32G32B32A32_Float, 16, 1, InputClassification.PerInstanceData, 1),
                 new InputElement("TEXCOORD", 6, Format.R32G32B32A32_Float, 32, 1, InputClassification.PerInstanceData, 1),
@@ -575,7 +577,7 @@ public sealed class SceneRenderer : IDisposable
     /// <summary>Textures of a material as last looked up: thousands of map draws skip four path lookups each.</summary>
     sealed class MatTex
     {
-        public int Epoch = -1; public bool Pending; public string D, B, S, T, Tn; public GtaShaderPreset P; public ShaderResourceView Diff, Bump, Spec, Det, Tint;
+        public int Epoch = -1; public bool Pending; public string D, B, S, T, Tn, Lk; public GtaShaderPreset P; public ShaderResourceView Diff, Bump, Spec, Det, Tint, Look;
         public string LayerKey; public ShaderResourceView[] Lay = new ShaderResourceView[4], LayB = new ShaderResourceView[4];
     }
     readonly System.Runtime.CompilerServices.ConditionalWeakTable<GtaMaterial, MatTex> matTex = new();
@@ -599,7 +601,7 @@ public sealed class SceneRenderer : IDisposable
         bool terrain = m.IsTerrain;
         string lk = terrain ? string.Join("|", Enumerable.Range(0, 4).Select(i => m.Layer(i) + ">" + m.LayerBump(i))) : null;
         if (mt.Pending || mt.Epoch != Textures.Epoch || !ReferenceEquals(mt.P, p) || !ReferenceEquals(mt.D, m.DiffuseTexture) || !ReferenceEquals(mt.B, m.BumpTexture)
-            || !ReferenceEquals(mt.S, m.SpecTexture) || !ReferenceEquals(mt.T, m.DetailTexture) || !ReferenceEquals(mt.Tn, m.TintTexture) || mt.LayerKey != lk)
+            || !ReferenceEquals(mt.S, m.SpecTexture) || !ReferenceEquals(mt.T, m.DetailTexture) || !ReferenceEquals(mt.Tn, m.TintTexture) || !ReferenceEquals(mt.Lk, m.LookupTexture) || mt.LayerKey != lk)
         {
             bool pending = false;
             mt.Diff = Tex(m.DiffuseTexture, ref pending);
@@ -607,6 +609,7 @@ public sealed class SceneRenderer : IDisposable
             mt.Spec = p.Spec ? Tex(m.SpecTexture, ref pending) : null;
             mt.Det = p.Detail ? Tex(m.DetailTexture, ref pending) : null;
             mt.Tint = m.TintTexture != null ? Tex(m.TintTexture, ref pending) : null;
+            mt.Look = terrain && m.LookupTexture != null ? Tex(m.LookupTexture, ref pending) : null;
             mt.LayerKey = lk;
             for (int i = 0; i < 4; i++)
             {
@@ -614,7 +617,7 @@ public sealed class SceneRenderer : IDisposable
                 mt.LayB[i] = terrain ? Tex(m.LayerBump(i) ?? m.BumpTexture, ref pending) : null;
             }
             mt.Pending = pending; mt.Epoch = Textures.Epoch; mt.P = p;
-            mt.D = m.DiffuseTexture; mt.B = m.BumpTexture; mt.S = m.SpecTexture; mt.T = m.DetailTexture; mt.Tn = m.TintTexture;
+            mt.D = m.DiffuseTexture; mt.B = m.BumpTexture; mt.S = m.SpecTexture; mt.T = m.DetailTexture; mt.Tn = m.TintTexture; mt.Lk = m.LookupTexture;
         }
         var diff = mt.Diff; var bump = mt.Bump; var spec = mt.Spec; var det = mt.Det;
         var mv = new MaterialVarsCB
@@ -632,6 +635,8 @@ public sealed class SceneRenderer : IDisposable
             ViewportColour = new Vector4(m.ViewportColour, 1),
             IsTerrain = terrain ? 1u : 0u,
             IsTint = mt.Tint != null && TintPalettes ? 1u : 0u,
+            TerrainMode = terrain ? (uint)(mt.Look != null ? m.TerrainBlend + 1 : 1) : 0u,
+            VertexColoured = diff == null && string.Equals(m.Shader, "cpv_only", StringComparison.OrdinalIgnoreCase) ? 1u : 0u,
         };
         if (terrain) { mv.EnableTexture = 1; mv.EnableNormalMap = 1; mv.EnableDetailMap = 0; }
         ctx.UpdateSubresource(ref mv, materialCB);
@@ -645,10 +650,13 @@ public sealed class SceneRenderer : IDisposable
         ctx.PixelShader.SetShaderResource(3, spec ?? Textures.DefaultSpec);
         ctx.PixelShader.SetShaderResource(4, det ?? Textures.FlatNormal);
         ctx.PixelShader.SetShaderResource(14, mt.Tint ?? Textures.White);
+        ctx.PixelShader.SetShaderResource(15, mt.Look ?? Textures.White);
     }
 
     /// <summary>Tint shaders take their colour from the palette (MAP mode: the game's buildings in their real colours).</summary>
     public bool TintPalettes = true;
+    /// <summary>Shapes the game never shows (trees' shadow balls, mirrors' placeholders...) are not drawn.</summary>
+    public bool HideNeverDrawn = true;
 
     /// <summary>
     /// Draws one object. <paramref name="alphaPass"/> selects the blended materials (decals, glass);
@@ -672,6 +680,7 @@ public sealed class SceneRenderer : IDisposable
         foreach (var g in gm.Groups)
         {
             var mat = scene.Material(g.MatId);
+            if (HideNeverDrawn && mat.NeverDrawn) continue;
             bool blended = mat.Preset.AlphaBlended || o.GtaType == GtaObjectType.Collision || o.GtaType == GtaObjectType.Portal;
             if (blended != alphaPass) continue;
             SetMaterial(mat);
@@ -722,7 +731,7 @@ public sealed class SceneRenderer : IDisposable
         foreach (var g in gm.Groups)
         {
             var mat = scene.Material(g.MatId);
-            if (mat.Preset.AlphaBlended != alphaPass) continue;
+            if (mat.Preset.AlphaBlended != alphaPass || HideNeverDrawn && mat.NeverDrawn && !depthOnly) continue;
             if (!depthOnly) SetMaterial(mat);
             instBindings[0] = new VertexBufferBinding(g.Vb, RenderVertex.SizeInBytes, 0);
             instBindings[1] = new VertexBufferBinding(instBuf, 64, 0);

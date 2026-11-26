@@ -118,6 +118,11 @@ public static class MeshClean
                     if (A.Col1 == null || B.Col1 == null) return false;
                     if (Vector4.DistanceSquared(A.Col1[ca], B.Col1[b1]) > 1e-6f || Vector4.DistanceSquared(A.Col1[a1], B.Col1[cb]) > 1e-6f) return false;
                 }
+                if (A.UV1 != null || B.UV1 != null)
+                {
+                    if (A.UV1 == null || B.UV1 == null) return false;
+                    if (Vector2.DistanceSquared(A.UV1[ca], B.UV1[b1]) > 1e-8f || Vector2.DistanceSquared(A.UV1[a1], B.UV1[cb]) > 1e-8f) return false;
+                }
             }
             return true;
         }
@@ -176,17 +181,17 @@ public static class MeshClean
         }
         if (edges < 3) return null;
         int start = next.Keys.First(), cur = start, guard = 0;
-        var v = new List<int>(); var uv = new List<Vector2>(); var col = new List<Vector4>(); var col1 = new List<Vector4>();
-        var f0 = m.Faces[g[0]]; bool hasCol1 = g.All(fi => m.Faces[fi].Col1 != null);
+        var v = new List<int>(); var uv = new List<Vector2>(); var col = new List<Vector4>(); var col1 = new List<Vector4>(); var uv1 = new List<Vector2>();
+        var f0 = m.Faces[g[0]]; bool hasCol1 = g.All(fi => m.Faces[fi].Col1 != null), hasUv1 = g.All(fi => m.Faces[fi].UV1 != null);
         do
         {
             if (!next.TryGetValue(cur, out var e) || guard++ > edges) return null;
             var f = m.Faces[e.F];
-            v.Add(cur); uv.Add(f.UV[e.C]); col.Add(f.Col[e.C]); if (hasCol1) col1.Add(f.Col1[e.C]);
+            v.Add(cur); uv.Add(f.UV[e.C]); col.Add(f.Col[e.C]); if (hasCol1) col1.Add(f.Col1[e.C]); if (hasUv1) uv1.Add(f.UV1[e.C]);
             cur = e.To;
         } while (cur != start);
         if (v.Count != edges) return null; // several loops: a hole in the area
-        return new Face(v.ToArray(), f0.MatId, f0.Smooth) { UV = uv.ToArray(), Col = col.ToArray(), Col1 = hasCol1 ? col1.ToArray() : null };
+        return new Face(v.ToArray(), f0.MatId, f0.Smooth) { UV = uv.ToArray(), Col = col.ToArray(), Col1 = hasCol1 ? col1.ToArray() : null, UV1 = hasUv1 ? uv1.ToArray() : null };
     }
 
     // ------------------------------------------------------------------ points in the middle of straight edges
@@ -225,6 +230,7 @@ public static class MeshClean
             var keep = Enumerable.Range(0, f.V.Length).Where(i => !drop.Contains(f.V[i])).ToArray();
             f.V = keep.Select(i => f.V[i]).ToArray(); f.UV = keep.Select(i => f.UV[i]).ToArray(); f.Col = keep.Select(i => f.Col[i]).ToArray();
             if (f.Col1 != null) f.Col1 = keep.Select(i => f.Col1[i]).ToArray();
+            if (f.UV1 != null) f.UV1 = keep.Select(i => f.UV1[i]).ToArray();
         }
         return true;
     }

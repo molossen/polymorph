@@ -10,7 +10,7 @@ namespace MoloMax.Core.Gta.Map;
 public static class MapMeshCache
 {
     const int Magic = 0x434D4D50; // "PMMC"
-    const int Version = 3; // 2: terrain layers + vertex colour 1, 3: tint palette
+    const int Version = 4; // 2: terrain layers + vertex colour 1, 3: tint palette, 4: terrain blend mask + second UVs
 
     public static void Save(string path, PolyMesh m, IReadOnlyList<GtaMaterial> mats)
     {
@@ -27,20 +27,21 @@ public static class MapMeshCache
                 w.Write(x.Bumpiness); w.Write(x.SpecularIntensity); w.Write(x.SpecularFalloff); w.Write(x.SpecularFresnel);
                 V3(w, x.SpecMapIntMask); w.Write(x.EmissiveMultiplier); V4(w, x.DetailSettings); V3(w, x.ViewportColour);
                 for (int k = 0; k < 4; k++) { Str(w, x.Layer(k)); Str(w, x.LayerBump(k)); }
-                Str(w, x.TintTexture);
+                Str(w, x.TintTexture); Str(w, x.LookupTexture);
             }
             w.Write(m.Verts.Count);
             foreach (var v in m.Verts) V3(w, v);
             w.Write(m.Faces.Count);
             foreach (var f in m.Faces)
             {
-                w.Write(f.V.Length); w.Write(f.MatId); w.Write(f.Smooth); w.Write(f.Col1 != null);
+                w.Write(f.V.Length); w.Write(f.MatId); w.Write(f.Smooth); w.Write((byte)((f.Col1 != null ? 1 : 0) | (f.UV1 != null ? 2 : 0)));
                 for (int i = 0; i < f.V.Length; i++)
                 {
                     w.Write(f.V[i]);
                     var uv = f.UV[i]; w.Write(uv.X); w.Write(uv.Y);
                     V4(w, f.Col[i]);
                     if (f.Col1 != null) V4(w, f.Col1[i]);
+                    if (f.UV1 != null) { w.Write(f.UV1[i].X); w.Write(f.UV1[i].Y); }
                 }
             }
         }
@@ -69,7 +70,7 @@ public static class MapMeshCache
                     var l = Str(r); var lb = Str(r);
                     if (l != null || lb != null) { x.EnsureLayers(); x.Layers[k] = l; x.LayerBumps[k] = lb; }
                 }
-                x.TintTexture = Str(r);
+                x.TintTexture = Str(r); x.LookupTexture = Str(r);
                 mats.Add(x);
             }
             // the geometry (most of the file) read in one block and decoded from memory
@@ -87,16 +88,18 @@ public static class MapMeshCache
             var faces = new Face[nf];
             for (int i = 0; i < nf; i++)
             {
-                int n = I(); int mat = I(); uint sm = (uint)I(); bool c1 = b[p++] != 0;
-                var vi = new int[n]; var uv = new Vector2[n]; var col = new Vector4[n]; var col1 = c1 ? new Vector4[n] : null;
+                int n = I(); int mat = I(); uint sm = (uint)I(); byte fl = b[p++]; bool c1 = (fl & 1) != 0, u1 = (fl & 2) != 0;
+                var vi = new int[n]; var uv = new Vector2[n]; var col = new Vector4[n]; var col1 = c1 ? new Vector4[n] : null; var uvb = u1 ? new Vector2[n] : null;
                 for (int c = 0; c < n; c++)
                 {
                     vi[c] = I();
                     uv[c] = new Vector2(F(), F());
                     col[c] = new Vector4(F(), F(), F(), F());
                     if (c1) col1[c] = new Vector4(F(), F(), F(), F());
+                    if (u1) uvb[c] = new Vector2(F(), F());
                 }
                 faces[i] = Face.FromArrays(vi, uv, col, col1, mat, sm);
+                faces[i].UV1 = uvb;
             }
             m.Faces = new List<Face>(faces);
             return (m, mats);

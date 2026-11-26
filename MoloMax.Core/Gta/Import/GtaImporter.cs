@@ -233,7 +233,7 @@ public static class GtaImporter
     }
 
     static readonly uint HDiffuse = MetaXml.Jenkins("DiffuseSampler"), HBump = MetaXml.Jenkins("BumpSampler"),
-        HSpec = MetaXml.Jenkins("SpecSampler"), HDetail = MetaXml.Jenkins("DetailSampler"), HTexture = MetaXml.Jenkins("TextureSampler"), HTint = MetaXml.Jenkins("TintPaletteSampler");
+        HSpec = MetaXml.Jenkins("SpecSampler"), HDetail = MetaXml.Jenkins("DetailSampler"), HTexture = MetaXml.Jenkins("TextureSampler"), HTint = MetaXml.Jenkins("TintPaletteSampler"), HLookup = MetaXml.Jenkins("lookupSampler");
     static readonly uint[] HLayer = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("TextureSampler_layer" + i)).ToArray();
     static readonly uint[] HLayerBump = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("BumpSampler_layer" + i)).ToArray();
 
@@ -269,6 +269,7 @@ public static class GtaImporter
                     else if (h == HSpec) mat.SpecTexture = tex;
                     else if (h == HDetail) mat.DetailTexture = tex;
                     else if (h == HTint) mat.TintTexture = tex;
+                    else if (h == HLookup) mat.LookupTexture = tex;
                 }
                 else if (par.Data is SDX.Vector4 v)
                 {
@@ -324,6 +325,8 @@ public static class GtaImporter
                 // terrain_cb_w_4lyr: the layer weights come from colour 1 (blue: layer 0/1 and 2/3, green: pair 0-1 / 2-3), like the game
                 bool terrain = c.Res.Materials[mat].Layers != null && Has(Cw.VertexSemantics.Colour1);
                 var col1 = terrain ? new Vector4[vd.VertexCount] : null;
+                // terrain with a blend mask: its second texture coordinates say where the mask is read
+                var uv1 = terrain && c.Res.Materials[mat].LookupTexture != null && Has(Cw.VertexSemantics.TexCoord1) ? new Vector2[vd.VertexCount] : null;
                 // GTA cables: each point is there twice on the line, the game's shader opens them into a strip facing the
                 // camera (normal = cable direction, texcoord.x = half width). Here: two crossed strips, seen from every side.
                 if (string.Equals(c.Res.Materials[mat].Shader, "cable", StringComparison.OrdinalIgnoreCase) && Has(Cw.VertexSemantics.Normal) && Has(Cw.VertexSemantics.TexCoord0))
@@ -338,6 +341,7 @@ public static class GtaImporter
                     if (Has(Cw.VertexSemantics.Colour0)) { var cc = vd.GetColour(i, (int)Cw.VertexSemantics.Colour0); col[i] = new Vector4(cc.R, cc.G, cc.B, cc.A) / 255f; }
                     else col[i] = PolyMesh.DefaultColour;
                     if (terrain) { var c1 = vd.GetColour(i, (int)Cw.VertexSemantics.Colour1); col1[i] = new Vector4(c1.R, c1.G, c1.B, c1.A) / 255f; }
+                    if (uv1 != null) uv1[i] = ReadUv(vd, i, (int)Cw.VertexSemantics.TexCoord1);
                 }
                 for (int t = 0; t + 2 < idx.Length; t += 3)
                 {
@@ -345,6 +349,7 @@ public static class GtaImporter
                     if (a >= vd.VertexCount || b >= vd.VertexCount || cI >= vd.VertexCount || a == b || b == cI || a == cI) continue;
                     var f = mesh.AddFace(new[] { baseV + a, baseV + b, baseV + cI }, mat);
                     if (terrain) f.Col1 = new[] { col1[a], col1[b], col1[cI] };
+                    if (uv1 != null) f.UV1 = new[] { uv1[a], uv1[b], uv1[cI] };
                     f.UV = new[] { uv[a], uv[b], uv[cI] };
                     f.Col = new[] { col[a], col[b], col[cI] };
                 }

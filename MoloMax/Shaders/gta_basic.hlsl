@@ -56,7 +56,8 @@ cbuffer MaterialVars : register(b2)
     float4 ViewportColour;
     uint  IsTerrain;            // terrain_cb_w_4lyr: 4 layers blended by vertex colour 1 (b, g)
     uint  IsTint;               // *_tnt shaders: diffuse times the palette column picked by vertex colour 0 blue
-    uint2 TerrainPad;
+    uint  TerrainMode;          // 1 vertex colour 1 weights, 2 blend mask only (_cm), 3 mask and vertex colour mixed by vertex alpha
+    uint  VertexColoured;       // cpv_only: the colour is the vertex colour
 };
 
 // Scene lights (realistic mode), sun shadow map and the final tone curve.
@@ -109,6 +110,7 @@ Texture2D<float4> LayerBump1 : register(t11);
 Texture2D<float4> LayerBump2 : register(t12);
 Texture2D<float4> LayerBump3 : register(t13);
 Texture2D<float4> TintPalette : register(t14);
+Texture2D<float4> TerrainMask : register(t15);
 SamplerState TextureSS : register(s0);
 
 struct VS_INPUT
@@ -119,6 +121,7 @@ struct VS_INPUT
     float2 Texcoord : TEXCOORD0;
     float4 Tangent  : TANGENT;
     float4 Colour1  : COLOR1;
+    float2 Texcoord1 : TEXCOORD1;
 };
 
 struct VS_OUTPUT
@@ -132,6 +135,7 @@ struct VS_OUTPUT
     float3 WorldPos  : TEXCOORD3;
     float4 Colour1   : COLOR1;
     nointerpolation uint Inst : TEXCOORD8;   // instance number (GPU picking)
+    float2 Texcoord1 : TEXCOORD9;
 };
 
 // GPU picking: each object drawn with its number (base + instance + 1), 0 = nothing
@@ -157,6 +161,7 @@ VS_OUTPUT VSMain(VS_INPUT input)
     o.Colour0 = input.Colour0;
     o.Colour1 = input.Colour1;
     o.Inst = 0;
+    o.Texcoord1 = input.Texcoord1;
     return o;
 }
 
@@ -169,6 +174,7 @@ struct VS_INPUT_INST
     float2 Texcoord : TEXCOORD0;
     float4 Tangent  : TANGENT;
     float4 Colour1  : COLOR1;
+    float2 Texcoord1 : TEXCOORD1;
     float4 R0 : TEXCOORD4;
     float4 R1 : TEXCOORD5;
     float4 R2 : TEXCOORD6;
@@ -193,6 +199,7 @@ VS_OUTPUT VSInstanced(VS_INPUT_INST input)
     o.Colour0 = input.Colour0;
     o.Colour1 = input.Colour1;
     o.Inst = input.InstId;
+    o.Texcoord1 = input.Texcoord1;
     return o;
 }
 
@@ -343,6 +350,13 @@ float4 PSMain(VS_OUTPUT input, bool front : SV_IsFrontFace) : SV_TARGET
     float4 c = float4(ViewportColour.rgb, 1);
     // terrain: the 4 layers mixed like the game (blue mixes 0-1 and 2-3, green mixes the two pairs)
     float tb = saturate(input.Colour1.b), tg = saturate(input.Colour1.g);
+    if (IsTerrain > 0 && TerrainMode >= 2)
+    {
+        // the game's blend mask (lookupSampler), read with the second texture coordinates
+        float4 tm = TerrainMask.Sample(TextureSS, input.Texcoord1);
+        float va = TerrainMode == 3 ? saturate(input.Colour0.a) : 0;
+        tb = lerp(tm.b, tb, va); tg = lerp(tm.g, tg, va);
+    }
     if (IsTerrain > 0)
     {
         float2 tc = input.Texcoord;
@@ -361,6 +375,7 @@ float4 PSMain(VS_OUTPUT input, bool front : SV_IsFrontFace) : SV_TARGET
         }
         else if (c.a <= 0.0) discard;
     }
+    if (VertexColoured > 0) c.rgb = input.Colour0.rgb;
     if (IsTint > 0)
     {
         // the game's tint palettes: one row per colour set (row 0 here), the column from the vertex colour's blue
