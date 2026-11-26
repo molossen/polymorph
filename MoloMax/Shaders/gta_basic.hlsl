@@ -131,6 +131,14 @@ struct VS_OUTPUT
     float4 Bitangent : TEXCOORD2;
     float3 WorldPos  : TEXCOORD3;
     float4 Colour1   : COLOR1;
+    nointerpolation uint Inst : TEXCOORD8;   // instance number (GPU picking)
+};
+
+// GPU picking: each object drawn with its number (base + instance + 1), 0 = nothing
+cbuffer PickVars : register(b7)
+{
+    uint PickBase;
+    uint3 PickPad;
 };
 
 VS_OUTPUT VSMain(VS_INPUT input)
@@ -148,6 +156,7 @@ VS_OUTPUT VSMain(VS_INPUT input)
     if (UvRow0.w > 0.5) o.Texcoord = float2(dot(UvRow0.xyz, float3(input.Texcoord, 1)), dot(UvRow1.xyz, float3(input.Texcoord, 1)));
     o.Colour0 = input.Colour0;
     o.Colour1 = input.Colour1;
+    o.Inst = 0;
     return o;
 }
 
@@ -164,6 +173,7 @@ struct VS_INPUT_INST
     float4 R1 : TEXCOORD5;
     float4 R2 : TEXCOORD6;
     float4 R3 : TEXCOORD7;
+    uint InstId : SV_InstanceID;
 };
 
 VS_OUTPUT VSInstanced(VS_INPUT_INST input)
@@ -182,7 +192,17 @@ VS_OUTPUT VSInstanced(VS_INPUT_INST input)
     o.Texcoord = input.Texcoord;
     o.Colour0 = input.Colour0;
     o.Colour1 = input.Colour1;
+    o.Inst = input.InstId;
     return o;
+}
+
+// GPU picking: the object's number where it is seen (through the holes of foliage: alpha-tested like the colour pass)
+uint PSPick(VS_OUTPUT input) : SV_TARGET
+{
+    [loop] for (uint ci = 0; ci < (uint)ClipCount.x; ci++)
+        if (all(input.WorldPos >= ClipMin[ci].xyz) && all(input.WorldPos <= ClipMax[ci].xyz)) discard;
+    if (EnableTexture > 0 && IsTerrain == 0 && IsDecal == 0 && AlphaTest > 0 && Colourmap.Sample(TextureSS, input.Texcoord).a <= 0.33) discard;
+    return PickBase + input.Inst + 1;
 }
 
 float3 NormalMap(float2 nmv, float bumpinezz, float3 norm, float3 tang, float3 bita)

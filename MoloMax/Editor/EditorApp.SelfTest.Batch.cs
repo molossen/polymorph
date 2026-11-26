@@ -1328,6 +1328,30 @@ public sealed partial class EditorApp
         Expect(med < 30, $"map mode stays smooth (median {med:0.0} ms per frame)");
         // place a bench on the surface in the middle of the view
         var vp = Viewports[ActiveViewport];
+        // GPU picking: what is seen under the mouse, agreeing with the walk over the meshes
+        {
+            int agree = 0, tried = 0, gpuHits = 0; var gms = new List<double>(); var cms = new List<double>();
+            for (int i = 0; i < 15; i++)
+            {
+                var sp = new Vector2(vp.X + vp.W * (0.2f + i * 0.04f), vp.Y + vp.H * (0.45f + (i % 3) * 0.08f));
+                var g = GpuPickMap(vp, sp, o => o.Frozen || o.Id < 0); gms.Add(LastGpuPickMs);
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var c = Picking.PickNearest(Scene.Objects, RayAt(vp, sp), o => o.Frozen || mapCulled.Contains(o.Id) || o.Hidden);
+                cms.Add(sw.Elapsed.TotalMilliseconds);
+                if (g.HasValue) gpuHits++;
+                if (!c.HasValue) continue;
+                tried++;
+                if (g.HasValue && (g.Value.Object == c.Value.Object || MathF.Abs(g.Value.Distance - c.Value.Distance) < 0.3f)) agree++;
+            }
+            gms.Sort(); cms.Sort();
+            Expect(gpuHits >= 10 && agree >= tried * 0.8f, $"GPU pick: {gpuHits}/15 hits, same object or same depth as the mesh walk on {agree}/{tried}; {gms[7]:0.00} ms (mesh walk {cms[7]:0.00} ms)");
+            // a click selects the object seen under the mouse
+            var mid = new Vector2(vp.X + vp.W * 0.5f, vp.Y + vp.H * 0.55f);
+            var seen = GpuPickMap(vp, mid, o => o.Frozen || o.Id < 0);
+            Selected.Clear(); ClickSelect(vp, mid);
+            Expect(seen.HasValue && Selected.Contains(seen.Value.Object.Id), $"a click selects what is seen under the mouse ({seen?.Object.Name})");
+            Selected.Clear(); SelectionChanged();
+        }
         StartPlacement("prop_bench_01a");
         yield return Until(() => archSlots.TryGetValue(MoloMax.Core.Gta.Map.MapDocument.Hash("prop_bench_01a"), out var sl) && sl.State >= 2, 60);
         // median of single picks: one per frame while the mouse moves (models still loading in the background add noise)

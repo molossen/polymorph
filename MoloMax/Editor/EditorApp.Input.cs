@@ -450,7 +450,7 @@ public sealed partial class EditorApp
     void PlaceCursor(Viewport vp, Vector2 screen)
     {
         var ray = RayAt(vp, screen);
-        var hit = Picking.PickObject(Scene, ray, o => OutOfViewRadius(o, vp.Camera.Eye));
+        var hit = MapMode ? GpuPickMap(vp, screen, null) : Picking.PickObject(Scene, ray, o => OutOfViewRadius(o, vp.Camera.Eye));
         Vector3 p;
         if (hit.HasValue) p = hit.Value.Point;
         else if (!Picking.RayGround(ray, 0, out p) && !Picking.RayPlane(ray, vp.Camera.Target, -vp.Camera.Forward, out p)) return;
@@ -720,7 +720,7 @@ public sealed partial class EditorApp
             }
             return;
         }
-        var pick = Picking.PickObject(Scene, ray, o => OutOfViewRadius(o, vp.Camera.Eye));
+        var pick = MapMode ? GpuPickMap(vp, screen, o => o.Frozen || o.Id < 0) : Picking.PickObject(Scene, ray, o => OutOfViewRadius(o, vp.Camera.Eye));
         // lights and Drawable nodes have no faces: they are picked by their marker on screen
         SceneObject empty = null; float bestPx = 12f;
         foreach (var e in Scene.Objects)

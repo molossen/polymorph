@@ -9,7 +9,7 @@ namespace MoloMax.Editor;
 /// </summary>
 public sealed partial class EditorApp
 {
-    sealed class InstGroup { public SceneObject Template; public Matrix4x4[] Worlds = new Matrix4x4[64]; public int Count; }
+    sealed class InstGroup { public SceneObject Template; public Matrix4x4[] Worlds = new Matrix4x4[64]; public SceneObject[] Objs = new SceneObject[64]; public int Count; }
     readonly Dictionary<string, InstGroup> instGroups = new();
     readonly List<SceneObject> mapSingles = new();
     public int MapDrawCalls, MapVisible;
@@ -65,7 +65,8 @@ public sealed partial class EditorApp
             if (!instGroups.TryGetValue(o.InstanceKey, out var grp)) instGroups[o.InstanceKey] = grp = new InstGroup();
             if (grp.Template == null) grp.Template = o;
             else if (!ReferenceEquals(grp.Template.Mesh, o.Mesh)) { mapSingles.Add(o); continue; } // not synced yet this frame
-            if (grp.Count == grp.Worlds.Length) Array.Resize(ref grp.Worlds, grp.Worlds.Length * 2);
+            if (grp.Count == grp.Worlds.Length) { Array.Resize(ref grp.Worlds, grp.Worlds.Length * 2); Array.Resize(ref grp.Objs, grp.Worlds.Length); }
+            grp.Objs[grp.Count] = o;
             grp.Worlds[grp.Count++] = o.World;
         }
     }

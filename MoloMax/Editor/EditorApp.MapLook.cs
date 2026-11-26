@@ -29,7 +29,7 @@ public sealed partial class EditorApp
         float full = MathF.Min(MathF.Max(Settings.MapFogDistance, 300), cam.Far * 0.95f);
         // warm light towards the sun when it is low (sunrise / sunset), nothing at night
         float low = 1 - MathF.Min(MathF.Abs(sun.Z) * 3, 1);
-        renderer.SetFog(h, 1f, full * 0.25f, full, new Vector3(0.35f, 0.2f, 0.08f) * low * disc, sun);
+        renderer.SetFog(h, 0.9f, full * 0.35f, full, new Vector3(0.35f, 0.2f, 0.08f) * low * disc, sun);
     }
 
     /// <summary>Look of the map (MAP panel, World section).</summary>

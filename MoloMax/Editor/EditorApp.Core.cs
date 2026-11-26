@@ -363,8 +363,8 @@ public sealed partial class EditorApp : IDisposable
             lines.Flush(Matrix4x4.Identity);
         }
 
-        // home grid
-        if (ShowGrid)
+        // home grid (not over the sky of the map)
+        if (ShowGrid && !skyView)
         {
             ctx.OutputMerger.SetDepthStencilState(renderer.DepthRead);
             ctx.Rasterizer.State = renderer.LinesState;

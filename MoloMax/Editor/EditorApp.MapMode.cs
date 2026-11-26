@@ -861,7 +861,8 @@ public sealed partial class EditorApp
     {
         point = default; normal = Vector3.UnitZ;
         var ray = RayAt(vp, mouse);
-        var best = Picking.PickNearest(Scene.Objects, ray, o => o.Id == skip || mapCulled.Contains(o.Id));
+        var best = GpuPickMap(vp, mouse, o => o.Id == skip);
+        if (best.HasValue && best.Value.Face < 0) { point = best.Value.Point; return true; } // a far model: its point, the ground's up
         if (best.HasValue)
         {
             var b = best.Value; point = b.Point;

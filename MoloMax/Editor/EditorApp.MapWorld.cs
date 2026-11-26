@@ -234,12 +234,10 @@ public sealed partial class EditorApp
     bool MapClick(Viewport hv)
     {
         if (world == null || backdrop.Count == 0) return false;
-        var ray = RayAt(hv, Input.Mouse);
-        var near = Picking.PickNearest(Scene.Objects, ray, o => o.Frozen || mapCulled.Contains(o.Id));
-        var eye = hv.Camera.Eye;
-        var far = Picking.PickNearest(backdrop, ray, o => FarSteppedAside(o, eye) || !FarLodVisible(o, eye));
-        if (!far.HasValue || near.HasValue && near.Value.Distance <= far.Value.Distance + 0.5f) return false;
-        LoadAreaAt(far.Value.Point);
+        // what is seen under the mouse (GPU): a far model loads its area, an editable one goes on to the selection
+        var hit = GpuPickMap(hv, Input.Mouse, o => o.Frozen);
+        if (!hit.HasValue || hit.Value.Object.Id >= 0) return false;
+        LoadAreaAt(hit.Value.Point);
         return true;
     }
 
