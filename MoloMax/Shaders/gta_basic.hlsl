@@ -197,12 +197,16 @@ VS_OUTPUT VSInstanced(VS_INPUT_INST input)
 }
 
 // GPU picking: the object's number where it is seen (through the holes of foliage: alpha-tested like the colour pass)
-uint PSPick(VS_OUTPUT input) : SV_TARGET
+struct PICK_OUT { uint Id : SV_Target0; float Depth : SV_Target1; };
+PICK_OUT PSPick(VS_OUTPUT input)
 {
+    PICK_OUT o;
     [loop] for (uint ci = 0; ci < (uint)ClipCount.x; ci++)
         if (all(input.WorldPos >= ClipMin[ci].xyz) && all(input.WorldPos <= ClipMax[ci].xyz)) discard;
     if (EnableTexture > 0 && IsTerrain == 0 && IsDecal == 0 && AlphaTest > 0 && Colourmap.Sample(TextureSS, input.Texcoord).a <= 0.33) discard;
-    return PickBase + input.Inst + 1;
+    o.Id = PickBase + input.Inst + 1;
+    o.Depth = input.Position.z;
+    return o;
 }
 
 float3 NormalMap(float2 nmv, float bumpinezz, float3 norm, float3 tang, float3 bita)

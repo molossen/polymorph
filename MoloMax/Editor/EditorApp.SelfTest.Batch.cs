@@ -1343,6 +1343,7 @@ public sealed partial class EditorApp
                 tried++;
                 if (g.HasValue && (g.Value.Object == c.Value.Object || MathF.Abs(g.Value.Distance - c.Value.Distance) < 0.3f)) agree++;
             }
+            Note("GPU pick: " + LastGpuPickInfo);
             gms.Sort(); cms.Sort();
             Expect(gpuHits >= 10 && agree >= tried * 0.8f, $"GPU pick: {gpuHits}/15 hits, same object or same depth as the mesh walk on {agree}/{tried}; {gms[7]:0.00} ms (mesh walk {cms[7]:0.00} ms)");
             // a click selects the object seen under the mouse

@@ -15,6 +15,7 @@ public sealed partial class EditorApp
     Matrix4x4[] pickWorlds = new Matrix4x4[64];
     /// <summary>Last GPU pick time (ms), for the self tests.</summary>
     public double LastGpuPickMs;
+    public string LastGpuPickInfo = "";
 
     /// <summary>Object and point under a screen position (the far models included, Id &lt; 0). Face is the face hit when the
     /// object's mesh is on the CPU (exact point and normal), else -1 with the point from the depth.</summary>
@@ -27,6 +28,7 @@ public sealed partial class EditorApp
         var viewProj = cam.ViewProj(vp.Aspect);
         MapGatherDraws(vp, viewProj);
         pickIds.Clear();
+        int draws0 = renderer.StatDraws;
         renderer.BeginPick((int)vp.W, (int)vp.H, (int)local.X, (int)local.Y);
         renderer.BeginScene(viewProj, cam.Eye, Lights, ShadingMode.Realistic, 1, 0);
         foreach (var g in instGroups.Values)
@@ -57,6 +59,7 @@ public sealed partial class EditorApp
         var (id, depth) = renderer.EndPick();
         gpu.BindBackBuffer();
         LastGpuPickMs = System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+        LastGpuPickInfo = $"id {id} depth {depth:0.0000}, {pickIds.Count} objects, {renderer.StatDraws - draws0} draws, groups {instGroups.Values.Count(g => g.Count > 0)}, singles {mapSingles.Count}, pixel {local.X:0},{local.Y:0} of {vp.W:0}x{vp.H:0}";
         if (id == 0 || id > pickIds.Count || depth >= 1f) return null;
         var obj = pickIds[(int)id - 1];
         // the point from the depth under the pixel

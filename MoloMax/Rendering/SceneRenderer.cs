@@ -80,9 +80,9 @@ public sealed class SceneRenderer : IDisposable
     readonly PixelShader ps, psPick;
     readonly Buffer pickCB;
 
-    // ---- GPU picking: objects drawn with their number into a 32-bit integer target, read back under one pixel
-    Texture2D pickTex, pickDepth, pickStage, pickDepthStage;
-    RenderTargetView pickRtv; DepthStencilView pickDsv;
+    // ---- GPU picking: objects drawn with their number (and depth) into two small-format targets, read back under one pixel
+    Texture2D pickTex, pickZTex, pickDepth, pickStage, pickZStage;
+    RenderTargetView pickRtv, pickZRtv; DepthStencilView pickDsv;
     int pickW, pickH, pickX, pickY;
     /// <summary>A pick pass is drawing: DrawObject / DrawInstanced write numbers, the blended pass is skipped.</summary>
     public bool Picking { get; private set; }
@@ -94,18 +94,19 @@ public sealed class SceneRenderer : IDisposable
         viewW = Math.Max(1, viewW); viewH = Math.Max(1, viewH);
         if (pickTex == null || pickW != viewW || pickH != viewH)
         {
-            pickRtv?.Dispose(); pickTex?.Dispose(); pickDsv?.Dispose(); pickDepth?.Dispose();
+            pickRtv?.Dispose(); pickTex?.Dispose(); pickZRtv?.Dispose(); pickZTex?.Dispose(); pickDsv?.Dispose(); pickDepth?.Dispose();
             pickW = viewW; pickH = viewH;
-            pickTex = new Texture2D(device, new Texture2DDescription { Width = pickW, Height = pickH, MipLevels = 1, ArraySize = 1, Format = Format.R32_UInt, SampleDescription = new SampleDescription(1, 0), Usage = ResourceUsage.Default, BindFlags = BindFlags.RenderTarget });
-            pickRtv = new RenderTargetView(device, pickTex);
-            pickDepth = new Texture2D(device, new Texture2DDescription { Width = pickW, Height = pickH, MipLevels = 1, ArraySize = 1, Format = Format.R32_Typeless, SampleDescription = new SampleDescription(1, 0), Usage = ResourceUsage.Default, BindFlags = BindFlags.DepthStencil });
-            pickDsv = new DepthStencilView(device, pickDepth, new DepthStencilViewDescription { Format = Format.D32_Float, Dimension = DepthStencilViewDimension.Texture2D });
+            Texture2D T(Format f, BindFlags b) => new(device, new Texture2DDescription { Width = pickW, Height = pickH, MipLevels = 1, ArraySize = 1, Format = f, SampleDescription = new SampleDescription(1, 0), Usage = ResourceUsage.Default, BindFlags = b });
+            pickTex = T(Format.R32_UInt, BindFlags.RenderTarget); pickRtv = new RenderTargetView(device, pickTex);
+            pickZTex = T(Format.R32_Float, BindFlags.RenderTarget); pickZRtv = new RenderTargetView(device, pickZTex);
+            pickDepth = T(Format.D32_Float, BindFlags.DepthStencil); pickDsv = new DepthStencilView(device, pickDepth);
         }
-        pickStage ??= new Texture2D(device, new Texture2DDescription { Width = 1, Height = 1, MipLevels = 1, ArraySize = 1, Format = Format.R32_UInt, SampleDescription = new SampleDescription(1, 0), Usage = ResourceUsage.Staging, CpuAccessFlags = CpuAccessFlags.Read });
-        pickDepthStage ??= new Texture2D(device, new Texture2DDescription { Width = 1, Height = 1, MipLevels = 1, ArraySize = 1, Format = Format.R32_Typeless, SampleDescription = new SampleDescription(1, 0), Usage = ResourceUsage.Staging, CpuAccessFlags = CpuAccessFlags.Read });
+        Texture2D S(Format f) => new(device, new Texture2DDescription { Width = 1, Height = 1, MipLevels = 1, ArraySize = 1, Format = f, SampleDescription = new SampleDescription(1, 0), Usage = ResourceUsage.Staging, CpuAccessFlags = CpuAccessFlags.Read });
+        pickStage ??= S(Format.R32_UInt); pickZStage ??= S(Format.R32_Float);
         pickX = Math.Clamp(x, 0, pickW - 1); pickY = Math.Clamp(y, 0, pickH - 1);
-        ctx.OutputMerger.SetRenderTargets(pickDsv, pickRtv);
+        ctx.OutputMerger.SetRenderTargets(pickDsv, pickRtv, pickZRtv);
         ctx.ClearRenderTargetView(pickRtv, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0));
+        ctx.ClearRenderTargetView(pickZRtv, new SharpDX.Mathematics.Interop.RawColor4(1, 1, 1, 1));
         ctx.ClearDepthStencilView(pickDsv, DepthStencilClearFlags.Depth, 1f, 0);
         ctx.Rasterizer.SetViewport(0, 0, pickW, pickH);
         ctx.Rasterizer.SetScissorRectangle(pickX, pickY, pickX + 1, pickY + 1);
@@ -136,14 +137,14 @@ public sealed class SceneRenderer : IDisposable
         ctx.OutputMerger.SetRenderTargets((DepthStencilView)null, (RenderTargetView)null);
         var box = new ResourceRegion(pickX, pickY, 0, pickX + 1, pickY + 1, 1);
         ctx.CopySubresourceRegion(pickTex, 0, box, pickStage, 0);
-        ctx.CopySubresourceRegion(pickDepth, 0, box, pickDepthStage, 0);
+        ctx.CopySubresourceRegion(pickZTex, 0, box, pickZStage, 0);
         uint id; float depth;
         var m = ctx.MapSubresource(pickStage, 0, MapMode.Read, SharpDX.Direct3D11.MapFlags.None);
         unsafe { id = *(uint*)m.DataPointer; }
         ctx.UnmapSubresource(pickStage, 0);
-        m = ctx.MapSubresource(pickDepthStage, 0, MapMode.Read, SharpDX.Direct3D11.MapFlags.None);
+        m = ctx.MapSubresource(pickZStage, 0, MapMode.Read, SharpDX.Direct3D11.MapFlags.None);
         unsafe { depth = *(float*)m.DataPointer; }
-        ctx.UnmapSubresource(pickDepthStage, 0);
+        ctx.UnmapSubresource(pickZStage, 0);
         ctx.PixelShader.Set(ps);
         return (id, depth);
     }
@@ -741,7 +742,7 @@ public sealed class SceneRenderer : IDisposable
         Textures.Dispose();
         CullBack.Dispose(); CullNone.Dispose(); LinesState.Dispose();
         DepthDefault.Dispose(); DepthRead.Dispose(); DepthOff.Dispose(); Opaque.Dispose(); Alpha.Dispose();
-        shadowSrv?.Dispose(); shadowDsv?.Dispose(); shadowTex?.Dispose(); shadowSampler.Dispose(); shadowRas.Dispose(); lightCB.Dispose(); clipCB.Dispose(); fogCB.Dispose(); pickCB.Dispose(); psPick.Dispose(); pickRtv?.Dispose(); pickTex?.Dispose(); pickDsv?.Dispose(); pickDepth?.Dispose(); pickStage?.Dispose(); pickDepthStage?.Dispose();
+        shadowSrv?.Dispose(); shadowDsv?.Dispose(); shadowTex?.Dispose(); shadowSampler.Dispose(); shadowRas.Dispose(); lightCB.Dispose(); clipCB.Dispose(); fogCB.Dispose(); pickCB.Dispose(); psPick.Dispose(); pickRtv?.Dispose(); pickTex?.Dispose(); pickZRtv?.Dispose(); pickZTex?.Dispose(); pickDsv?.Dispose(); pickDepth?.Dispose(); pickStage?.Dispose(); pickZStage?.Dispose();
         sampler.Dispose(); sceneCB.Dispose(); objectCB.Dispose(); materialCB.Dispose();
         layout.Dispose(); ps.Dispose(); vs.Dispose();
     }
