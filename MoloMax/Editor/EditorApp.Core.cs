@@ -354,6 +354,8 @@ public sealed partial class EditorApp : IDisposable
         ctx.OutputMerger.SetBlendState(renderer.Opaque, blendCol, -1);
         ctx.Rasterizer.State = renderer.CullNone;
         bool skyView = MapSkyOn(vp);
+        bool hdrView = skyView && MapNrLookOn && Settings.MapHdr;
+        if (hdrView) { hdrImage ??= new HdrImage(gpu.Device); hdrImage.Begin(gpu); }
         if (skyView) DrawMapSky(viewProj);
         else
         {
@@ -415,6 +417,15 @@ public sealed partial class EditorApp : IDisposable
             renderer.DrawObject(Scene, o, true, Vector4.Zero, BackfaceCull);
         }
         if (skyView) { ctx.Rasterizer.State = renderer.CullNone; DrawMapLights(vp, viewProj); ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1); }
+        if (hdrView)
+        {
+            // the HDR image brought to the window (exposure, filmic curve), then the wires and gizmos over it
+            ctx.OutputMerger.SetDepthStencilState(renderer.DepthOff);
+            ctx.OutputMerger.SetBlendState(renderer.Opaque, blendCol, -1);
+            ctx.Rasterizer.State = renderer.CullNone;
+            hdrImage.End(gpu, Settings.MapExposure * MathF.Max(mapLight.Adaptation, 1));
+            ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1);
+        }
         DrawSplats(vp);
 
         // wires, edges, selection, brackets, creation preview

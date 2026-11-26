@@ -59,6 +59,75 @@ public readonly record struct MapLighting
         return l with { SunDirection = direction, FogDistance = fogDistance, Sun = sun };
     }
 
+    // ---- HDR image (NodeRunner's "High" look): linear colours, a sun several times stronger than the sky's light, the
+    //      sky worked out from the air, the eye getting used to the dark (Adaptation)
+    public bool IsHdr { get; init; }
+    public float Adaptation { get; init; }
+    public bool PhysicalSky { get; init; }
+    public Vector3 FogSun { get; init; }
+    public Vector3 SunTint { get; init; }
+    /// <summary>Light given off by lit windows and lamps in the HDR image, compared with a white surface in the sun.</summary>
+    public const float HdrEmission = 3f;
+    const float HdrSun = 3f, HdrAmbient = 2f, HdrSky = 1.25f, HorizonHeight = 0.09f;
+
+    public MapLighting ForHdr()
+    {
+        var hdr = HdrColours();
+        return hdr with { Adaptation = Math.Clamp(MathF.Pow(DayKey / MathF.Max(Key(hdr), 1e-3f), 0.45f), 1f, 3.5f) };
+    }
+
+    MapLighting HdrColours() => this with
+    {
+        SunColor = Linear(SunColor) * HdrSun, SkyAmbient = Linear(SkyAmbient) * HdrAmbient, GroundAmbient = Linear(GroundAmbient) * HdrAmbient,
+        Zenith = Linear(Zenith) * HdrSky, Horizon = Linear(Horizon) * HdrSky, IsHdr = true,
+    };
+
+    public MapLighting WithPhysicalSky()
+    {
+        if (!IsHdr || Sun == Vector3.Zero) return this;
+        var scale = SkyBalance;
+        var zenith = Atmosphere.Radiance(Vector3.UnitZ, Sun) * scale;
+        var horizon = HorizonAround(Sun) * scale;
+        var flat = new Vector2(Sun.X, Sun.Y);
+        flat = flat.LengthSquared() < 1e-6f ? Vector2.UnitX : Vector2.Normalize(flat);
+        var towardSun = Atmosphere.Radiance(new Vector3(flat * MathF.Cos(HorizonHeight), MathF.Sin(HorizonHeight)), Sun) * scale;
+        float night = NightLights;
+        return this with
+        {
+            PhysicalSky = true, Zenith = Vector3.Lerp(zenith, Zenith, night), Horizon = Vector3.Lerp(horizon, Horizon, night),
+            FogSun = Vector3.Max(towardSun - horizon, Vector3.Zero) * (1f - night), SunTint = Atmosphere.Transmittance(Sun),
+        };
+    }
+
+    static Vector3 HorizonAround(Vector3 sun)
+    {
+        const int Around = 8; var sum = Vector3.Zero;
+        for (int i = 0; i < Around; i++)
+        {
+            float a = MathF.Tau * i / Around;
+            sum += Atmosphere.Radiance(new Vector3(MathF.Cos(a) * MathF.Cos(HorizonHeight), MathF.Sin(a) * MathF.Cos(HorizonHeight), MathF.Sin(HorizonHeight)), sun);
+        }
+        return sum / Around;
+    }
+
+    /// <summary>Worked-out sky -> HDR image, per colour: at noon the horizon of the same hue as the colours above.</summary>
+    public static Vector3 SkyBalance => skyBalance ??= MakeSkyBalance();
+    static Vector3? skyBalance;
+    static Vector3 MakeSkyBalance()
+    {
+        var noon = ForHour(13f, 0f);
+        var target = noon.HdrColours();
+        var horizon = HorizonAround(noon.Sun);
+        var hue = target.Horizon / MathF.Max(Luminance(target.Horizon), 1e-9f) / (horizon / MathF.Max(Luminance(horizon), 1e-9f));
+        var zenith = Atmosphere.Radiance(Vector3.UnitZ, noon.Sun) * hue;
+        return hue * (Luminance(target.Zenith) / MathF.Max(Luminance(zenith), 1e-9f));
+    }
+
+    static float Key(MapLighting l) => Luminance(l.SkyAmbient) + Luminance(l.SunColor) * MathF.Max(l.SunDirection.Z, 0.1f);
+    static readonly float DayKey = Key(ForHour(13f, 0f).HdrColours());
+    static float Luminance(Vector3 c) => 0.2126f * c.X + 0.7152f * c.Y + 0.0722f * c.Z;
+    static Vector3 Linear(Vector3 c) => new(MathF.Pow(c.X, 2.2f), MathF.Pow(c.Y, 2.2f), MathF.Pow(c.Z, 2.2f));
+
     static MapLighting Blend(MapLighting a, MapLighting b, float t) => a with
     {
         SunColor = Vector3.Lerp(a.SunColor, b.SunColor, t), SkyAmbient = Vector3.Lerp(a.SkyAmbient, b.SkyAmbient, t),

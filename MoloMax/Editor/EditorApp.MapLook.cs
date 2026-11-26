@@ -13,6 +13,7 @@ namespace MoloMax.Editor;
 public sealed partial class EditorApp
 {
     SkyRenderer sky;
+    HdrImage hdrImage;
     /// <summary>The MAP view lit like NodeRunner (its light of the hour, sky and haze).</summary>
     bool MapNrLookOn => MapMode && Settings.MapNrLook;
     MoloMax.Core.Gta.Look.MapLighting mapLight = MoloMax.Core.Gta.Look.MapLighting.Neutral;
@@ -48,7 +49,7 @@ public sealed partial class EditorApp
         var v = new DistantLightsRenderer.Vars
         {
             ViewProj = viewProj, Eye = new Vector4(cam.Eye, 1.15f / MathF.Max(vp.H, 1)),
-            Right = new Vector4(cam.Right, 0), Up = new Vector4(Vector3.Normalize(Vector3.Cross(cam.Right, cam.Forward)), night),
+            Right = new Vector4(cam.Right, MapNrLookOn && mapLight.IsHdr ? 1 : 0), Up = new Vector4(Vector3.Normalize(Vector3.Cross(cam.Right, cam.Forward)), night),
         };
         lightsR.Draw(v);
         renderer.RebindScene();
@@ -69,12 +70,16 @@ public sealed partial class EditorApp
         }
         if (waterR == null || !waterR.HasSurfaces) return;
         var (z, h, sun, disc) = GtaLighting.SkyOf(Hour);
-        if (MapNrLookOn) (z, h, sun, disc) = (mapLight.Zenith, mapLight.Horizon, mapLight.Sun, mapLight.SunDisc);
+        if (MapNrLookOn)
+        {
+            static Vector3 D(Vector3 c, bool hdr) => hdr ? new Vector3(MathF.Pow(MathF.Max(c.X, 0), 1 / 2.2f), MathF.Pow(MathF.Max(c.Y, 0), 1 / 2.2f), MathF.Pow(MathF.Max(c.Z, 0), 1 / 2.2f)) : c;
+            (z, h, sun, disc) = (D(mapLight.Zenith, mapLight.IsHdr), D(mapLight.Horizon, mapLight.IsHdr), mapLight.Sun, mapLight.SunDisc);
+        }
         // body colour: the sea's blue-green, lit by the sky (dark at night)
         float light = MathF.Max(0.08f, MathF.Min(1, (z.X + z.Y + z.Z) / 1.4f));
         var deep = new Vector3(0.05f, 0.16f, 0.19f) * light;
         var (fc, fr) = renderer.Fog;
-        if (MapNrLookOn) { fc = new Vector4(mapLight.Horizon, Settings.MapFog ? 1 : 0); fr = new Vector4(mapLight.FogDistance * 0.25f, mapLight.FogDistance, 0, 0); }
+        if (MapNrLookOn) { var hz = mapLight.IsHdr ? new Vector3(MathF.Pow(mapLight.Horizon.X, 1 / 2.2f), MathF.Pow(mapLight.Horizon.Y, 1 / 2.2f), MathF.Pow(mapLight.Horizon.Z, 1 / 2.2f)) : mapLight.Horizon; fc = new Vector4(hz, Settings.MapFog ? 1 : 0); fr = new Vector4(mapLight.FogDistance * 0.25f, mapLight.FogDistance, mapLight.IsHdr ? 1 : 0, 0); }
         var v = new WaterRenderer.Vars
         {
             ViewProj = viewProj, Eye = new Vector4(vp.Camera.Eye, (float)(ImGui.GetTime() % 10000)),
@@ -95,7 +100,8 @@ public sealed partial class EditorApp
         {
             // NodeRunner's sky: below the horizon the horizon colour darkened
             var ml = mapLight;
-            sky.Draw(viewProj, ml.Zenith, ml.Horizon, ml.SunDirection, ml.SunDisc, ml.Horizon * 0.7f);
+            if (ml.PhysicalSky) sky.PrepareTable(ml.Sun.Z, MoloMax.Core.Gta.Look.MapLighting.SkyBalance);
+            sky.Draw(viewProj, ml.Zenith, ml.Horizon, ml.SunDirection, ml.SunDisc, ml.IsHdr, ml.PhysicalSky, ml.NightLights, ml.SunTint, ml.Sun, 0);
             return;
         }
         var (z, h, sun, disc) = GtaLighting.SkyOf(Hour);

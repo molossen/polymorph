@@ -9,7 +9,7 @@ cbuffer WaterVars : register(b0)
     float4 Horizon;    // rgb sky at the horizon
     float4 Deep;       // rgb water body colour (already lit), a: opacity when looking down
     float4 FogColour;  // rgb, a strength
-    float4 FogRange;   // x start, y full
+    float4 FogRange;   // x start, y full, z 1 = HDR image (linear colours)
 };
 
 struct VS_IN { float3 pos : POSITION; };
@@ -54,5 +54,6 @@ float4 PSMain(PS_IN i) : SV_TARGET
     // same haze as the map
     float f = saturate((dist - FogRange.x) / max(FogRange.y - FogRange.x, 1)) * FogColour.a;
     c = lerp(c, FogColour.rgb, f);
+    if (FogRange.z > 0.5) return float4(pow(saturate(c), 2.2) * 1.6, a);
     return float4(saturate(c), a);
 }

@@ -350,7 +350,9 @@ cbuffer MapLookVars : register(b9)
     float4 NrFogColor;    // a: 1 = haze on
     float4 NrCameraFog;   // xyz camera, w distance where the haze hides everything
     float4 NrSkyTop;      // sky overhead (mirrored)
-    float4 NrInfo;        // x night lights (0 day, 1 night)
+    float4 NrInfo;        // x night lights (0 day, 1 night), y 1 = HDR image (linear colours), z lamps / lit windows brightness there
+    float4 NrFogSun;      // haze colour added towards the sun (sky from the air)
+    float4 NrSkySun;      // xyz where the sun is (even below the horizon)
 };
 
 // sun shadows of the MAP look: one image per slice of the view (NodeRunner's ShadowMaps)
@@ -388,15 +390,27 @@ float3 NrMirroredSky(float3 m)
     return m.z >= 0 ? lerp(NrFogColor.rgb, NrSkyTop.rgb, saturate(m.z * 1.6)) : lerp(NrFogColor.rgb, NrGroundAmbient.rgb * 0.5, saturate(-m.z * 4));
 }
 
+float3 NrFogTowards(float3 world)
+{
+    float2 view = world.xy - NrCameraFog.xy;
+    float2 sun = NrSkySun.xy;
+    if (dot(NrFogSun.rgb, 1) <= 0 || dot(view, view) < 1e-4 || dot(sun, sun) < 1e-6) return NrFogColor.rgb;
+    float toward = saturate(dot(normalize(view), normalize(sun)));
+    toward *= toward;
+    return NrFogColor.rgb + NrFogSun.rgb * (toward * toward * toward * toward);
+}
+
 float4 NrShade(float4 color, float3 n, float3 world, float3 geoN, float4 spec, bool hasSpec)
 {
+    bool hdr = NrInfo.y > 0.5;
+    if (hdr) color.rgb = pow(abs(color.rgb), 2.2);
     float sun = saturate(dot(n, NrLightDir.xyz));
     if (sun > 0) sun *= NrSunShadow(world, geoN);
     float sky = 0.5 + 0.5 * n.z;
     float3 ambient = lerp(NrGroundAmbient.rgb, NrSkyAmbient.rgb, sky);
     float3 light = ambient + NrSunColor.rgb * sun;
     float emission = IsEmissive > 0 ? (EmissiveNight > 0 ? NrInfo.x : 1) : 0;
-    float3 lit = color.rgb * max(light, emission * 1.4);
+    float3 lit = color.rgb * max(light, emission * (hdr ? NrInfo.z : 1.4));
     float3 toCamera = normalize(NrCameraFog.xyz - world);
     if (hasSpec)
     {
@@ -414,7 +428,8 @@ float4 NrShade(float4 color, float3 n, float3 world, float3 geoN, float4 spec, b
     float dist = length(world - NrCameraFog.xyz);
     float fog = NrFogColor.a * saturate((dist - 0.25 * NrCameraFog.w) / (0.75 * NrCameraFog.w));
     fog = fog * fog * (3 - 2 * fog);
-    return float4(lerp(lit, NrFogColor.rgb, fog), color.a);
+    if (hdr) fog = pow(fog, 1.5); // blended in linear colours the haze would look thicker
+    return float4(lerp(lit, NrFogTowards(world), fog), color.a);
 }
 
 // GTA lights like the game: distance falloff = RagePowApprox(1 - d^2/R^2, exponent), linear spot cone, capsule = nearest

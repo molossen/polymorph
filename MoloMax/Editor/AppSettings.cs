@@ -97,11 +97,15 @@ public sealed class AppSettings
     /// <summary>MAP: lit like NodeRunner (its light of the hour, sky, haze).</summary>
     public bool MapNrLook { get; set; } = true;
     /// <summary>MAP look: sun shadows up to this distance (m).</summary>
-    public float MapShadowDistance { get; set; } = 400;
+    public float MapShadowDistance { get; set; } = 800;
+    /// <summary>MAP look: HDR image (light beyond white, filmic curve), the sky worked out from the air, exposure.</summary>
+    public bool MapHdr { get; set; } = true;
+    public bool MapPhysicalSky { get; set; } = true;
+    public float MapExposure { get; set; } = 1f;
     /// <summary>MAP: at night, the game's distant lights.</summary>
     public bool MapNightLights { get; set; } = true;
     /// <summary>Distance (m) where the haze hides everything.</summary>
-    public float MapFogDistance { get; set; } = 3000;
+    public float MapFogDistance { get; set; } = 8000;
     /// <summary>MAP mode: only what is within this distance of the camera is drawn and picked (big custom maps).</summary>
     public bool MapViewRadiusOn { get; set; }
     public float MapViewRadius { get; set; } = 400;

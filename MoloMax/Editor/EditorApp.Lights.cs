@@ -95,7 +95,13 @@ public sealed partial class EditorApp
         // MAP look (NodeRunner's light): its sun / moon direction casts the shadows too
         if (MapNrLookOn)
         {
-            mapLight = MoloMax.Core.Gta.Look.MapLighting.ForHour(Hour, Settings.MapFogDistance);
+            if (mapLightHour != Hour || mapLightHdr != (Settings.MapHdr, Settings.MapPhysicalSky))
+            {
+                var ml = MoloMax.Core.Gta.Look.MapLighting.ForHour(Hour, Settings.MapFogDistance);
+                if (Settings.MapHdr) { ml = ml.ForHdr(); if (Settings.MapPhysicalSky) ml = ml.WithPhysicalSky(); }
+                mapLightBase = ml; mapLightHour = Hour; mapLightHdr = (Settings.MapHdr, Settings.MapPhysicalSky);
+            }
+            mapLight = mapLightBase;
             gl.LightDir = mapLight.SunDirection;
             flags |= RenderFlags.MapLook;
         }
@@ -414,6 +420,7 @@ public sealed partial class EditorApp
 
     // MAP look: NodeRunner's sun shadows, three slices of the view
     MapShadowSlices nrSlices;
+    MoloMax.Core.Gta.Look.MapLighting mapLightBase; float mapLightHour = float.NaN; (bool, bool) mapLightHdr;
     int nrCasterHash; double nrCasterCheck;
 
     void NrShadows(GtaGlobalLights gl)

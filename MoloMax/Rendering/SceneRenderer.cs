@@ -187,7 +187,7 @@ public sealed class SceneRenderer : IDisposable
     Buffer cascadeCB, mapLookCB, nrShadowCB;
     RasterizerState shadowRasClamp;
     readonly Vector4[] nrShadowData = new Vector4[15];
-    readonly Vector4[] mapLookData = new Vector4[8];
+    readonly Vector4[] mapLookData = new Vector4[10];
     readonly Vector4[] cascadeData = new Vector4[9];
     ShaderResourceView shadowSrv;
     readonly SamplerState shadowSampler;
@@ -585,7 +585,8 @@ public sealed class SceneRenderer : IDisposable
     {
         mapLookData[0] = new(l.SunDirection, 0); mapLookData[1] = new(l.SunColor, 0); mapLookData[2] = new(l.SkyAmbient, 0);
         mapLookData[3] = new(l.GroundAmbient, 0); mapLookData[4] = new(l.Horizon, haze && l.FogDistance > 0 ? 1 : 0);
-        mapLookData[5] = new(camera, MathF.Max(l.FogDistance, 1)); mapLookData[6] = new(l.Zenith, 0); mapLookData[7] = new(l.NightLights, 1, 0, 0);
+        mapLookData[5] = new(camera, MathF.Max(l.FogDistance, 1)); mapLookData[6] = new(l.Zenith, 0); mapLookData[7] = new(l.NightLights, l.IsHdr ? 1 : 0, MoloMax.Core.Gta.Look.MapLighting.HdrEmission, 0);
+        mapLookData[8] = new(l.FogSun, 0); mapLookData[9] = new(l.Sun, 0);
         ctx.UpdateSubresource(mapLookData, mapLookCB);
     }
 
