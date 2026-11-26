@@ -1364,6 +1364,21 @@ public sealed partial class EditorApp
                 }
                 Note("chosen within 700 m, not drawn: " + string.Join(", ", why.Select(kv => $"{kv.Key} {kv.Value}")) + (ex.Count > 0 ? " | e.g. " + string.Join(" ; ", ex) : ""));
             }
+            {
+                // maps around the camera left out of the world (scripted / duplicate rules)
+                var hasEnts = new HashSet<int>(worldEnts.E.Select(e => e.Ymap));
+                var outMaps = new List<string>();
+                foreach (var y in world.Ymaps)
+                {
+                    if (y.Entities == 0 || y.Interior) continue;
+                    var c2 = Vector3.Clamp(cam.Eye, y.Min, y.Max);
+                    if (Vector2.Distance(new Vector2(c2.X, c2.Y), new Vector2(cam.Eye.X, cam.Eye.Y)) > 500) continue;
+                    int yi = worldEnts.YmapIndex(y.Name);
+                    if (yi >= 0 && hasEnts.Contains(yi)) continue;
+                    outMaps.Add($"{y.Name} (flags {y.Flags}, {y.Entities} objects, levels {string.Join("/", y.Levels)})");
+                }
+                Note($"maps within 500 m left out: {outMaps.Count}: " + string.Join(", ", outMaps.Take(25)));
+            }
             foreach (var pt in new[] { new Vector2(1121, 713), new Vector2(501, 445), new Vector2(800, 600), new Vector2(1400, 760) })
             {
                 var h = GpuPickMap(vpL, pt, null);
