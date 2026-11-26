@@ -96,7 +96,14 @@ cbuffer FogVars : register(b6)
 };
 
 Texture2D<float4> Colourmap : register(t0);
-Texture2D<float> ShadowMap : register(t5);
+Texture2DArray<float> ShadowMap : register(t5);
+// MAP: two wider sun shadow maps around the near one (slices 1 and 2), for what is further away
+cbuffer CascadeVars : register(b8)
+{
+    row_major float4x4 CascadeVP1;
+    row_major float4x4 CascadeVP2;
+    float4 CascadeInfo;   // x texel (m) of slice 1, y texel of slice 2, z number of extra slices (0..2)
+};
 SamplerComparisonState ShadowSS : register(s1);
 Texture2D<float4> Bumpmap   : register(t2);
 Texture2D<float4> Specmap   : register(t3);
@@ -241,20 +248,30 @@ float3 GlobalLighting(float3 diff, float3 norm, float4 vc0, float lf)
 
 float3 SrgbToLinear(float3 c) { return lerp(pow((c + 0.055) / 1.055, 2.4), c / 12.92, step(c, 0.04045)); }
 
-// sun visibility from the shadow map, 3x3 PCF (soft edge)
-float SunShadow(float3 wp, float3 n)
+// sun visibility from the shadow maps, 3x3 PCF (soft edge): the near map where it covers the point, else the wider ones
+float ShadowIn(float4x4 vp, float slice, float texel, float3 wp, float3 n, out bool inside)
 {
-    if ((SceneFlags & 2) == 0) return 1;
-    float4 sp = mul(float4(wp + n * ShadowTexel * 1.5, 1), ShadowViewProj);
+    float4 sp = mul(float4(wp + n * texel * 1.5, 1), vp);
     float2 uv = sp.xy * float2(0.5, -0.5) + 0.5;
-    if (any(uv < 0) || any(uv > 1) || sp.z > 1) return 1;
+    inside = !(any(uv < 0.02) || any(uv > 0.98) || sp.z > 1);
+    if (!inside) return 1;
     float z = sp.z - 0.0015;
     float sum = 0;
     float t = 1.0 / 2048.0;
     [unroll] for (int y = -1; y <= 1; y++)
         [unroll] for (int x = -1; x <= 1; x++)
-            sum += ShadowMap.SampleCmpLevelZero(ShadowSS, uv + float2(x, y) * t * 1.25, z);
-    return lerp(1, sum / 9.0, ShadowStrength);
+            sum += ShadowMap.SampleCmpLevelZero(ShadowSS, float3(uv + float2(x, y) * t * 1.25, slice), z);
+    return sum / 9.0;
+}
+
+float SunShadow(float3 wp, float3 n)
+{
+    if ((SceneFlags & 2) == 0) return 1;
+    bool inside;
+    float s = ShadowIn(ShadowViewProj, 0, ShadowTexel, wp, n, inside);
+    if (!inside && CascadeInfo.z >= 1) s = ShadowIn(CascadeVP1, 1, CascadeInfo.x, wp, n, inside);
+    if (!inside && CascadeInfo.z >= 2) s = ShadowIn(CascadeVP2, 2, CascadeInfo.y, wp, n, inside);
+    return lerp(1, s, ShadowStrength);
 }
 
 // GTA lights like the game: distance falloff = RagePowApprox(1 - d^2/R^2, exponent), linear spot cone, capsule = nearest

@@ -179,6 +179,9 @@ public sealed class SceneRenderer : IDisposable
     readonly Vector4[] lightData = new Vector4[LightVec4s];
     Texture2D shadowTex;
     DepthStencilView shadowDsv;
+    readonly DepthStencilView[] shadowSlices = new DepthStencilView[3];
+    Buffer cascadeCB;
+    readonly Vector4[] cascadeData = new Vector4[9];
     ShaderResourceView shadowSrv;
     readonly SamplerState shadowSampler;
     readonly RasterizerState shadowRas;
@@ -228,6 +231,8 @@ public sealed class SceneRenderer : IDisposable
         using (var psb = ShaderLoader.Compile("gta_basic.hlsl", "PSMain", "ps_4_0")) ps = new PixelShader(device, psb);
         using (var psp = ShaderLoader.Compile("gta_basic.hlsl", "PSPick", "ps_4_0")) psPick = new PixelShader(device, psp);
         pickCB = new Buffer(device, 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+        cascadeCB = new Buffer(device, cascadeData.Length * 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+        ctx.UpdateSubresource(cascadeData, cascadeCB);
 
         sceneCB = CB<SceneVarsCB>(); objectCB = CB<ObjectVarsCB>(); materialCB = CB<MaterialVarsCB>();
         lightCB = new Buffer(device, LightVec4s * 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
@@ -468,6 +473,7 @@ public sealed class SceneRenderer : IDisposable
         ctx.PixelShader.SetConstantBuffer(6, fogCB);
         ctx.PixelShader.SetSampler(1, shadowSampler);
         ctx.PixelShader.SetShaderResource(5, shadowSrv);
+        ctx.PixelShader.SetConstantBuffer(8, cascadeCB);
     }
 
     /// <summary>Last haze sent (for the water, drawn with the same).</summary>
@@ -498,6 +504,7 @@ public sealed class SceneRenderer : IDisposable
         ctx.PixelShader.SetConstantBuffer(6, fogCB);
         ctx.PixelShader.SetSampler(1, shadowSampler);
         ctx.PixelShader.SetShaderResource(5, shadowSrv);
+        ctx.PixelShader.SetConstantBuffer(8, cascadeCB);
         ctx.GeometryShader.Set(null);
         if (Picking) PickShaders();
     }
@@ -531,13 +538,33 @@ public sealed class SceneRenderer : IDisposable
     void EnsureShadowMap()
     {
         if (shadowTex != null) return;
+        // slice 0: the near map (MODEL mode, and around the camera target in MAP mode); 1 and 2: wider maps in MAP mode
         shadowTex = new Texture2D(device, new Texture2DDescription
         {
-            Width = ShadowSize, Height = ShadowSize, MipLevels = 1, ArraySize = 1, Format = Format.R32_Typeless, SampleDescription = new SampleDescription(1, 0),
+            Width = ShadowSize, Height = ShadowSize, MipLevels = 1, ArraySize = 3, Format = Format.R32_Typeless, SampleDescription = new SampleDescription(1, 0),
             Usage = ResourceUsage.Default, BindFlags = BindFlags.DepthStencil | BindFlags.ShaderResource,
         });
-        shadowDsv = new DepthStencilView(device, shadowTex, new DepthStencilViewDescription { Format = Format.D32_Float, Dimension = DepthStencilViewDimension.Texture2D });
-        shadowSrv = new ShaderResourceView(device, shadowTex, new ShaderResourceViewDescription { Format = Format.R32_Float, Dimension = ShaderResourceViewDimension.Texture2D, Texture2D = new ShaderResourceViewDescription.Texture2DResource { MipLevels = 1 } });
+        for (int i = 0; i < 3; i++)
+            shadowSlices[i] = new DepthStencilView(device, shadowTex, new DepthStencilViewDescription
+            {
+                Format = Format.D32_Float, Dimension = DepthStencilViewDimension.Texture2DArray,
+                Texture2DArray = new DepthStencilViewDescription.Texture2DArrayResource { FirstArraySlice = i, ArraySize = 1, MipSlice = 0 },
+            });
+        shadowDsv = shadowSlices[0];
+        shadowSrv = new ShaderResourceView(device, shadowTex, new ShaderResourceViewDescription
+        {
+            Format = Format.R32_Float, Dimension = ShaderResourceViewDimension.Texture2DArray,
+            Texture2DArray = new ShaderResourceViewDescription.Texture2DArrayResource { MipLevels = 1, FirstArraySlice = 0, ArraySize = 3 },
+        });
+        for (int i = 1; i < 3; i++) ctx.ClearDepthStencilView(shadowSlices[i], DepthStencilClearFlags.Depth, 1f, 0);
+    }
+
+    /// <summary>MAP: the wider shadow maps (slices 1 and 2) and how many are in use (0 = only the near one).</summary>
+    public void SetCascades(Matrix4x4 vp1, float texel1, Matrix4x4 vp2, float texel2, int count)
+    {
+        void M(int at, Matrix4x4 m) { cascadeData[at] = new(m.M11, m.M12, m.M13, m.M14); cascadeData[at + 1] = new(m.M21, m.M22, m.M23, m.M24); cascadeData[at + 2] = new(m.M31, m.M32, m.M33, m.M34); cascadeData[at + 3] = new(m.M41, m.M42, m.M43, m.M44); }
+        M(0, vp1); M(4, vp2); cascadeData[8] = new(texel1, texel2, count, 0);
+        ctx.UpdateSubresource(cascadeData, cascadeCB);
     }
 
     /// <summary>
@@ -562,13 +589,15 @@ public sealed class SceneRenderer : IDisposable
 
     /// <summary>Returns false when it stopped sending new meshes to stay smooth (some casters left out: call again soon).</summary>
     public bool RenderShadows(Scene scene, IEnumerable<SceneObject> casters, Matrix4x4 lightViewProj, in GtaGlobalLights l, double uploadBudgetMs = double.MaxValue,
-        IReadOnlyList<(SceneObject Template, Matrix4x4[] Worlds, int Count)> instanced = null)
+        IReadOnlyList<(SceneObject Template, Matrix4x4[] Worlds, int Count)> instanced = null, int slice = 0)
     {
         double up0 = UploadMs; bool complete = true;
         EnsureShadowMap();
         ctx.PixelShader.SetShaderResource(5, null);
-        ctx.OutputMerger.SetRenderTargets(shadowDsv, (RenderTargetView)null);
-        ctx.ClearDepthStencilView(shadowDsv, DepthStencilClearFlags.Depth, 1f, 0);
+        ctx.PixelShader.SetShaderResource(5, null); // the array is read by the scene and written here
+        var dsv = shadowSlices[Math.Clamp(slice, 0, 2)];
+        ctx.OutputMerger.SetRenderTargets(dsv, (RenderTargetView)null);
+        ctx.ClearDepthStencilView(dsv, DepthStencilClearFlags.Depth, 1f, 0);
         ctx.Rasterizer.SetViewport(0, 0, ShadowSize, ShadowSize);
         ctx.Rasterizer.SetScissorRectangle(0, 0, ShadowSize, ShadowSize);
         BeginScene(lightViewProj, Vector3.Zero, l, ShadingMode.Realistic, 1, 0);
@@ -793,7 +822,7 @@ public sealed class SceneRenderer : IDisposable
         Textures.Dispose();
         CullBack.Dispose(); CullNone.Dispose(); LinesState.Dispose();
         DepthDefault.Dispose(); DepthRead.Dispose(); DepthOff.Dispose(); Opaque.Dispose(); Alpha.Dispose();
-        shadowSrv?.Dispose(); shadowDsv?.Dispose(); shadowTex?.Dispose(); shadowSampler.Dispose(); shadowRas.Dispose(); lightCB.Dispose(); clipCB.Dispose(); fogCB.Dispose(); pickCB.Dispose(); psPick.Dispose(); pickRtv?.Dispose(); pickTex?.Dispose(); pickZRtv?.Dispose(); pickZTex?.Dispose(); pickDsv?.Dispose(); pickDepth?.Dispose(); pickStage?.Dispose(); pickZStage?.Dispose();
+        shadowSrv?.Dispose(); foreach (var d in shadowSlices) d?.Dispose(); cascadeCB?.Dispose(); shadowTex?.Dispose(); shadowSampler.Dispose(); shadowRas.Dispose(); lightCB.Dispose(); clipCB.Dispose(); fogCB.Dispose(); pickCB.Dispose(); psPick.Dispose(); pickRtv?.Dispose(); pickTex?.Dispose(); pickZRtv?.Dispose(); pickZTex?.Dispose(); pickDsv?.Dispose(); pickDepth?.Dispose(); pickStage?.Dispose(); pickZStage?.Dispose();
         sampler.Dispose(); sceneCB.Dispose(); objectCB.Dispose(); materialCB.Dispose();
         layout.Dispose(); ps.Dispose(); vs.Dispose();
     }

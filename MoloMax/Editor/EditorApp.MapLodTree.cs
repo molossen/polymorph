@@ -169,12 +169,12 @@ public sealed partial class EditorApp
     }
 
     readonly Dictionary<uint, (SceneObject T, List<Matrix4x4> W)> shadowGroups = new();
-    readonly List<(SceneObject Template, Matrix4x4[] Worlds, int Count)> shadowList = new();
+    List<(SceneObject Template, Matrix4x4[] Worlds, int Count)> shadowList = new();
 
     /// <summary>The chosen world objects within <paramref name="r"/> of the shadow focus, by model.</summary>
-    List<(SceneObject Template, Matrix4x4[] Worlds, int Count)> WorldShadowCasters(Vector3 c, float r, ref long ver)
+    List<(SceneObject Template, Matrix4x4[] Worlds, int Count)> WorldShadowCasters(Vector3 c, float r, ref long ver, float minRadius = 0)
     {
-        shadowList.Clear();
+        shadowList = new();
         if (!LodTreeOn || WorldDrawOff) return shadowList;
         foreach (var g in shadowGroups.Values) g.W.Clear();
         var we = worldEnts;
@@ -183,6 +183,7 @@ public sealed partial class EditorApp
             ref var e = ref we.E[i];
             if (e.Mlo || !archSlots.TryGetValue(e.Arch, out var s) || !(s.State == 2 && s.Mesh != null || s.GpuOnly)) continue;
             float rr = (s.Max - s.Min).Length() * 0.5f * MathF.Max(e.ScaleXY, e.ScaleZ);
+            if (rr < minRadius) continue; // too small to show in a wide shadow map
             if (MathF.Abs(e.Pos.X - c.X) > r + rr || MathF.Abs(e.Pos.Y - c.Y) > r + rr) continue;
             if (!shadowGroups.TryGetValue(e.Arch, out var g)) shadowGroups[e.Arch] = g = (null, new List<Matrix4x4>());
             g.W.Add(e.World);

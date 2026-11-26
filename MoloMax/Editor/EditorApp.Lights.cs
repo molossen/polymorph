@@ -95,7 +95,8 @@ public sealed partial class EditorApp
         ShadowsRendered = false;
         if (Settings.SunShadows && realistic && !InteriorLight && gl.LightDir.Z > 0.05f && ShadowStrength > 0)
         {
-            if (MapMode) { MapShadows(gl); flags |= RenderFlags.SunShadows; ShadowsRendered = true; renderer.SetLights(viewLights, flags, shadowVP, shadowTexel, ShadowStrength); return; }
+            if (MapMode) { MapShadows(gl); MapCascades(gl); flags |= RenderFlags.SunShadows; ShadowsRendered = true; renderer.SetLights(viewLights, flags, shadowVP, shadowTexel, ShadowStrength); return; }
+            CascadesOff();
             var casters = Scene.Objects.Where(CastsShadow).ToList();
             if (casters.Count > 0)
             {
@@ -361,6 +362,48 @@ public sealed partial class EditorApp
 
     double mapShadowTime;
     /// <summary>Map mode: shadows of what is around the camera only (120 m), refreshed at most every 0.75 s.</summary>
+    // MAP: two wider sun shadow maps around the near one (600 m and 2.5 km), refreshed when the focus moved far enough
+    readonly int[] cascHash = new int[3];
+    readonly Matrix4x4[] cascVP = new Matrix4x4[3];
+    readonly float[] cascTexel = new float[3];
+    int cascCount = -1; double cascCheck;
+    static readonly float[] CascRadius = { 0, 600, 2500 };
+    static readonly float[] CascSnap = { 0, 60, 250 };
+
+    void CascadesOff()
+    {
+        if (cascCount == 0) return;
+        cascCount = 0; Array.Clear(cascHash); renderer.SetCascades(Matrix4x4.Identity, 0, Matrix4x4.Identity, 0, 0);
+    }
+
+    void MapCascades(GtaGlobalLights gl)
+    {
+        if (!LodTreeOn) { CascadesOff(); return; }
+        var c = MapFocus();
+        double now = ImGui.GetTime();
+        if (now - cascCheck < 0.4 && cascCount == 2) return;
+        cascCheck = now;
+        // one wide map refreshed per frame at most (each is a full pass over the casters around)
+        for (int k = 1; k <= 2; k++)
+        {
+            float r = CascRadius[k], sn = CascSnap[k];
+            var snapped = new Vector3(MathF.Round(c.X / sn) * sn, MathF.Round(c.Y / sn) * sn, MathF.Round(c.Z / sn) * sn);
+            long ver = 0;
+            var wl = WorldShadowCasters(snapped, r, ref ver, r / 400);
+            int hash = HashCode.Combine(gl.LightDir, snapped, wl.Count, ver);
+            if (hash == cascHash[k]) continue;
+            var up = MathF.Abs(gl.LightDir.Z) > 0.98f ? Vector3.UnitY : Vector3.UnitZ;
+            var view = Matrix4x4.CreateLookAt(snapped + gl.LightDir * r * 2, snapped, up);
+            var proj = Matrix4x4.CreateOrthographicOffCenter(-r, r, -r, r, 0.05f, r * 4);
+            cascVP[k] = view * proj; cascTexel[k] = 2 * r / SceneRenderer.ShadowSize;
+            bool complete = renderer.RenderShadows(Scene, Array.Empty<SceneObject>(), cascVP[k], gl, 6, wl, k);
+            cascHash[k] = complete ? hash : 0;
+            break;
+        }
+        cascCount = 2;
+        renderer.SetCascades(cascVP[1], cascTexel[1], cascVP[2], cascTexel[2], cascVP[2] != default ? 2 : cascVP[1] != default ? 1 : 0);
+    }
+
     void MapShadows(GtaGlobalLights gl)
     {
         var c = MapFocus(); const float r = 120;
