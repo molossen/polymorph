@@ -122,7 +122,7 @@ float4 ScreenReflection(float3 start, float3 r, float distance)
         int2 pixel; float2 ndc;
         float behind = Behind(p, pixel, ndc);
         if (abs(ndc.x) >= 1 || abs(ndc.y) >= 1) return 0;
-        if (behind > 0 && behind < step * 3 + 2)
+        if (behind > 0 && behind < step * 3 + 2 && p.z > start.z + 0.3) // only what stands above the water
         {
             float3 a = previous, b = p;
             [unroll] for (int j = 0; j < 5; j++)
