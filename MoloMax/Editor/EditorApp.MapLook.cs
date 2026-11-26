@@ -20,6 +20,8 @@ public sealed partial class EditorApp
     MoloMax.Core.Gta.Look.MapLighting mapLight = MoloMax.Core.Gta.Look.MapLighting.Neutral;
     WaterRenderer waterR;
     NrWaterRenderer nrWater; bool nrWaterFailed;
+    GameWaterRenderer gameWater; bool gameWaterFailed;
+    MoloMax.Core.Gta.WaterLook.WaterMap gameWaterData; System.Threading.Tasks.Task<MoloMax.Core.Gta.WaterLook.WaterMap> gameWaterTask;
     MoloMax.Core.Gta.Water.WaterMap waterMap;
     System.Threading.Tasks.Task<MoloMax.Core.Gta.Water.WaterMap> waterTask;
     /// <summary>Water surfaces read from the game (for the tests).</summary>
@@ -96,27 +98,44 @@ public sealed partial class EditorApp
             waterR.SetSurfaces(gpu.Device, waterMap.Triangles());
         }
         if (waterR == null || !waterR.HasSurfaces) return;
-        if (MapNrLookOn && mapLight.IsHdr && hdrImage != null && gpu.FeatureLevel11)
+        if (MapNrLookOn && mapLight.IsHdr && hdrImage != null && gpu.FeatureLevel11 && !gameWaterFailed)
         {
-            // water: what it mirrors and what shows through it from the scene drawn so far
-            try { nrWater ??= new NrWaterRenderer(gpu.Device); } catch { nrWaterFailed = true; }
-            if (nrWater != null && !nrWaterFailed)
+            // the game's water as the reference map view draws it: swell, waves along the shore, foam, colour of each place
+            if (gameWaterData == null)
             {
-                if (!nrWater.HasSurfaces) nrWater.SetSurfaces(gpu.Device, waterMap.Triangles());
-                var (col, dep) = hdrImage.Snapshot(gpu);
-                var ml = mapLight; var c = vp.Camera;
-                var nv = new NrWaterRenderer.Vars
+                var g = game;
+                gameWaterTask ??= System.Threading.Tasks.Task.Run(() =>
                 {
-                    ViewProjection = viewProj, CameraTime = new Vector4(c.Eye, (float)(ImGui.GetTime() % 3600)),
-                    SunDirection = new Vector4(ml.SunDirection, c.Near), SunColor = new Vector4(ml.SunColor, ml.SunDisc), SkyAmbient = new Vector4(ml.SkyAmbient, c.Far),
-                    Zenith = new Vector4(ml.Zenith, 0), Horizon = new Vector4(ml.Horizon, 0),
-                    Settings = new Vector4(Settings.MapFog ? 1 : 0, MathF.Max(ml.FogDistance, 1), dep != null ? 1 : 0, 0),
-                    Viewport = new Vector4(vp.X, vp.Y, vp.W, vp.H), Options = new Vector4(1, 0, 0, 0),
-                };
-                nrWater.Draw(nv, col, dep);
-                gpu.Context.OutputMerger.SetBlendState(renderer.Alpha, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0), -1);
-                renderer.RebindScene();
-                return;
+                    var w = MoloMax.Core.Gta.WaterLook.WaterMap.Load(g.ReadPath);
+                    MoloMax.Core.Gta.WaterLook.WaterLookReader.Load(path => { try { return g.Rpf.GetFile<CodeWalker.GameFiles.YtdFile>(path); } catch { return null; } }, g.ReadPath, w);
+                    return w;
+                });
+                if (gameWaterTask.IsCompleted)
+                {
+                    if (gameWaterTask.IsFaulted) { gameWaterFailed = true; SetStatus("Water: " + gameWaterTask.Exception?.GetBaseException().Message); }
+                    else gameWaterData = gameWaterTask.Result;
+                }
+            }
+            if (gameWaterData != null)
+            {
+                try
+                {
+                    if (gameWater == null) { gameWater = new GameWaterRenderer(gpu.Device); gameWater.SetSurfaces(gameWaterData); }
+                }
+                catch (Exception e) { gameWaterFailed = true; gameWater?.Dispose(); gameWater = null; SetStatus("Water: " + e.Message); }
+                if (gameWater != null)
+                {
+                    var (col, dep) = hdrImage.Snapshot(gpu);
+                    var ml = mapLight; var cam = vp.Camera;
+                    gameWater.Draw(viewProj, cam.Eye, cam.Near, cam.Far, (float)(ImGui.GetTime() % 3600), new GameWaterRenderer.Light
+                    {
+                        SunDirection = ml.SunDirection, SunColor = ml.SunColor, SkyAmbient = ml.SkyAmbient, Zenith = ml.Zenith, Horizon = ml.Horizon,
+                        SunDisc = ml.SunDisc, FogDistance = ml.FogDistance, Hdr = true, Fog = Settings.MapFog,
+                    }, dep, col, new Vector4(vp.X, vp.Y, vp.W, vp.H), Settings.MapWaterWaves);
+                    gpu.Context.OutputMerger.SetBlendState(renderer.Alpha, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0), -1);
+                    renderer.RebindScene();
+                    return;
+                }
             }
         }
         var (z, h, sun, disc) = GtaLighting.SkyOf(Hour);
@@ -212,7 +231,13 @@ public sealed partial class EditorApp
         ImGui.SameLine();
         bool w = Settings.MapWater;
         if (ImGui.Checkbox("Water##maplook", ref w)) { Settings.MapWater = w; Settings.Save(); }
-        Theme.Tip("The game's sea, lakes and rivers (water.xml), with small waves and the sky's reflection.");
+        Theme.Tip("The game's sea, lakes and rivers (water.xml): swell, waves rolling in along the shore, foam, the colour of each place.");
+        if (Settings.MapWater)
+        {
+            ImGui.SameLine(); bool ww = Settings.MapWaterWaves;
+            if (ImGui.Checkbox("Waves##maplook", ref ww)) { Settings.MapWaterWaves = ww; Settings.Save(); }
+            Theme.Tip("The open sea moves up and down with the game's swell (3D waves).");
+        }
         ImGui.SameLine();
         bool nl = Settings.MapNightLights;
         if (ImGui.Checkbox("Night lights##maplook", ref nl)) { Settings.MapNightLights = nl; Settings.Save(); }

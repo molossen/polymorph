@@ -94,6 +94,8 @@ public sealed class AppSettings
     public bool MapFog { get; set; } = true;
     /// <summary>MAP: the game's water (sea, lakes, rivers) drawn.</summary>
     public bool MapWater { get; set; } = true;
+    /// <summary>MAP: the open sea moves with the game's swell (3D waves), not only its look.</summary>
+    public bool MapWaterWaves { get; set; } = true;
     /// <summary>MAP: the new lighting (its light of the hour, sky, haze).</summary>
     public bool MapNrLook { get; set; } = true;
     /// <summary>MAP look: sun shadows up to this distance (m).</summary>
