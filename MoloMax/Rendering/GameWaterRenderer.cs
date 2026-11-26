@@ -28,6 +28,7 @@ public sealed class GameWaterRenderer : IDisposable
         public Vector4 CameraTime, SunDirection, SunColor, SkyAmbient, Zenith, Horizon, Settings, Viewport, Options,
             WaveArea, MaskArea, OceanBounds, GridCenter, ColorArea, IslandArea, Caustics, Patterns;
     }
+    [StructLayout(LayoutKind.Sequential)] struct MeshConstants { public Matrix4x4 World; public Vector4 MeshWaves; }
     [StructLayout(LayoutKind.Sequential)] struct WaterVertex { public Vector3 Position; public float Waves; public WaterVertex(Vector3 p, float w) { Position = p; Waves = w; } }
     [StructLayout(LayoutKind.Sequential)] struct GridVertex { public Vector2 Offset; public float Spacing; public GridVertex(Vector2 o, float s) { Offset = o; Spacing = s; } }
 
@@ -36,7 +37,7 @@ public sealed class GameWaterRenderer : IDisposable
     const float WaveTexel = 8f, MaskTexel = 4f;
 
     readonly Device device; readonly DeviceContext ctx;
-    readonly VertexShader vs, gridVs; readonly PixelShader ps; readonly InputLayout layout, gridLayout;
+    readonly VertexShader vs, gridVs, meshVs; readonly InputLayout meshLayout; readonly PixelShader ps; readonly InputLayout layout, gridLayout;
     readonly Buffer gridVb, gridIb; readonly int gridCount;
     readonly Buffer cb, meshCb; readonly RasterizerState ras; readonly DepthStencilState depth; readonly BlendState blend;
     readonly SamplerState linearClamp, linearWrap;
@@ -59,6 +60,12 @@ public sealed class GameWaterRenderer : IDisposable
         {
             gridVs = new VertexShader(device, b);
             gridLayout = new InputLayout(device, b, new[] { new InputElement("POSITION", 0, Format.R32G32_Float, 0, 0), new InputElement("TEXCOORD", 0, Format.R32_Float, 8, 0) });
+        }
+        using (var b = ShaderLoader.Compile("gamewater.hlsl", "VSMesh", "vs_5_0"))
+        {
+            // the map's own water parts (pools, fountains, rivers): the model vertices (position, normal first)
+            meshVs = new VertexShader(device, b);
+            meshLayout = new InputLayout(device, b, new[] { new InputElement("POSITION", 0, Format.R32G32B32_Float, 0, 0), new InputElement("NORMAL", 0, Format.R32G32B32_Float, 12, 0) });
         }
         using (var b = ShaderLoader.Compile("gamewater.hlsl", "PS", "ps_5_0")) ps = new PixelShader(device, b);
         cb = new Buffer(device, (Marshal.SizeOf<Constants>() + 15) / 16 * 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
@@ -315,7 +322,8 @@ public sealed class GameWaterRenderer : IDisposable
 
     /// <summary>Draws the water into the bound image (its depth bound too). sceneDepth: multisampled copy of the window's
     /// depth; sceneColor: resolved copy of the image so far; viewport: x, y, width, height of the view in the image.</summary>
-    public void Draw(Matrix4x4 viewProj, Vector3 eye, float near, float far, float time, Light l, ShaderResourceView sceneDepth, ShaderResourceView sceneColor, Vector4 viewport, bool waves = true)
+    public void Draw(Matrix4x4 viewProj, Vector3 eye, float near, float far, float time, Light l, ShaderResourceView sceneDepth, ShaderResourceView sceneColor, Vector4 viewport, bool waves = true,
+        IReadOnlyList<(Buffer Vb, Buffer Ib, int Count, Matrix4x4 World)> meshes = null)
     {
         if (!HasSurfaces) return;
         waves3D = waves && openWater && patterns != null;
@@ -375,6 +383,19 @@ public sealed class GameWaterRenderer : IDisposable
             ctx.VertexShader.Set(gridVs);
             ctx.DrawIndexed(gridCount, 0, 0);
         }
+        if (meshes is { Count: > 0 })
+        {
+            ctx.InputAssembler.InputLayout = meshLayout;
+            ctx.VertexShader.Set(meshVs);
+            foreach (var (vb, ib, n, world) in meshes)
+            {
+                var mc = new MeshConstants { World = world, MeshWaves = new Vector4(InlandWaves, 0, 0, 0) };
+                ctx.UpdateSubresource(ref mc, meshCb);
+                ctx.InputAssembler.SetVertexBuffers(0, new VertexBufferBinding(vb, 76, 0));
+                ctx.InputAssembler.SetIndexBuffer(ib, Format.R32_UInt, 0);
+                ctx.DrawIndexed(n, 0, 0);
+            }
+        }
         ctx.Rasterizer.State = prevRas; prevRas?.Dispose();
         for (int s = 0; s < 12; s++) ctx.PixelShader.SetShaderResource(s, null);
         ctx.VertexShader.SetShaderResource(2, null); ctx.VertexShader.SetShaderResource(7, null); ctx.VertexShader.SetShaderResource(8, null);
@@ -394,6 +415,6 @@ public sealed class GameWaterRenderer : IDisposable
     {
         DisposeSurfaces();
         linearClamp.Dispose(); linearWrap.Dispose(); gridVb.Dispose(); gridIb.Dispose(); gridLayout.Dispose(); gridVs.Dispose();
-        blend.Dispose(); depth.Dispose(); ras.Dispose(); cb.Dispose(); meshCb.Dispose(); layout.Dispose(); ps.Dispose(); vs.Dispose();
+        blend.Dispose(); depth.Dispose(); ras.Dispose(); cb.Dispose(); meshCb.Dispose(); layout.Dispose(); ps.Dispose(); vs.Dispose(); meshVs.Dispose(); meshLayout.Dispose();
     }
 }

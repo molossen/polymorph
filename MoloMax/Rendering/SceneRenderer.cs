@@ -801,6 +801,8 @@ public sealed class SceneRenderer : IDisposable
     public bool HideNeverDrawn = true;
     /// <summary>MAP: the water_* shader meshes (sea foam, pools, rivers) are left to the water surface renderer.</summary>
     public bool HideWaterShaders;
+    /// <summary>The hidden water_* parts met this frame (pools, fountains, rivers): drawn by the water surface renderer with their placement.</summary>
+    public readonly List<(Buffer Vb, Buffer Ib, int Count, Matrix4x4 World)> WaterMeshes = new();
 
     /// <summary>
     /// Draws one object. <paramref name="alphaPass"/> selects the blended materials (decals, glass);
@@ -824,7 +826,8 @@ public sealed class SceneRenderer : IDisposable
         foreach (var g in gm.Groups)
         {
             var mat = scene.Material(g.MatId);
-            if (HideNeverDrawn && mat.NeverDrawn || HideWaterShaders && mat.IsWaterShader) continue;
+            if (HideWaterShaders && mat.IsWaterShader) { if (!alphaPass && !Picking) WaterMeshes.Add((g.Vb, g.Ib, g.Count, world)); continue; }
+            if (HideNeverDrawn && mat.NeverDrawn) continue;
             bool blended = mat.Preset.AlphaBlended || o.GtaType == GtaObjectType.Collision || o.GtaType == GtaObjectType.Portal;
             if (blended != alphaPass) continue;
             SetMaterial(mat);
@@ -860,6 +863,10 @@ public sealed class SceneRenderer : IDisposable
         if (gm.Groups.Count == 0) return;
         bool any = false; // nothing of this model in this pass: no instance copy at all (most models have no blended part)
         foreach (var g in gm.Groups) if (scene.Material(g.MatId).Preset.AlphaBlended == alphaPass) { any = true; break; }
+        if (HideWaterShaders && !alphaPass && !Picking && !depthOnly)
+            foreach (var g in gm.Groups)
+                if (scene.Material(g.MatId).IsWaterShader)
+                    for (int k = 0; k < count && k < worlds.Length; k++) WaterMeshes.Add((g.Vb, g.Ib, g.Count, worlds[k]));
         if (!any) return;
         // one big buffer filled one after the other (no-overwrite), emptied only when full: thousands of map draws a frame
         // otherwise each ask the driver for a fresh buffer

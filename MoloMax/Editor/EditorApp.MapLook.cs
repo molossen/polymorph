@@ -126,7 +126,7 @@ public sealed partial class EditorApp
                     {
                         SunDirection = ml.SunDirection, SunColor = ml.SunColor, SkyAmbient = ml.SkyAmbient, Zenith = ml.Zenith, Horizon = ml.Horizon,
                         SunDisc = ml.SunDisc, FogDistance = ml.FogDistance, Hdr = true, Fog = Settings.MapFog,
-                    }, dep, col, new Vector4(vp.X, vp.Y, vp.W, vp.H), Settings.MapWaterWaves);
+                    }, dep, col, new Vector4(vp.X, vp.Y, vp.W, vp.H), Settings.MapWaterWaves, renderer.WaterMeshes);
                     gpu.Context.OutputMerger.SetBlendState(renderer.Alpha, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0), -1);
                     renderer.RebindScene();
                     return;

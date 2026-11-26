@@ -41,7 +41,7 @@ public sealed partial class EditorApp
         var eye = vp.Camera.Eye;
         float pix = vp.Camera.Ortho ? 0 : 1.6f / MathF.Max(vp.H, 1); // ~ angular size of one pixel at fov 60
         MapVisible = 0;
-        renderer.HideWaterShaders = Settings.MapWater; // the game's water surface draws the sea, rivers and pools: their mesh copies (untextured) stay hidden
+        renderer.HideWaterShaders = Settings.MapWater; renderer.WaterMeshes.Clear(); // the game's water surface draws the sea, rivers and pools: their mesh copies (untextured) stay hidden
         SyncInteriorHidden();
         UpdateHiddenClip(eye);
         var live = MapLive();
