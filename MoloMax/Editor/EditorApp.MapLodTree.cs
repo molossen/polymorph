@@ -79,6 +79,14 @@ public sealed partial class EditorApp
                 s.GpuOnly = true; s.Mesh = null; t.Mesh = GpuOnlyStub; // the CPU copy goes, the GPU one stays (same version)
             }
         }
+        // models no scene object and no world entity drew for 20 s (read for the far models, a closed map...): their CPU copy goes too
+        foreach (var s in archSlots.Values)
+        {
+            if (s.State != 2 || s.Mesh == null || worldTpl.ContainsKey(s.Hash) || now - s.LastUsed < 20) continue;
+            var key = "map:" + s.Hash.ToString("X8");
+            if (sceneKeys.Contains(key) || keep.Contains(key)) { s.LastUsed = now; continue; }
+            s.State = 0; s.Mesh = null; s.Ver = 0;
+        }
         renderer.KeepInstanceKeys = keep;
     }
 

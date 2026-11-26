@@ -177,7 +177,10 @@ public sealed partial class EditorApp
         }
         PumpMapLoad(); Prof("map load");
         PumpWorldEntities(); TrimWorldModels();
-        if (!LodTreeOn) PumpBackdrop(); Prof("map far");
+        // the level-of-detail world replaces the far models (they are not even read while the world is being read)
+        if (!Settings.MapLodTree) PumpBackdrop();
+        else if (LodTreeOn && backdrop.Count > 0) { backdropCancel?.Cancel(); ClearBackdrop(); }
+        Prof("map far");
         PumpArchetypes(); Prof("map models");
         if (MapStream && world != null && ImGui.GetTime() - mapLastStream > 0.5) { mapLastStream = ImGui.GetTime(); StreamWorld(HdStreamingNow); }
         WorldSelectAfterLoad();
