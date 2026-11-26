@@ -194,7 +194,7 @@ float4 PSMain(PS_IN input) : SV_Target
 
     float pattern = Noise(input.world.xy * 0.9 + CameraTime.w * 0.15) * 0.6 + Noise(input.world.xy * 3.1 - CameraTime.w * 0.2) * 0.4;
     float foam = (1 - smoothstep(0.05, 0.7, vertical)) * edge * saturate(0.5 + 3 * (slope.x + slope.y));
-    foam += saturate((0.6 - squeeze) * 3) * saturate(pattern * 1.6 - 0.5) * 0.7;
+    foam += saturate((0.45 - squeeze) * 3) * saturate(pattern * 1.6 - 0.6) * 0.3; // crests: less without the game's foam pattern
     foam = saturate(foam) * saturate(1 - distance / 2500);
     float3 foamColor = light * 0.85;
 
