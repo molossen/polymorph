@@ -31,6 +31,7 @@ public sealed partial class EditorApp
         var start = cam.Target;
         if (GpuPickMap(vp, new Vector2(vp.X + vp.W / 2, vp.Y + vp.H / 2), null) is { } h) start = h.Point;
         playStart = start; playStartedBy = string.Join(" < ", new System.Diagnostics.StackTrace().GetFrames().Skip(1).Take(5).Select(f => f.GetMethod()?.Name));
+        playCandAt = new Vector3(float.MaxValue);
         playPos = start + new Vector3(0, 0, 0.05f); playVel = Vector3.Zero; playGrounded = false; playSwimming = false;
         var f = cam.Forward; playYaw = MathF.Atan2(f.Y, f.X); playPitch = 0;
         PlayOn = true; SculptMode = false; paintMode = false; nav = NavMode.None;
@@ -213,7 +214,7 @@ public sealed partial class EditorApp
         if (s.Mesh != null && s.State == 2) sh = MakeShape(s.Mesh, id => Scene.Material(id));
         else
         {
-            if (playLoadsThisFrame >= 3) return null; // read from the cache a few per frame
+            if (playLoadsThisFrame >= 2) return null; // read from the cache a few per frame
             playLoadsThisFrame++;
             uint asset = game?.AssetOf(hash) ?? hash;
             var ld = FromCache(hash) ?? (asset != hash ? FromCache(asset) : null);
@@ -226,8 +227,14 @@ public sealed partial class EditorApp
     }
 
     /// <summary>Models around the player (world objects chosen by the LOD tree, and the editable ones), with their placement.</summary>
+    Vector3 playCandAt = new(float.MaxValue); double playCandTime; int playCandMissing;
     List<(PlayShape S, Matrix4x4 W, Matrix4x4 Inv)> PlayColliders(Vector3 p, float reach)
     {
+        // the list is kept while the player stays near where it was made (rebuilt 4 times a second while models still come in)
+        double now = ImGui.GetTime();
+        if (Vector3.Distance(p, playCandAt) < 3f && (playCandMissing == 0 || now - playCandTime < 0.25)) return playCand;
+        playCandAt = p; playCandTime = now; playCandMissing = 0;
+        reach = MathF.Max(reach, 6f) + 3f;
         playCand.Clear(); playLoadsThisFrame = 0;
         if (ImGui.GetTime() - playStepTime > 30) { playShapes.Clear(); playSceneShapes.Clear(); playStepTime = ImGui.GetTime(); }
         if (worldEnts != null)
@@ -236,11 +243,12 @@ public sealed partial class EditorApp
             foreach (var i in worldSel)
             {
                 ref var e = ref we.E[i];
-                if (e.Mlo || worldOpenMaps.Contains(e.Ymap)) continue;
+                if (e.Mlo || e.Level >= 2 || worldOpenMaps.Contains(e.Ymap)) continue; // far district models (SLOD) are never walked on
                 if (MathF.Abs(e.Pos.X - p.X) > reach + 60 || MathF.Abs(e.Pos.Y - p.Y) > reach + 60) continue;
                 if (!archSlots.TryGetValue(e.Arch, out var s)) continue;
                 var sh = ShapeOfArch(e.Arch, s);
-                if (sh == null || sh.Tris.Length == 0) continue;
+                if (sh == null) { if (!playShapes.ContainsKey(e.Arch)) playCandMissing++; continue; }
+                if (sh.Tris.Length == 0) continue;
                 if (!Matrix4x4.Invert(e.World, out var inv)) continue;
                 var lp = Vector3.Transform(p, inv);
                 float lr = reach / MathF.Max(0.01f, MathF.Min(e.ScaleXY, e.ScaleZ));
@@ -346,7 +354,7 @@ public sealed partial class EditorApp
             while ((DateTime.Now - t1).TotalSeconds < 3) { yield return Frames(1); minZ = MathF.Min(minZ, PlayPos.Z); maxZ = MathF.Max(maxZ, PlayPos.Z); n++; if (!PlayGrounded && !PlaySwimming) air++; }
             playTestWish = null; yield return Frames(10);
             var p1 = PlayPos; float moved = Vector2.Distance(new Vector2(p0.X, p0.Y), new Vector2(p1.X, p1.Y));
-            Note($"{name}: walked {moved:0.0} m in 3 s, height {minZ:0.00}..{maxZ:0.00}, in the air {air}/{n} frames, now {p1}, swimming {PlaySwimming}");
+            Note($"{name}: {n / 3f:0} frames a second while walking; walked {moved:0.0} m in 3 s, height {minZ:0.00}..{maxZ:0.00}, in the air {air}/{n} frames, now {p1}, swimming {PlaySwimming}");
             Expect(moved > 4, $"{name}: walking moves the player ({moved:0.0} m in 3 s)");
             Expect(p0.Z - minZ < 8, $"{name}: does not fall through the ground ({p0.Z - minZ:0.0} m down)");
             yield return Shot($"play_{name}_walked");

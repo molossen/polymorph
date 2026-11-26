@@ -1266,7 +1266,7 @@ public sealed partial class EditorApp
                 while ((DateTime.Now - t0).TotalSeconds < sec) yield return Frames(1);
                 int s0 = stDts.Count; yield return Frames(20);
                 var dd = stDts.Skip(s0).Where(x => x > 0).OrderBy(x => x).ToList();
-                Note($"{name} +{sec} s: frame {(dd.Count > 0 ? dd[dd.Count / 2] * 1000 : 0):0.0} ms, models loading {archLoading}, textures waiting {renderer.Textures.Pending}, drawn {MapVisible:N0}");
+                Note($"{name} +{sec} s: frame {(dd.Count > 0 ? dd[dd.Count / 2] * 1000 : 0):0.0} ms, models loading {archLoading}, textures waiting {renderer.Textures.Pending}, drawn {MapVisible:N0}; profile {ProfileText(7)}; draws {renderer.StatDraws:N0}, triangles {renderer.StatTris:N0}");
                 yield return Shot($"cmp_{name}_{sec}s");
                 if (name == "sea_close" && sec == 30)
                 {
