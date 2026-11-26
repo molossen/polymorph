@@ -1278,7 +1278,9 @@ public sealed partial class EditorApp
                     var h = GpuPickMap(vpc, at, null);
                     if (h is not { } hh || hh.Object == null) { seen.Add($"({gx},{gy}) nothing"); continue; }
                     var o = hh.Object; var mesh = o.Mesh;
-                    string mats = mesh != null && mesh.Faces.Count > 0 ? string.Join("/", mesh.Faces.Select(f => f.MatId).Distinct().Take(3).Select(id => Scene.Material(id) is { } m ? m.Shader + ":" + Path.GetFileName(m.DiffuseTexture ?? "-") : "?")) : (o.Mesh == GpuOnlyStub ? "gpu only" : "no mesh");
+                    string mats = mesh != null && mesh.Faces.Count > 0 && mesh != GpuOnlyStub ? string.Join("/", mesh.Faces.Select(f => f.MatId).Distinct().Take(3).Select(id => Scene.Material(id) is { } m ? m.Shader + ":" + Path.GetFileName(m.DiffuseTexture ?? "-") : "?")) : "gpu only";
+                    if (mats == "gpu only" && o.InstanceKey is { } ik && ik.StartsWith("map:") && uint.TryParse(ik[4..], System.Globalization.NumberStyles.HexNumber, null, out var mh) && FromCache(mh) is { } fc)
+                        mats = "cached: " + string.Join("/", fc.R.Materials.Take(3).Select(m => m.Shader + ":" + Path.GetFileName(m.DiffuseTexture ?? "-") + (m.Layer(1) != null ? "+layers" : "")));
                     seen.Add($"({gx},{gy}) {o.Name} {hh.Distance:0} m [{mats}]");
                 }
             int slots0 = archSlots.Values.Count(x => x.State == 0), slots1 = archSlots.Values.Count(x => x.State == 1), slots2 = archSlots.Values.Count(x => x.State == 2 || x.GpuOnly), slots3 = archSlots.Values.Count(x => x.State == 3);

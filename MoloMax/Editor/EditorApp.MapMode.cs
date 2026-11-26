@@ -608,7 +608,7 @@ public sealed partial class EditorApp
         var ld = FromCache(hash) ?? (asset != hash ? FromCache(asset) : null) ?? new ArchLoad();
         if (ld.Mesh == null)
         {
-            var opt = new MoloMax.Core.IO.ImportOptions { Scale = 1, AutoSmoothAngle = 0 };
+            var opt = new MoloMax.Core.IO.ImportOptions { Scale = 1, AutoSmoothAngle = 0, SkipExistingTextures = true, OnlyUsedTextures = true };
             a ??= g.FindModel(hash);
             if (a != null)
             {

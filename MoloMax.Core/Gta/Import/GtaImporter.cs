@@ -36,6 +36,8 @@ public static class GtaImporter
         public readonly Dictionary<string, int> MaterialKey = new();
         /// <summary>Textures of the parent dictionaries (name.parentN.ytd): written only when a material uses them.</summary>
         public readonly Dictionary<string, Cw.Texture> Pending = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Only the textures a material uses are written (into Pending first).</summary>
+        public bool Lazy;
         public static Dictionary<uint, string> PresetByHash;
     }
 
@@ -147,7 +149,7 @@ public static class GtaImporter
     public static ImportResult ImportResource(string name, string ext, byte[] raw, Cw.RpfResourceFileEntry entry, IList<Cw.YtdFile> textures, string folder, ImportOptions opt = null)
     {
         opt ??= new ImportOptions();
-        var c = new Ctx { Res = new ImportResult(), Dir = folder, SkipExisting = opt.SkipExistingTextures, Weld = opt.WeldVertices };
+        var c = new Ctx { Res = new ImportResult(), Dir = folder, SkipExisting = opt.SkipExistingTextures, Weld = opt.WeldVertices, Lazy = opt.OnlyUsedTextures };
         c.Name = ModelImporter.SafeName(name, "model");
         c.TexDir = opt.TextureFolder ?? Path.Combine(folder, c.Name + "_textures");
         EnsurePresets();
@@ -198,6 +200,12 @@ public static class GtaImporter
     {
         var items = td?.Textures?.data_items;
         if (items == null) return;
+        if (c.Lazy)
+        {
+            // MAP mode: only the textures a material uses are written, once (a dictionary holds many more)
+            foreach (var t in items) if (t?.Name != null && !c.TextureFiles.ContainsKey(t.Name)) c.Pending.TryAdd(t.Name, t);
+            return;
+        }
         foreach (var t in items)
         {
             if (t?.Name == null || c.TextureFiles.ContainsKey(t.Name)) continue;
@@ -226,7 +234,7 @@ public static class GtaImporter
             {
                 Directory.CreateDirectory(c.TexDir);
                 var file = Path.Combine(c.TexDir, ModelImporter.SafeName(pt.Name, "texture") + ".dds");
-                File.WriteAllBytes(file, CodeWalker.Utils.DDSIO.GetDDSFile(pt));
+                if (!(c.SkipExisting && File.Exists(file))) File.WriteAllBytes(file, CodeWalker.Utils.DDSIO.GetDDSFile(pt));
                 c.TextureFiles[pt.Name] = file; c.Res.TexturesWritten.Add(file);
                 return file;
             }

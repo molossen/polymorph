@@ -23,6 +23,8 @@ public sealed class ImportOptions
     public Dictionary<string, string> KnownTextures;
     /// <summary>Textures already in the texture folder are not written again (library builder: same textures in many models).</summary>
     public bool SkipExistingTextures;
+    /// <summary>GTA models read from the game: only the textures their materials use are written (not the whole dictionary).</summary>
+    public bool OnlyUsedTextures;
 }
 
 /// <summary>A mesh read from a file. Face MatId values index <see cref="ImportResult.Materials"/>.</summary>
