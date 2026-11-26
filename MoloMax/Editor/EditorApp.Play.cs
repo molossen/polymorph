@@ -210,23 +210,43 @@ public sealed partial class EditorApp
         return s;
     }
 
+    readonly Dictionary<uint, System.Threading.Tasks.Task<PlayShape>> playShapeTasks = new();
+
+    /// <summary>The walkable shape of a world model, made in the background (null while it is being made).</summary>
     PlayShape ShapeOfArch(uint hash, ArchSlot s)
     {
         if (playShapes.TryGetValue(hash, out var sh)) return sh;
-        if (s.Mesh != null && s.State == 2) sh = MakeShape(s.Mesh, id => Scene.Material(id));
+        if (playShapeTasks.TryGetValue(hash, out var t))
+        {
+            if (!t.IsCompleted) return null;
+            playShapeTasks.Remove(hash);
+            sh = t.IsCompletedSuccessfully ? t.Result : null;
+            playShapes[hash] = sh;
+            return sh;
+        }
+        if (playShapeTasks.Count >= 3) return null;
+        if (s.Mesh != null && s.State == 2)
+        {
+            // materials looked up here (the scene is not read from another thread)
+            var mesh = s.Mesh; var through = new Dictionary<int, bool>();
+            foreach (var f in mesh.Faces) if (!through.ContainsKey(f.MatId)) through[f.MatId] = WalkThrough(Scene.Material(f.MatId));
+            playShapeTasks[hash] = System.Threading.Tasks.Task.Run(() => MakeShape(mesh, id => through.TryGetValue(id, out var b) && b ? WalkThroughMarker : null));
+        }
         else
         {
-            if (playLoadsThisFrame >= 2) return null; // read from the cache a few per frame
-            playLoadsThisFrame++;
             uint asset = game?.AssetOf(hash) ?? hash;
-            var ld = FromCache(hash) ?? (asset != hash ? FromCache(asset) : null);
-            if (ld?.Mesh == null) { playShapes[hash] = null; return null; }
-            var mats = ld.R.Materials;
-            sh = MakeShape(ld.Mesh, id => id >= 0 && id < mats.Count ? mats[id] : null);
+            playShapeTasks[hash] = System.Threading.Tasks.Task.Run(() =>
+            {
+                var ld = FromCache(hash) ?? (asset != hash ? FromCache(asset) : null);
+                if (ld?.Mesh == null) return null;
+                var mats = ld.R.Materials;
+                return MakeShape(ld.Mesh, id => id >= 0 && id < mats.Count ? mats[id] : null);
+            });
         }
-        playShapes[hash] = sh;
-        return sh;
+        return null;
     }
+    /// <summary>A material that lets the player through (stands for any of them when the materials were looked up before).</summary>
+    static readonly GtaMaterial WalkThroughMarker = new() { Shader = "decal" };
 
     /// <summary>Models around the player (world objects chosen by the LOD tree, and the editable ones), with their placement.</summary>
     Vector3 playCandAt = new(float.MaxValue); double playCandTime; int playCandMissing;
@@ -238,7 +258,7 @@ public sealed partial class EditorApp
         playCandAt = p; playCandTime = now; playCandMissing = 0;
         reach = MathF.Max(reach, 6f) + 3f;
         playCand.Clear(); playLoadsThisFrame = 0;
-        if (ImGui.GetTime() - playStepTime > 30) { playShapes.Clear(); playSceneShapes.Clear(); playStepTime = ImGui.GetTime(); }
+        if (ImGui.GetTime() - playStepTime > 60) { playShapes.Clear(); playSceneShapes.Clear(); playStepTime = ImGui.GetTime(); }
         if (worldEnts != null)
         {
             var we = worldEnts;
