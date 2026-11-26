@@ -230,6 +230,7 @@ public sealed partial class EditorApp : IDisposable
             RenderViewport(Viewports[i], i == ActiveViewport);
         }
         gpuTimer.End(ctx);
+        renderer.FogOff(); // previews and thumbnails drawn next frame have no haze
         Prof("viewports");
         ctx.Rasterizer.SetScissorRectangle(0, 0, gpu.Width, gpu.Height);
         try { DrawOverlays(); } catch (Exception e) { SetStatus("Error: " + e.Message); frameError = e; }
@@ -352,10 +353,15 @@ public sealed partial class EditorApp : IDisposable
         ctx.OutputMerger.SetDepthStencilState(renderer.DepthOff);
         ctx.OutputMerger.SetBlendState(renderer.Opaque, blendCol, -1);
         ctx.Rasterizer.State = renderer.CullNone;
-        var (top, bot) = Theme.ViewportBackground(cam.Ortho);
-        lines.Tris.Add(new LineVertex(new(-1, 1, 0.5f), top)); lines.Tris.Add(new LineVertex(new(1, 1, 0.5f), top)); lines.Tris.Add(new LineVertex(new(1, -1, 0.5f), bot));
-        lines.Tris.Add(new LineVertex(new(-1, 1, 0.5f), top)); lines.Tris.Add(new LineVertex(new(1, -1, 0.5f), bot)); lines.Tris.Add(new LineVertex(new(-1, -1, 0.5f), bot));
-        lines.Flush(Matrix4x4.Identity);
+        bool skyView = MapSkyOn(vp);
+        if (skyView) DrawMapSky(viewProj);
+        else
+        {
+            var (top, bot) = Theme.ViewportBackground(cam.Ortho);
+            lines.Tris.Add(new LineVertex(new(-1, 1, 0.5f), top)); lines.Tris.Add(new LineVertex(new(1, 1, 0.5f), top)); lines.Tris.Add(new LineVertex(new(1, -1, 0.5f), bot));
+            lines.Tris.Add(new LineVertex(new(-1, 1, 0.5f), top)); lines.Tris.Add(new LineVertex(new(1, -1, 0.5f), bot)); lines.Tris.Add(new LineVertex(new(-1, -1, 0.5f), bot));
+            lines.Flush(Matrix4x4.Identity);
+        }
 
         // home grid
         if (ShowGrid)
@@ -370,6 +376,7 @@ public sealed partial class EditorApp : IDisposable
         var l = ScaledLights(Lights);
         var cur = Current;
         renderer.EditObjectId = Level != SubObject.Object && cur != null ? cur.Id : -1;
+        if (skyView && Settings.MapFog) SetMapFog(cam); else renderer.FogOff();
         renderer.BeginScene(viewProj, cam.Eye, l, vp.Shading, Exposure, AmbientBoost);
         ctx.OutputMerger.SetDepthStencilState(renderer.DepthDefault);
         ctx.OutputMerger.SetBlendState(renderer.Opaque, blendCol, -1);

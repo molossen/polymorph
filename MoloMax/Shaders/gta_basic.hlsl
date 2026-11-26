@@ -55,7 +55,8 @@ cbuffer MaterialVars : register(b2)
     float4 detailSettings;
     float4 ViewportColour;
     uint  IsTerrain;            // terrain_cb_w_4lyr: 4 layers blended by vertex colour 1 (b, g)
-    uint3 TerrainPad;
+    uint  IsTint;               // *_tnt shaders: diffuse times the palette column picked by vertex colour 0 blue
+    uint2 TerrainPad;
 };
 
 // Scene lights (realistic mode), sun shadow map and the final tone curve.
@@ -84,6 +85,15 @@ cbuffer ClipVars : register(b4)
     float4 ClipCount;
 };
 
+// MAP: distance haze towards the sky's horizon colour (brighter towards the sun). FogColour.a = 0: off.
+cbuffer FogVars : register(b6)
+{
+    float4 FogColour;   // display colour, a: strength
+    float4 FogRange;    // x: start, y: full (m), z: thinner with height (per m)
+    float4 FogSun;      // rgb: added towards the sun
+    float4 FogSunDir;   // xyz: sun direction
+};
+
 Texture2D<float4> Colourmap : register(t0);
 Texture2D<float> ShadowMap : register(t5);
 SamplerComparisonState ShadowSS : register(s1);
@@ -98,6 +108,7 @@ Texture2D<float4> LayerBump0 : register(t10);
 Texture2D<float4> LayerBump1 : register(t11);
 Texture2D<float4> LayerBump2 : register(t12);
 Texture2D<float4> LayerBump3 : register(t13);
+Texture2D<float4> TintPalette : register(t14);
 SamplerState TextureSS : register(s0);
 
 struct VS_INPUT
@@ -326,6 +337,13 @@ float4 PSMain(VS_OUTPUT input, bool front : SV_IsFrontFace) : SV_TARGET
         }
         else if (c.a <= 0.0) discard;
     }
+    if (IsTint > 0)
+    {
+        // the game's tint palettes: one row per colour set (row 0 here), the column from the vertex colour's blue
+        uint pw, ph; TintPalette.GetDimensions(pw, ph);
+        uint col = min((uint)(saturate(input.Colour0.b) * 255.0 + 0.5), pw - 1);
+        c.rgb *= TintPalette.Load(int3(col, 0, 0)).rgb;
+    }
     if (IsDecal > 0) c.a *= input.Colour0.a;
     if (IsGlass > 0 && EnableTexture == 0) c.a = 0.35;
 
@@ -383,6 +401,21 @@ float4 PSMain(VS_OUTPUT input, bool front : SV_IsFrontFace) : SV_TARGET
     if (IsEmissive > 0) lit += fc.rgb * EmissiveMult; // linear, unclamped: bright signs stay bright
 
     float3 outc = ToneCurve(lit * Exposure);
+    if (FogColour.a > 0)
+    {
+        float d = length(input.WorldPos - CameraPos.xyz);
+        float hz = saturate((d - FogRange.x) / max(FogRange.y - FogRange.x, 1.0));
+        hz = hz * hz * (3.0 - 2.0 * hz) * FogColour.a;
+        hz *= exp(-max(input.WorldPos.z - CameraPos.z, 0) * FogRange.z * 0.5) * 0.5 + 0.5; // high hills a little clearer
+        float3 fc = FogColour.rgb;
+        float2 vd = input.WorldPos.xy - CameraPos.xy;
+        if (dot(vd, vd) > 1e-4 && dot(FogSunDir.xy, FogSunDir.xy) > 1e-6)
+        {
+            float t = saturate(dot(normalize(vd), normalize(FogSunDir.xy)));
+            t *= t; fc += FogSun.rgb * (t * t * t * t);
+        }
+        outc = lerp(outc, saturate(fc), hz);
+    }
     outc = lerp(outc, Highlight.rgb, Highlight.a);
     if (IsGlass > 0) c.a = saturate(c.a + specp * 0.002);
     return float4(outc, saturate(c.a));

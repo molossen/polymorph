@@ -233,7 +233,7 @@ public static class GtaImporter
     }
 
     static readonly uint HDiffuse = MetaXml.Jenkins("DiffuseSampler"), HBump = MetaXml.Jenkins("BumpSampler"),
-        HSpec = MetaXml.Jenkins("SpecSampler"), HDetail = MetaXml.Jenkins("DetailSampler"), HTexture = MetaXml.Jenkins("TextureSampler");
+        HSpec = MetaXml.Jenkins("SpecSampler"), HDetail = MetaXml.Jenkins("DetailSampler"), HTexture = MetaXml.Jenkins("TextureSampler"), HTint = MetaXml.Jenkins("TintPaletteSampler");
     static readonly uint[] HLayer = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("TextureSampler_layer" + i)).ToArray();
     static readonly uint[] HLayerBump = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("BumpSampler_layer" + i)).ToArray();
 
@@ -268,6 +268,7 @@ public static class GtaImporter
                     else if (h == HBump) mat.BumpTexture = tex;
                     else if (h == HSpec) mat.SpecTexture = tex;
                     else if (h == HDetail) mat.DetailTexture = tex;
+                    else if (h == HTint) mat.TintTexture = tex;
                 }
                 else if (par.Data is SDX.Vector4 v)
                 {

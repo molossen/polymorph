@@ -87,6 +87,11 @@ public sealed class AppSettings
     public float AssetsDockHeight { get; set; } = 300;
     /// <summary>Panels dragged out of the main window become windows of their own (other monitors). Read at start.</summary>
     public bool PanelsOutside { get; set; } = true;
+    /// <summary>MAP mode, realistic perspective views: sky of the hour behind the map, distance haze.</summary>
+    public bool MapSky { get; set; } = true;
+    public bool MapFog { get; set; } = true;
+    /// <summary>Distance (m) where the haze hides everything.</summary>
+    public float MapFogDistance { get; set; } = 3000;
     /// <summary>MAP mode: only what is within this distance of the camera is drawn and picked (big custom maps).</summary>
     public bool MapViewRadiusOn { get; set; }
     public float MapViewRadius { get; set; } = 400;

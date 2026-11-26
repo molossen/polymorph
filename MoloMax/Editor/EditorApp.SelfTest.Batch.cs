@@ -1324,6 +1324,7 @@ public sealed partial class EditorApp
         Note($"map frame time: median {med:0.0} ms, 95% {p95:0.0} ms  ({MapVisible:N0} visible, {MapDrawCalls} draw calls, {entOf.Count:N0} entities)");
         Note("frame profile (ms): " + ProfileText() + $"  ·  GPU uploads during the turn: {renderer.Uploads - up0}");
         Note(WorstFrameText());
+        Note($"memory: process {Environment.WorkingSet / 1048576:N0} MB, managed {GC.GetTotalMemory(false) / 1048576:N0} MB, {Scene.Objects.Count:N0} scene objects, {archSlots.Count:N0} models known ({archSlots.Values.Count(x => x.State == 2):N0} ready), {backdrop.Count:N0} far models");
         Expect(med < 30, $"map mode stays smooth (median {med:0.0} ms per frame)");
         // place a bench on the surface in the middle of the view
         var vp = Viewports[ActiveViewport];

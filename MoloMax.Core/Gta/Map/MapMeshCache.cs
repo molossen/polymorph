@@ -10,7 +10,7 @@ namespace MoloMax.Core.Gta.Map;
 public static class MapMeshCache
 {
     const int Magic = 0x434D4D50; // "PMMC"
-    const int Version = 2; // 2: terrain layers + vertex colour 1
+    const int Version = 3; // 2: terrain layers + vertex colour 1, 3: tint palette
 
     public static void Save(string path, PolyMesh m, IReadOnlyList<GtaMaterial> mats)
     {
@@ -27,6 +27,7 @@ public static class MapMeshCache
                 w.Write(x.Bumpiness); w.Write(x.SpecularIntensity); w.Write(x.SpecularFalloff); w.Write(x.SpecularFresnel);
                 V3(w, x.SpecMapIntMask); w.Write(x.EmissiveMultiplier); V4(w, x.DetailSettings); V3(w, x.ViewportColour);
                 for (int k = 0; k < 4; k++) { Str(w, x.Layer(k)); Str(w, x.LayerBump(k)); }
+                Str(w, x.TintTexture);
             }
             w.Write(m.Verts.Count);
             foreach (var v in m.Verts) V3(w, v);
@@ -68,6 +69,7 @@ public static class MapMeshCache
                     var l = Str(r); var lb = Str(r);
                     if (l != null || lb != null) { x.EnsureLayers(); x.Layers[k] = l; x.LayerBumps[k] = lb; }
                 }
+                x.TintTexture = Str(r);
                 mats.Add(x);
             }
             // the geometry (most of the file) read in one block and decoded from memory

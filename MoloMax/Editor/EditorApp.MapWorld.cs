@@ -246,6 +246,7 @@ public sealed partial class EditorApp
     void FarWorldPanel()
     {
         if (world == null) return;
+        MapLookControls();
         if (ImGui.Checkbox("Show the whole map (far models)", ref ShowFarWorld)) { }
         Theme.Tip("The full GTA map with its light far models. Click on it to load that area for editing.");
         if (ShowFarWorld)

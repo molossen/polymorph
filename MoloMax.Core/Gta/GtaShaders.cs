@@ -89,6 +89,8 @@ public sealed class GtaMaterial
 
     /// <summary>Terrain shaders: the 4 layer textures (TextureSampler_layer0..3) and their normal maps (BumpSampler_layer0..3).</summary>
     public string[] Layers, LayerBumps;
+    /// <summary>Tint shaders (*_tnt): the palette texture (TintPaletteSampler); the vertex colour's blue picks its column.</summary>
+    public string TintTexture;
     /// <summary>A terrain_cb_w_4lyr shader: 4 textures blended by vertex colour 1.</summary>
     public bool IsTerrain => Shader != null && Shader.StartsWith("terrain_cb_w_4lyr", StringComparison.OrdinalIgnoreCase);
     public string Layer(int i) => Layers != null && i < Layers.Length ? Layers[i] : null;

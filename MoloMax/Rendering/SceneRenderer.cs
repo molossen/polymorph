@@ -43,7 +43,7 @@ struct MaterialVarsCB
     public Vector3 SpecMapIntMask; public float EmissiveMult;
     public Vector4 DetailSettings;
     public Vector4 ViewportColour;
-    public uint IsTerrain, TerrainPad0, TerrainPad1, TerrainPad2;
+    public uint IsTerrain, IsTint, TerrainPad1, TerrainPad2;
 }
 
 /// <summary>One scene light as the shader sees it.</summary>
@@ -81,7 +81,15 @@ public sealed class SceneRenderer : IDisposable
     readonly InputLayout layout, layoutInst;
     Buffer instBuf; int instCap;
     VertexBufferBinding[] instBindings = new VertexBufferBinding[2];
-    readonly Buffer sceneCB, objectCB, materialCB, lightCB, clipCB;
+    readonly Buffer sceneCB, objectCB, materialCB, lightCB, clipCB, fogCB;
+    readonly Vector4[] fogData = new Vector4[4];
+    /// <summary>MAP: distance haze (strength 0: off). Colours in display space.</summary>
+    public void SetFog(Vector3 colour, float strength, float start, float full, Vector3 sunAdd, Vector3 sunDir)
+    {
+        fogData[0] = new(colour, strength); fogData[1] = new(start, full, 0.004f, 0); fogData[2] = new(sunAdd, 0); fogData[3] = new(sunDir, 0);
+        ctx.UpdateSubresource(fogData, fogCB);
+    }
+    public void FogOff() { if (fogData[0].W == 0) return; fogData[0].W = 0; ctx.UpdateSubresource(fogData, fogCB); }
     readonly Vector4[] clipData = new Vector4[ClipMax * 2 + 1];
     public const int ClipMax = 16;
     bool clipOn;
@@ -151,6 +159,8 @@ public sealed class SceneRenderer : IDisposable
         lightCB = new Buffer(device, LightVec4s * 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
         ctx.UpdateSubresource(lightData, lightCB);
         clipCB = new Buffer(device, clipData.Length * 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+        fogCB = new Buffer(device, fogData.Length * 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+        ctx.UpdateSubresource(fogData, fogCB);
         ctx.UpdateSubresource(clipData, clipCB);
         shadowSampler = new SamplerState(device, new SamplerStateDescription
         {
@@ -390,6 +400,7 @@ public sealed class SceneRenderer : IDisposable
         ctx.PixelShader.SetSampler(0, sampler);
         ctx.PixelShader.SetConstantBuffer(3, lightCB);
         ctx.PixelShader.SetConstantBuffer(4, clipCB);
+        ctx.PixelShader.SetConstantBuffer(6, fogCB);
         ctx.PixelShader.SetSampler(1, shadowSampler);
         ctx.PixelShader.SetShaderResource(5, shadowSrv);
         ctx.GeometryShader.Set(null);
@@ -491,7 +502,7 @@ public sealed class SceneRenderer : IDisposable
     /// <summary>Textures of a material as last looked up: thousands of map draws skip four path lookups each.</summary>
     sealed class MatTex
     {
-        public int Epoch = -1; public bool Pending; public string D, B, S, T; public GtaShaderPreset P; public ShaderResourceView Diff, Bump, Spec, Det;
+        public int Epoch = -1; public bool Pending; public string D, B, S, T, Tn; public GtaShaderPreset P; public ShaderResourceView Diff, Bump, Spec, Det, Tint;
         public string LayerKey; public ShaderResourceView[] Lay = new ShaderResourceView[4], LayB = new ShaderResourceView[4];
     }
     readonly System.Runtime.CompilerServices.ConditionalWeakTable<GtaMaterial, MatTex> matTex = new();
@@ -515,13 +526,14 @@ public sealed class SceneRenderer : IDisposable
         bool terrain = m.IsTerrain;
         string lk = terrain ? string.Join("|", Enumerable.Range(0, 4).Select(i => m.Layer(i) + ">" + m.LayerBump(i))) : null;
         if (mt.Pending || mt.Epoch != Textures.Epoch || !ReferenceEquals(mt.P, p) || !ReferenceEquals(mt.D, m.DiffuseTexture) || !ReferenceEquals(mt.B, m.BumpTexture)
-            || !ReferenceEquals(mt.S, m.SpecTexture) || !ReferenceEquals(mt.T, m.DetailTexture) || mt.LayerKey != lk)
+            || !ReferenceEquals(mt.S, m.SpecTexture) || !ReferenceEquals(mt.T, m.DetailTexture) || !ReferenceEquals(mt.Tn, m.TintTexture) || mt.LayerKey != lk)
         {
             bool pending = false;
             mt.Diff = Tex(m.DiffuseTexture, ref pending);
             mt.Bump = p.Bump ? Tex(m.BumpTexture, ref pending) : null;
             mt.Spec = p.Spec ? Tex(m.SpecTexture, ref pending) : null;
             mt.Det = p.Detail ? Tex(m.DetailTexture, ref pending) : null;
+            mt.Tint = m.TintTexture != null ? Tex(m.TintTexture, ref pending) : null;
             mt.LayerKey = lk;
             for (int i = 0; i < 4; i++)
             {
@@ -529,7 +541,7 @@ public sealed class SceneRenderer : IDisposable
                 mt.LayB[i] = terrain ? Tex(m.LayerBump(i) ?? m.BumpTexture, ref pending) : null;
             }
             mt.Pending = pending; mt.Epoch = Textures.Epoch; mt.P = p;
-            mt.D = m.DiffuseTexture; mt.B = m.BumpTexture; mt.S = m.SpecTexture; mt.T = m.DetailTexture;
+            mt.D = m.DiffuseTexture; mt.B = m.BumpTexture; mt.S = m.SpecTexture; mt.T = m.DetailTexture; mt.Tn = m.TintTexture;
         }
         var diff = mt.Diff; var bump = mt.Bump; var spec = mt.Spec; var det = mt.Det;
         var mv = new MaterialVarsCB
@@ -546,6 +558,7 @@ public sealed class SceneRenderer : IDisposable
             DetailSettings = m.DetailSettings,
             ViewportColour = new Vector4(m.ViewportColour, 1),
             IsTerrain = terrain ? 1u : 0u,
+            IsTint = mt.Tint != null && TintPalettes ? 1u : 0u,
         };
         if (terrain) { mv.EnableTexture = 1; mv.EnableNormalMap = 1; mv.EnableDetailMap = 0; }
         ctx.UpdateSubresource(ref mv, materialCB);
@@ -558,7 +571,11 @@ public sealed class SceneRenderer : IDisposable
         ctx.PixelShader.SetShaderResource(2, bump ?? Textures.FlatNormal);
         ctx.PixelShader.SetShaderResource(3, spec ?? Textures.DefaultSpec);
         ctx.PixelShader.SetShaderResource(4, det ?? Textures.FlatNormal);
+        ctx.PixelShader.SetShaderResource(14, mt.Tint ?? Textures.White);
     }
+
+    /// <summary>Tint shaders take their colour from the palette (MAP mode: the game's buildings in their real colours).</summary>
+    public bool TintPalettes = true;
 
     /// <summary>
     /// Draws one object. <paramref name="alphaPass"/> selects the blended materials (decals, glass);
@@ -651,7 +668,7 @@ public sealed class SceneRenderer : IDisposable
         Textures.Dispose();
         CullBack.Dispose(); CullNone.Dispose(); LinesState.Dispose();
         DepthDefault.Dispose(); DepthRead.Dispose(); DepthOff.Dispose(); Opaque.Dispose(); Alpha.Dispose();
-        shadowSrv?.Dispose(); shadowDsv?.Dispose(); shadowTex?.Dispose(); shadowSampler.Dispose(); shadowRas.Dispose(); lightCB.Dispose(); clipCB.Dispose();
+        shadowSrv?.Dispose(); shadowDsv?.Dispose(); shadowTex?.Dispose(); shadowSampler.Dispose(); shadowRas.Dispose(); lightCB.Dispose(); clipCB.Dispose(); fogCB.Dispose();
         sampler.Dispose(); sceneCB.Dispose(); objectCB.Dispose(); materialCB.Dispose();
         layout.Dispose(); ps.Dispose(); vs.Dispose();
     }
