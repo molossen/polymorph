@@ -1312,6 +1312,8 @@ public sealed partial class EditorApp
                     info += $"; materials {string.Join(",", r.Materials.Select(m => m.Shader).Distinct().Take(6))}; warnings {string.Join(" | ", r.Warnings.Take(3))}";
                 }
                 catch (Exception ex) { info = "read failed: " + ex.Message; }
+                foreach (var line in game.DescribeArchetypes(new HashSet<uint> { miss.Hash, 0x08260D7D, 0x8D917E3A }, 6)) Note("archetype " + line);
+                Note($"asset of {miss.Hash:X8}: {game.AssetOf(miss.Hash):X8}");
                 Note($"{dd.Path}, asked for {miss.Hash:X8} ({miss.Name}): {info}");
             }
         }

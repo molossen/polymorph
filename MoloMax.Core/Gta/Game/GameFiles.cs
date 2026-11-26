@@ -39,6 +39,33 @@ public sealed class GameFiles
     /// <summary>Archetypes whose model sits in a drawable dictionary (.ydd): most far LOD / SLOD models of the map.</summary>
     readonly Dictionary<uint, uint> yddOfArchetype = new();
     readonly Dictionary<uint, GameAsset> yddByHash = new();
+    /// <summary>Diagnostics: every archetype whose name or model name is one of these hashes (slow: reads every .ytyp).</summary>
+    public List<string> DescribeArchetypes(HashSet<uint> hashes, int max = 12)
+    {
+        var res = new List<string>();
+        foreach (var rpf in Rpf.AllRpfs)
+        {
+            if (rpf.AllEntries == null) continue;
+            foreach (var e in rpf.AllEntries)
+            {
+                if (e is not RpfFileEntry fe || !(fe.NameLower ?? "").EndsWith(".ytyp")) continue;
+                try
+                {
+                    var y = RpfFile.GetFile<YtypFile>(fe);
+                    if (y?.AllArchetypes == null) continue;
+                    foreach (var a in y.AllArchetypes)
+                        if (a != null && (hashes.Contains(a._BaseArchetypeDef.name.Hash) || hashes.Contains(a._BaseArchetypeDef.assetName.Hash)))
+                        {
+                            res.Add($"{fe.Name}: name {a._BaseArchetypeDef.name.Hash:X8} ({a.Name}) asset {a._BaseArchetypeDef.assetName.Hash:X8} ({a.AssetName}) type {a._BaseArchetypeDef.assetType} ydd {a.DrawableDict.Hash:X8} txd {a.TextureDict.Hash:X8}");
+                            if (res.Count >= max) return res;
+                        }
+                }
+                catch { }
+            }
+        }
+        return res;
+    }
+
     /// <summary>Archetype name -> the model (asset) it draws, when they differ.</summary>
     readonly Dictionary<uint, uint> assetOfArchetype = new();
     /// <summary>The model an archetype draws (its own name when it has no separate asset name).</summary>
