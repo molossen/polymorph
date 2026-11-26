@@ -1379,10 +1379,10 @@ public sealed partial class EditorApp
                 }
                 Note($"maps within 500 m left out: {outMaps.Count}: " + string.Join(", ", outMaps.Take(25)));
             }
-            foreach (var pt in new[] { new Vector2(1121, 713), new Vector2(501, 445), new Vector2(800, 600), new Vector2(1400, 760) })
+            foreach (var pt in new[] { new Vector2(2595, 160), new Vector2(2427, 278), new Vector2(2562, 227), new Vector2(2300, 200), new Vector2(2700, 300) })
             {
                 var h = GpuPickMap(vpL, pt, null);
-                Note($"under {pt.X:0},{pt.Y:0}: {(h == null ? "nothing" : Desc(lastPickEnt))}");
+                Note($"under {pt.X:0},{pt.Y:0}: {(h == null ? "nothing" : Desc(lastPickEnt) + $" hit {h.Value.Point.X:0},{h.Value.Point.Y:0},{h.Value.Point.Z:0}")}");
             }
         }
         Hour = 19.5f; yield return Frames(10); yield return Shot("look_tataviam_19h30");
