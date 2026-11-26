@@ -192,6 +192,29 @@ public sealed partial class EditorApp
         bool nl = Settings.MapNightLights;
         if (ImGui.Checkbox("Night lights##maplook", ref nl)) { Settings.MapNightLights = nl; Settings.Save(); }
         Theme.Tip("At night, the lights of the city and the roads seen from far away (the game's distant lights).");
+        if (Settings.MapHdr)
+        {
+            bool cl = Settings.MapClouds;
+            if (ImGui.Checkbox("Clouds##maplook", ref cl)) { Settings.MapClouds = cl; Settings.Save(); }
+            Theme.Tip("Clouds in volume drifting with the wind, from the weather below.");
+            ImGui.SameLine();
+            var names = Enum.GetNames<MoloMax.Core.Gta.Look.Weather>();
+            int wi = Math.Max(0, Array.IndexOf(names, Settings.MapWeather));
+            ImGui.SetNextItemWidth(130);
+            if (ImGui.Combo("Weather##maplook", ref wi, names, names.Length)) { Settings.MapWeather = names[wi]; Settings.Save(); }
+            bool hdr = Settings.MapHdr;
+            if (ImGui.Checkbox("HDR##maplook", ref hdr)) { Settings.MapHdr = hdr; Settings.Save(); }
+            Theme.Tip("Light beyond white (sun, sky, lamps) brought to the screen by a filmic curve; glow and shade in the nooks.");
+            ImGui.SameLine();
+            float ex = Settings.MapExposure; ImGui.SetNextItemWidth(120);
+            if (ImGui.SliderFloat("Exposure##maplook", ref ex, 0.3f, 3f, "%.2f")) Settings.MapExposure = ex;
+            if (ImGui.IsItemDeactivatedAfterEdit()) Settings.Save();
+        }
+        else
+        {
+            bool hdr = Settings.MapHdr;
+            if (ImGui.Checkbox("HDR##maplook", ref hdr)) { Settings.MapHdr = hdr; Settings.Save(); }
+        }
         bool px = renderer.Parallax;
         if (ImGui.Checkbox("Relief##maplook", ref px)) renderer.Parallax = px;
         Theme.Tip("Parallax (PXM): ground, stones and walls that have a height map look raised up close, like in the game.");
