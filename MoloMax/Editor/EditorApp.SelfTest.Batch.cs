@@ -1249,7 +1249,7 @@ public sealed partial class EditorApp
         Note($"level-of-detail world: {worldEnts?.E.Length ?? 0:N0} map objects read in {(DateTime.Now - t0).TotalSeconds:0} s ({worldEntsStatus})");
         yield return Frames(30);
         // the models within 800 m read (far ones may still come in the background)
-        int NearWaiting() => LodTreeOn ? worldSel.Count(i => { var e = worldEnts.E[i]; return !e.Mlo && Vector3.Distance(e.Pos, cam.Eye) < 800 && (!archSlots.TryGetValue(e.Arch, out var sl) || sl.State < 2); }) : archLoading;
+        int NearWaiting() => LodTreeOn ? worldWanted.Count(kv => kv.Value < 800 * 800 && archSlots.TryGetValue(kv.Key, out var sl) && sl.State < 2) : archLoading;
         for (int k = 0; k < 400 && (NearWaiting() > 0 || mapLoadTask != null || renderer.Textures.Pending > 0); k++) yield return Frames(15);
         Note($"near models waiting: {NearWaiting()}, reads running {archLoading}, textures pending {renderer.Textures.Pending}");
         Note($"view ready in {(DateTime.Now - t0).TotalSeconds:0} s: {entOf.Count:N0} entities, {worldSel.Count:N0} world objects chosen, {MapVisible:N0} drawn, {MapDrawCalls} draw calls; memory {Environment.WorkingSet / 1048576:N0} MB");
@@ -1258,6 +1258,7 @@ public sealed partial class EditorApp
         for (int i = 0; i < 60; i++) { cam.Orbit(1, 0); yield return Frames(1); }
         var dts = stDts.Skip(st).Where(x => x > 0).OrderBy(x => x).ToList();
         Note($"frame median {(dts.Count > 0 ? dts[dts.Count / 2] * 1000 : 0):0.0} ms; {ProfileText()}");
+        Note($"drawn by level: " + string.Join(", ", Enumerable.Range(0, 6).Select(l => $"L{l} {instGroups.Values.Sum(g => Enumerable.Range(0, g.Count).Count(k => g.Ents[k] >= 0 && worldEnts.E[g.Ents[k]].Level == l))}")));
         cam.Orbit(-60, 0);
         renderer.TintPalettes = false; yield return Frames(5); yield return Shot("look_tataviam_13h_notint"); renderer.TintPalettes = true;
         {
