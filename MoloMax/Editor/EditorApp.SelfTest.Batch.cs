@@ -1644,7 +1644,34 @@ public sealed partial class EditorApp
                 Expect(backI != null && backI.Entities.Any(e => Vector3.Distance(e.Position, want) < 0.01f), "moved interior object saved at its new place (interior space)");
             }
         }
+        // level-of-detail world: zoomed in, the game's HD models around the camera show (read only, a click opens their map)
+        if (Settings.MapLodTree)
+        {
+            foreach (var o in Scene.Objects) o.Hidden = false;
+            var pier = new Vector3(-1640, -1060, 13);
+            int HdDrawn() => instGroups.Values.Sum(g => Enumerable.Range(0, g.Count).Count(k => g.Ents[k] >= 0 && worldEnts.E[g.Ents[k]].Level is 0 or 5));
+            GoTo(pier); cam.Distance = 120; cam.Pitch = 0.45f;
+            var th = DateTime.Now;
+            yield return Frames(30);
+            yield return Until(() => archLoading == 0 && !worldWanted.Any(kv => archSlots.TryGetValue(kv.Key, out var sl) && sl.State < 2), 120);
+            int hd = HdDrawn();
+            Expect(hd > 50, $"zoomed in on Del Perro pier: the HD around the camera shows ({hd:N0} HD models drawn, {MapVisible:N0} in all, in {(DateTime.Now - th).TotalSeconds:0} s)");
+            yield return Until(() => renderer.Textures.Pending == 0, 30);
+            yield return Frames(20);
+            yield return Shot("map_hd_auto");
+            {
+                int s0 = stDts.Count; ResetWorstFrame();
+                for (int i = 0; i < 90; i++) { cam.Orbit(4, 0); yield return Frames(1); }
+                var hdt = stDts.Skip(s0).Where(x => x > 0).OrderBy(x => x).ToList();
+                float hmed = hdt.Count > 0 ? hdt[hdt.Count / 2] * 1000 : 0, h95 = hdt.Count > 0 ? hdt[(int)(hdt.Count * 0.95)] * 1000 : 0;
+                Note($"HD around the camera: {MapVisible:N0} drawn, {MapDrawCalls} draw calls; profile {ProfileText(14)}; {WorstFrameText()}");
+                Expect(hmed < 30, $"HD around the camera stays smooth: median {hmed:0.0} ms, 95% {h95:0.0} ms per frame");
+            }
+            cam.Distance = 3000; yield return Frames(60);
+            Expect(HdDrawn() < hd / 4, $"zoomed out: the HD gives way to the far models ({hd} -> {HdDrawn()} HD drawn)");
+        }
         // HD around the camera: zoomed in, the real models of the area load by themselves; zoomed out, they go
+        else
         {
             foreach (var o in Scene.Objects) o.Hidden = false;
             MapStream = true; SetMapLevel(0, true); SetMapLevel(5, true);
