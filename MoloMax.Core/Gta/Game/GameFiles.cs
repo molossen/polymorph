@@ -66,6 +66,18 @@ public sealed class GameFiles
         return res;
     }
 
+    /// <summary>Diagnostics: what CodeWalker finds in a drawable dictionary.</summary>
+    public string DescribeYdd(GameAsset a)
+    {
+        try
+        {
+            var yf = RpfFile.GetFile<YddFile>(a.Entry);
+            return $"CodeWalker reads {a.Name}.ydd: {yf?.Drawables?.Length} drawables, keys {string.Join(",", (yf?.Dict?.Keys ?? Enumerable.Empty<uint>()).Select(k => k.ToString("X8")))}; "
+                + string.Join(" | ", (yf?.Drawables ?? Array.Empty<Drawable>()).Select(dw => $"{dw?.Name}: {dw?.DrawableModels?.High?.Length ?? 0} high models, {dw?.DrawableModels?.High?.Sum(m => m.Geometries?.Length ?? 0) ?? 0} geoms, shaders {string.Join("/", dw?.ShaderGroup?.Shaders?.data_items?.Select(sh => sh.Name.ToString()) ?? Enumerable.Empty<string>())}"));
+        }
+        catch (Exception ex) { return "CodeWalker ydd read failed: " + ex.Message; }
+    }
+
     /// <summary>Archetype name -> the model (asset) it draws, when they differ.</summary>
     readonly Dictionary<uint, uint> assetOfArchetype = new();
     /// <summary>The model an archetype draws (its own name when it has no separate asset name).</summary>
