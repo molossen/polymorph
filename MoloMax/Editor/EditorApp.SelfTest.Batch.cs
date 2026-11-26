@@ -1268,6 +1268,33 @@ public sealed partial class EditorApp
                 Note($"{name} +{sec} s: frame {(dd.Count > 0 ? dd[dd.Count / 2] * 1000 : 0):0.0} ms, models loading {archLoading}, textures waiting {renderer.Textures.Pending}, drawn {MapVisible:N0}");
                 yield return Shot($"cmp_{name}_{sec}s");
             }
+            // what is where on screen (holes, odd surfaces): a grid of picks
+            var vpc = Viewports[ActiveViewport];
+            var seen = new List<string>();
+            for (int gy = 1; gy <= 4; gy++)
+                for (int gx = 1; gx <= 4; gx++)
+                {
+                    var at = new Vector2(vpc.X + vpc.W * gx / 5f, vpc.Y + vpc.H * gy / 5f);
+                    var h = GpuPickMap(vpc, at, null);
+                    if (h is not { } hh || hh.Object == null) { seen.Add($"({gx},{gy}) nothing"); continue; }
+                    var o = hh.Object; var mesh = o.Mesh;
+                    string mats = mesh != null && mesh.Faces.Count > 0 ? string.Join("/", mesh.Faces.Select(f => f.MatId).Distinct().Take(3).Select(id => Scene.Material(id) is { } m ? m.Shader + ":" + Path.GetFileName(m.DiffuseTexture ?? "-") : "?")) : (o.Mesh == GpuOnlyStub ? "gpu only" : "no mesh");
+                    seen.Add($"({gx},{gy}) {o.Name} {hh.Distance:0} m [{mats}]");
+                }
+            int slots0 = archSlots.Values.Count(x => x.State == 0), slots1 = archSlots.Values.Count(x => x.State == 1), slots2 = archSlots.Values.Count(x => x.State == 2 || x.GpuOnly), slots3 = archSlots.Values.Count(x => x.State == 3);
+            Note($"{name}: models waiting {slots0}, reading {slots1}, ready {slots2}, failed {slots3}; chosen {worldSel.Count}, families waiting for their detail {worldBlocked.Count}, parents standing in {worldFallbacks}, wanted {worldWanted.Count}");
+            Note($"{name} picks: " + string.Join(" | ", seen));
+        }
+        // the city at view distance x1, to see what x2 costs
+        {
+            var (name, eye, yaw, pitch) = CompareSpots[2];
+            float vd = Settings.MapViewDistance; Settings.MapViewDistance = 1;
+            cam.Yaw = yaw + MathF.PI; cam.Pitch = -pitch; cam.Distance = 20; cam.Target = eye + cam.Forward * 20;
+            var t0 = DateTime.Now;
+            while ((DateTime.Now - t0).TotalSeconds < 20) yield return Frames(1);
+            Note($"{name} at view distance x1 after 20 s: models loading {archLoading}, chosen {worldSel.Count}, drawn {MapVisible:N0}, families waiting {worldBlocked.Count}");
+            yield return Shot($"cmp_{name}_x1");
+            Settings.MapViewDistance = vd;
         }
         cam.Fov = fov0;
         SetMapMode(false);
