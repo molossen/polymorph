@@ -3,9 +3,9 @@ using System.Numerics;
 namespace MoloMax.Rendering;
 
 /// <summary>
-/// Sun shadows of the MAP look, as NodeRunner places them: three depth images seen from the sun, each covering a slice
+/// Sun shadows of the MAP look, placed as three depth images seen from the sun, each covering a slice
 /// of the camera's view (near: sharp, far: coarse), kept from frame to frame while they still cover their slice and
-/// nothing casting a shadow changed. Ported with the author's agreement.
+/// nothing casting a shadow changed.
 /// </summary>
 public sealed class MapShadowSlices
 {

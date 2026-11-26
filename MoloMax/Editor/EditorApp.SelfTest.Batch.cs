@@ -1230,7 +1230,7 @@ public sealed partial class EditorApp
         SetMapMode(false);
     }
 
-    /// <summary>The same view as a reference picture (NodeRunner at 2461, -706, 115 looking west at 13:00), for the look of the map.</summary>
+    /// <summary>The same view as a reference picture (at 2461, -706, 115 looking west at 13:00), for the look of the map.</summary>
     IEnumerable<object> MapLookTest(string gtaFolder)
     {
         Fresh();

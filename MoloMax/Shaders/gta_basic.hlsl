@@ -262,7 +262,7 @@ float3 GlobalLighting(float3 diff, float3 norm, float4 vc0, float lf)
 
 float3 SrgbToLinear(float3 c) { return lerp(pow((c + 0.055) / 1.055, 2.4), c / 12.92, step(c, 0.04045)); }
 
-// ---- parallax (PXM), after the method shared by ook3D for CodeWalker: march the view ray through the height map
+// ---- parallax (PXM): march the view ray through the height map
 //      in tangent space, fewer steps when looking straight down, faded out with distance (none beyond 50 m)
 float PomHeight(float2 uv, float4 w, float2 gx, float2 gy)
 {
@@ -339,8 +339,8 @@ float SunShadow(float3 wp, float3 n)
     return lerp(1, s, ShadowStrength);
 }
 
-// ---- MAP look: NodeRunner's lighting (sun or moon, light from the sky and the ground, sky mirrored by shiny
-//      surfaces, distance haze), in display colours. Ported with the author's agreement.
+// ---- MAP look: lighting (sun or moon, light from the sky and the ground, sky mirrored by shiny
+//      surfaces, distance haze), in display colours.
 cbuffer MapLookVars : register(b9)
 {
     float4 NrLightDir;    // xyz towards the sun (the moon at night)
@@ -355,7 +355,7 @@ cbuffer MapLookVars : register(b9)
     float4 NrSkySun;      // xyz where the sun is (even below the horizon)
 };
 
-// sun shadows of the MAP look: one image per slice of the view (NodeRunner's ShadowMaps)
+// sun shadows of the MAP look: one image per slice of the view (ShadowMaps)
 cbuffer NrShadowVars : register(b10)
 {
     row_major float4x4 NrShadowMatrix0;

@@ -3,9 +3,8 @@ using System.Numerics;
 namespace MoloMax.Core.Gta.Look;
 
 /// <summary>
-/// Light and air of the MAP view at an hour, as NodeRunner (Molo Modding's partner tool) works it out: the sun (or the
+/// Light and air of the MAP view at an hour, worked out: the sun (or the
 /// moon), the light from the sky and from the ground, the sky colours and the distance haze. Display colours.
-/// Ported with the author's agreement.
 /// </summary>
 public readonly record struct MapLighting
 {
@@ -59,7 +58,7 @@ public readonly record struct MapLighting
         return l with { SunDirection = direction, FogDistance = fogDistance, Sun = sun };
     }
 
-    // ---- HDR image (NodeRunner's "High" look): linear colours, a sun several times stronger than the sky's light, the
+    // ---- HDR image ("High" look): linear colours, a sun several times stronger than the sky's light, the
     //      sky worked out from the air, the eye getting used to the dark (Adaptation)
     public bool IsHdr { get; init; }
     public float Adaptation { get; init; }

@@ -8,7 +8,7 @@ using Device = SharpDX.Direct3D11.Device;
 
 namespace MoloMax.Rendering;
 
-/// <summary>NodeRunner's water in the MAP HDR image (premultiplied colour, drawn over the opaque scene, depth read).</summary>
+/// <summary>water in the MAP HDR image (premultiplied colour, drawn over the opaque scene, depth read).</summary>
 public sealed class NrWaterRenderer : IDisposable
 {
     [StructLayout(LayoutKind.Sequential)]

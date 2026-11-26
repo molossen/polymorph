@@ -11,7 +11,7 @@ using Device = SharpDX.Direct3D11.Device;
 namespace MoloMax.Rendering;
 
 /// <summary>
-/// Clouds in volume over the MAP sky (NodeRunner's, ported with the author's agreement): drawn into a smaller image, then
+/// Clouds in volume over the MAP sky (the): drawn into a smaller image, then
 /// the sky is drawn over with it. The cloud shapes are made on the processor a moment after start-up.
 /// </summary>
 public sealed class CloudRenderer : IDisposable

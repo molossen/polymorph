@@ -1,4 +1,4 @@
-// MoloMax - ambient occlusion of the MAP HDR image (NodeRunner's): how much of the sky's light the surroundings hide
+// MoloMax - ambient occlusion of the MAP HDR image : how much of the sky's light the surroundings hide
 // from each pixel (nooks, the ground under objects, the foot of walls), from the depth; blurred keeping the edges.
 cbuffer AoVars : register(b0)
 {

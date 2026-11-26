@@ -1,4 +1,4 @@
-// MoloMax - the game's water in the MAP HDR image, NodeRunner's water ported with the author's agreement: deep-water
+// MoloMax - the game's water in the MAP HDR image, water: deep-water
 // waves (Gerstner) and ripples for the normal, light through the crests, the sky and what is on screen mirrored, the
 // bottom seen through shallow water (bent by the waves, dimmed as the water absorbs it), foam at the shore, haze.
 // Matrices row_major, mul(rowVector, M); depth not reversed (0 near, 1 far).

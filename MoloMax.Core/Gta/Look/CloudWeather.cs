@@ -1,6 +1,5 @@
 namespace MoloMax.Core.Gta.Look;
 
-// From NodeRunner, ported with the author's agreement.
 
 // The game's weathers (names of its weather files).
 public enum Weather

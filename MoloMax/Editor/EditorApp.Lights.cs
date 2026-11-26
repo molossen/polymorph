@@ -92,7 +92,7 @@ public sealed partial class EditorApp
 
         // sun shadows: an orthographic depth map from the sun over the visible scene, re-rendered when something moved
         var gl = ScaledLights(Lights);
-        // MAP look (NodeRunner's light): its sun / moon direction casts the shadows too
+        // MAP look (light): its sun / moon direction casts the shadows too
         if (MapNrLookOn)
         {
             if (mapLightHour != Hour || mapLightHdr != (Settings.MapHdr, Settings.MapPhysicalSky))
@@ -418,7 +418,7 @@ public sealed partial class EditorApp
         renderer.SetCascades(cascVP[1], cascTexel[1], cascVP[2], cascTexel[2], cascVP[2] != default ? 2 : cascVP[1] != default ? 1 : 0);
     }
 
-    // MAP look: NodeRunner's sun shadows, three slices of the view
+    // MAP look: sun shadows, three slices of the view
     MapShadowSlices nrSlices;
     MoloMax.Core.Gta.Look.MapLighting mapLightBase; float mapLightHour = float.NaN; (bool, bool) mapLightHdr;
     int nrCasterHash; double nrCasterCheck;

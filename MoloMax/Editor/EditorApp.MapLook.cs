@@ -15,7 +15,7 @@ public sealed partial class EditorApp
     SkyRenderer sky;
     HdrImage hdrImage;
     CloudRenderer clouds; bool cloudsFailed;
-    /// <summary>The MAP view lit like NodeRunner (its light of the hour, sky and haze).</summary>
+    /// <summary>The MAP view with the new lighting (its light of the hour, sky and haze).</summary>
     bool MapNrLookOn => MapMode && Settings.MapNrLook;
     MoloMax.Core.Gta.Look.MapLighting mapLight = MoloMax.Core.Gta.Look.MapLighting.Neutral;
     WaterRenderer waterR;
@@ -73,7 +73,7 @@ public sealed partial class EditorApp
         if (waterR == null || !waterR.HasSurfaces) return;
         if (MapNrLookOn && mapLight.IsHdr && hdrImage != null && gpu.FeatureLevel11)
         {
-            // NodeRunner's water: what it mirrors and what shows through it from the scene drawn so far
+            // water: what it mirrors and what shows through it from the scene drawn so far
             try { nrWater ??= new NrWaterRenderer(gpu.Device); } catch { nrWaterFailed = true; }
             if (nrWater != null && !nrWaterFailed)
             {
@@ -123,10 +123,10 @@ public sealed partial class EditorApp
         sky ??= new SkyRenderer(gpu.Device);
         if (MapNrLookOn)
         {
-            // NodeRunner's sky: below the horizon the horizon colour darkened
+            // sky: below the horizon the horizon colour darkened
             var ml = mapLight;
             if (ml.PhysicalSky) sky.PrepareTable(ml.Sun.Z, MoloMax.Core.Gta.Look.MapLighting.SkyBalance);
-            // NodeRunner's clouds in volume (HDR image), drawn into their own image first
+            // clouds in volume (HDR image), drawn into their own image first
             SharpDX.Direct3D11.ShaderResourceView cloudImg = null;
             if (ml.IsHdr && Settings.MapClouds && gpu.FeatureLevel11 && !cloudsFailed && drawViewport is { } dv)
             {
@@ -182,8 +182,8 @@ public sealed partial class EditorApp
         Theme.Tip("Buildings with a tint shader take their real colours from the game's palette.");
         ImGui.SameLine();
         bool nr = Settings.MapNrLook;
-        if (ImGui.Checkbox("NodeRunner light##maplook", ref nr)) { Settings.MapNrLook = nr; Settings.Save(); }
-        Theme.Tip("Light the map like NodeRunner: sun or moon of the hour, light from the sky and the ground, sky on shiny surfaces.");
+        if (ImGui.Checkbox("New light##maplook", ref nr)) { Settings.MapNrLook = nr; Settings.Save(); }
+        Theme.Tip("New lighting: sun or moon of the hour, light from the sky and the ground, sky on shiny surfaces.");
         ImGui.SameLine();
         bool w = Settings.MapWater;
         if (ImGui.Checkbox("Water##maplook", ref w)) { Settings.MapWater = w; Settings.Save(); }

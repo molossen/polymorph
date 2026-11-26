@@ -1,4 +1,4 @@
-// MoloMax - glow (bloom) of the MAP HDR image, NodeRunner's: the image shrunk step by step to 1/64 of its size, then
+// MoloMax - glow (bloom) of the MAP HDR image, the: the image shrunk step by step to 1/64 of its size, then
 // enlarged back with each step added, so very bright pixels (sun, lamps, lit windows) spill a soft light around them.
 cbuffer BloomVars : register(b0)
 {

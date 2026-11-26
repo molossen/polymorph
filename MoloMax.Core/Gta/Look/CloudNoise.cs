@@ -2,7 +2,6 @@ using System.Numerics;
 
 namespace MoloMax.Core.Gta.Look;
 
-// From NodeRunner, ported with the author's agreement.
 // Repeating noise the clouds are carved from, made once on the processor:
 // - Shape: a cube of ShapeSize³ texels, two bytes each: billows (Perlin noise eaten by cells, the round bulges of a
 //   cumulus) and small cells (to fray the edges);

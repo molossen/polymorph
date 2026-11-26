@@ -94,7 +94,7 @@ public sealed class AppSettings
     public bool MapFog { get; set; } = true;
     /// <summary>MAP: the game's water (sea, lakes, rivers) drawn.</summary>
     public bool MapWater { get; set; } = true;
-    /// <summary>MAP: lit like NodeRunner (its light of the hour, sky, haze).</summary>
+    /// <summary>MAP: the new lighting (its light of the hour, sky, haze).</summary>
     public bool MapNrLook { get; set; } = true;
     /// <summary>MAP look: sun shadows up to this distance (m).</summary>
     public float MapShadowDistance { get; set; } = 800;

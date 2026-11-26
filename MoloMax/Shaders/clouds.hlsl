@@ -1,4 +1,4 @@
-// MoloMax - clouds in volume (NodeRunner's, ported with the author's agreement): for each pixel of a smaller image a
+// MoloMax - clouds in volume (the): for each pixel of a smaller image a
 // ray goes through the cloud layer, adding the light the clouds send towards the eye and how much sky still shows.
 
 cbuffer Constants : register(b0)

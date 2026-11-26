@@ -4,8 +4,7 @@ namespace MoloMax.Core.Gta.Look;
 
 /// <summary>
 /// Light of the sky worked out from the air (single scattering): sunlight scattered by the air (Rayleigh: blue
-/// overhead) and by the haze (Mie: the bright halo around the sun), dimmed along its way (red sunsets). From NodeRunner,
-/// ported with the author's agreement.
+/// overhead) and by the haze (Mie: the bright halo around the sun), dimmed along its way (red sunsets).
 /// </summary>
 public static class Atmosphere
 {
@@ -74,7 +73,7 @@ public static class Atmosphere
     public const float LowestSky = 0.07f;
     public const int TableWidth = 64, TableHeight = 96;
 
-    /// <summary>The sky table the sky is drawn from (NodeRunner's PSTable): across, the angle around from the sun (0 to 180°);
+    /// <summary>The sky table the sky is drawn from (PSTable): across, the angle around from the sun (0 to 180°);
     /// down, the height above the horizon (square root: finer near the horizon). RGB floats, row by row.</summary>
     public static float[] Table(float sunZ, Vector3 balance)
     {

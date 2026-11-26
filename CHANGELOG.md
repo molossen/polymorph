@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [1.9.0](#190) | New MAP mode: the whole game map with its levels of detail, new lighting, water, clouds |
 | [1.8.9](#189) | My own shortcuts (any command, export / import), Ctrl+X cut |
 | [1.8.8](#188) | Ctrl+C / Ctrl+V of objects, also from MAP to MODEL mode |
 | [1.8.7](#187) | F frames the view while painting terrain layers |
@@ -46,6 +47,31 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 1.9.0
+
+**MAP mode rebuilt**: a new engine for the map view, with our own tools kept.
+
+- **The whole game map at once, with its levels of detail.** Every map object of the game (about 800,000) is read in a
+  few seconds (kept in a cache for the next starts) and drawn the way the game does: far away one simplified model
+  stands for a district, closer its children take over, up to the full detail near the camera. Typically 60 FPS where
+  the previous version ran at about 30.
+- **Read only until you click.** A click on any object of the world opens its .ymap for editing and selects it. The
+  rest stays light (models on the graphics card only, let go when unused).
+- **What the game shows in free roam**: maps only switched on by missions (prologue, cutscene stand-ins, alternate
+  states) are left out; models shared by several archetypes and far tree cards now show (they were missing).
+- **New lighting**: sun or moon of the hour, light from the sky and from the ground, shiny surfaces
+  mirroring the sky, distance haze towards the sun.
+- **HDR image**: light beyond white, filmic curve, the eye getting used to the dark at night, glow around bright
+  lights, ambient occlusion in nooks and under objects.
+- **Sky worked out from the air** (blue overhead, red sunsets) and **clouds in volume** drifting with the wind
+  (weather presets).
+- **Sun shadows in three slices of the view**, up to 800 m, also from the far hills and buildings.
+- **The game's water**: sea, lakes and rivers from water.xml, with waves, foam at the shore, the sky and the buildings
+  mirrored, the bottom seen through shallow water.
+- **City lights at night** seen from far away (the game's distant lights).
+- **Relief (PXM parallax)** on the ground, stones and walls that have a height map.
+- Each effect can be switched off in the World panel (Sky, Haze, Water, Night lights, Relief, New light).
 
 ## 1.8.9
 

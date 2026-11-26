@@ -9,14 +9,14 @@ namespace MoloMax.Rendering;
 
 /// <summary>
 /// MAP view drawn as an HDR image (light beyond white: sun, sky, lamps), then brought to the screen by a filmic curve,
-/// like NodeRunner's High quality. Same multisampling and depth buffer as the window: what is drawn over it after
+/// like High quality. Same multisampling and depth buffer as the window: what is drawn over it after
 /// (wires, gizmos) still meets the scene's depth.
 /// </summary>
 public sealed class HdrImage : IDisposable
 {
     readonly Device device; readonly DeviceContext ctx;
     readonly VertexShader vs; readonly PixelShader ps; readonly Buffer cb;
-    // ambient occlusion (NodeRunner's): half-size image, blurred across then down keeping the edges
+    // ambient occlusion : half-size image, blurred across then down keeping the edges
     VertexShader aoVs; PixelShader aoPs, blurPs; Buffer aoCb; SamplerState clamp; bool aoFailed;
     Texture2D ao, aoB; RenderTargetView aoRtv, aoBRtv; ShaderResourceView aoSrv, aoBSrv; int aoW, aoH;
     [StructLayout(LayoutKind.Sequential)] struct AoVars { public System.Numerics.Vector4 Projection, Size, Settings, Direction, Origin; }

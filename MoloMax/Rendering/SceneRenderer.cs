@@ -580,7 +580,7 @@ public sealed class SceneRenderer : IDisposable
         ctx.UpdateSubresource(d, nrShadowCB);
     }
 
-    /// <summary>MAP look (NodeRunner's lighting): the light of the hour, for the RenderFlags.MapLook pass.</summary>
+    /// <summary>MAP look (lighting): the light of the hour, for the RenderFlags.MapLook pass.</summary>
     public void SetMapLook(in MoloMax.Core.Gta.Look.MapLighting l, Vector3 camera, bool haze)
     {
         mapLookData[0] = new(l.SunDirection, 0); mapLookData[1] = new(l.SunColor, 0); mapLookData[2] = new(l.SkyAmbient, 0);

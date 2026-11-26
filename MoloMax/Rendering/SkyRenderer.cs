@@ -8,7 +8,7 @@ using Device = SharpDX.Direct3D11.Device;
 
 namespace MoloMax.Rendering;
 
-/// <summary>The sky behind the MAP view (NodeRunner's): gradient of the hour, sun disc and glow; in the HDR image the sky
+/// <summary>The sky behind the MAP view : gradient of the hour, sun disc and glow; in the HDR image the sky
 /// worked out from the air, from a small table made again when the sun moves (one full-view triangle, no depth).</summary>
 public sealed class SkyRenderer : IDisposable
 {

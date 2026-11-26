@@ -1,4 +1,4 @@
-// MoloMax - MAP HDR image brought to the screen (NodeRunner's SceneImage composite): exposure, the filmic curve
+// MoloMax - MAP HDR image brought to the screen (SceneImage composite): exposure, the filmic curve
 // (fit of the ACES reference rendering), saturation, display colours, a little noise against bands.
 cbuffer HdrVars : register(b0)
 {

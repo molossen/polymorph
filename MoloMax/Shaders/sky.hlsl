@@ -1,4 +1,4 @@
-// MoloMax - sky behind the MAP view (NodeRunner's sky): horizon to zenith gradient, darker below the horizon, the sun
+// MoloMax - sky behind the MAP view (sky): horizon to zenith gradient, darker below the horizon, the sun
 // disc and its glow; in the HDR image, the sky worked out from the air read from a small table around the sun.
 // Matrices row_major, mul(rowVector, M).
 cbuffer SkyVars : register(b0)
