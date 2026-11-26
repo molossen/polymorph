@@ -394,7 +394,7 @@ public sealed partial class EditorApp
                 if (d.ShowDialog(form) == System.Windows.Forms.DialogResult.OK) { renderer.Textures.SearchFolders.Add(d.SelectedPath); renderer.Textures.ClearResolveCache(); }
                 Input.ReleaseAllKeys();
             }
-            foreach (var f in renderer.Textures.SearchFolders) Ui.TextDisabled(f);
+            TextureFolderList("##paneltexfolders");
             foreach (var e in renderer.Textures.Errors.TakeLast(6)) Ui.TextColored(new Vector4(1, 0.5f, 0.4f, 1), e);
         }
     }

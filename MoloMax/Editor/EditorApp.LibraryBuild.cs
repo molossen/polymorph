@@ -83,6 +83,7 @@ public sealed partial class EditorApp
     IEnumerable<object> LibraryBuildTest(string gtaFolder)
     {
         Fresh();
+        var keepLibrary = Settings.LibraryFolder; // put back at the end: the tests after this one use the real library
         Settings.GtaFolder = gtaFolder; Settings.LibraryFolder = Path.Combine(Path.GetTempPath(), "no_library_here"); library = null;
         prefsOpen = true; prefsSection = Array.IndexOf(PrefSections, "Texture library");
         yield return Frames(6);
@@ -97,7 +98,7 @@ public sealed partial class EditorApp
         yield return Frames(4);
         EnsureLibrary();
         Expect(library != null && library.Materials.Count > 500, $"library loaded from {Settings.LibraryFolder}: {library?.Materials.Count ?? 0} materials");
-        if (library == null) yield break;
+        if (library == null) { Settings.LibraryFolder = keepLibrary; library = null; prefsOpen = false; yield break; }
         var cats = MaterialLibrary.Categories.Skip(1).Select(c => $"{c} {library.Materials.Count(m => MaterialLibrary.InCategory(m, c))}");
         Note("categories: " + string.Join(", ", cats));
         int withTex = library.Materials.Count(m => library.TexturePath(m.Diffuse) != null);
@@ -110,5 +111,6 @@ public sealed partial class EditorApp
         libCategory = "Walls"; libResultsKey = null; yield return Frames(40);
         yield return Shot("library_gallery_walls");
         libraryOpen = false;
+        if (string.IsNullOrEmpty(libBuildResult)) { Settings.LibraryFolder = keepLibrary; library = null; }
     }
 }

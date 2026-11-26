@@ -3392,6 +3392,8 @@ room.Mesh.Faces.Count");
         // game props
         if (game == null && !string.IsNullOrEmpty(gtaFolder)) { Settings.GtaFolder = gtaFolder; if (gameTask == null || gameTask.IsCompleted) StartGameLoad(gtaFolder); }
         yield return Until(() => game != null || gameError != null, 400);
+        // the folders other tests (game imports) added before: the thumbnails must add none of their own
+        int extractFolders0 = renderer.Textures.SearchFolders.Count(d => d.StartsWith(GameExtractDir, StringComparison.OrdinalIgnoreCase));
         if (game != null)
         {
             yield return Until(() => gameClassified, 4000);
@@ -3424,7 +3426,8 @@ room.Mesh.Faces.Count");
                 yield return Settle(() => File.Exists(p0), 40);
                 Expect(gone && File.Exists(p0) && File.GetLastWriteTimeUtc(p0) > t0, $"Refresh: the list's pictures are made again ({x0.Name}: removed {gone}, made again {File.Exists(p0)})");
             }
-            Expect(!renderer.Textures.SearchFolders.Any(d => d.StartsWith(GameExtractDir, StringComparison.OrdinalIgnoreCase)), $"no search folder added per thumbnail ({renderer.Textures.SearchFolders.Count} folders)");
+            int extractFolders = renderer.Textures.SearchFolders.Count(d => d.StartsWith(GameExtractDir, StringComparison.OrdinalIgnoreCase));
+            Expect(extractFolders == extractFolders0, $"no search folder added per thumbnail ({extractFolders0} -> {extractFolders} game folders, {renderer.Textures.SearchFolders.Count} in all)");
             yield return Frames(5);
             yield return Shot("asset_browser");
         }

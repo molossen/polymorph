@@ -294,6 +294,8 @@ public sealed partial class EditorApp
         var esel = SubSel(pl); esel.Clear();
         foreach (var e in border) if (MathF.Abs(pm.Verts[e.A].Y - maxY) < 1e-4f && MathF.Abs(pm.Verts[e.B].Y - maxY) < 1e-4f) esel.Edges.Add(e);
         int nEdges = esel.Edges.Count, pf0 = pm.Faces.Count;
+        // a 3/4 view whatever the view an earlier test left: the Y arrow must not point into the screen
+        vp.Camera.Ortho = false; vp.Camera.Yaw = -2.2f; vp.Camera.Pitch = 0.6f;
         vp.Camera.Frame(pm.Bounds().Min - new Vector3(1), pm.Bounds().Max + new Vector3(1, 3, 1));
         yield return Frames(3);
         var gy = Grip(GizmoHandle.Y);
@@ -1471,6 +1473,30 @@ public sealed partial class EditorApp
         SetMapMode(false);
     }
 
+    /// <summary>The frame time of the view as it is, then with one effect switched off at a time (median of 40 frames, GPU time of the views).</summary>
+    IEnumerable<object> MapCostMatrix(Camera cam, List<string> rows)
+    {
+        IEnumerable<object> M(string label)
+        {
+            yield return Frames(20);
+            int s0 = stDts.Count; double g = 0; int gn = 0;
+            for (int i = 0; i < 40; i++) { cam.Orbit(0.5f, 0); yield return Frames(1); g += GpuViewMs; gn++; }
+            cam.Orbit(-20, 0);
+            var dd = stDts.Skip(s0).Where(x => x > 0).OrderBy(x => x).ToList();
+            rows.Add($"{label}: {(dd.Count > 0 ? dd[dd.Count / 2] * 1000 : 0):0.0} ms (GPU {g / Math.Max(gn, 1):0.0}, {MapVisible:N0} drawn, {MapDrawCalls} calls)");
+        }
+        foreach (var x in M("as is")) yield return x;
+        bool sh = Settings.SunShadows; Settings.SunShadows = false; foreach (var x in M("no sun shadows")) yield return x; Settings.SunShadows = sh;
+        bool ao = Settings.MapOcclusion; Settings.MapOcclusion = false; foreach (var x in M("no occlusion")) yield return x; Settings.MapOcclusion = ao;
+        bool bl = Settings.MapBloom; Settings.MapBloom = false; foreach (var x in M("no glow")) yield return x; Settings.MapBloom = bl;
+        bool cl = Settings.MapClouds; Settings.MapClouds = false; foreach (var x in M("no clouds")) yield return x; Settings.MapClouds = cl;
+        bool wa = Settings.MapWater; Settings.MapWater = false; foreach (var x in M("no water")) yield return x; Settings.MapWater = wa;
+        bool rp = renderer.Parallax; renderer.Parallax = false; foreach (var x in M("no relief")) yield return x; renderer.Parallax = rp;
+        bool hd = Settings.MapHdr; Settings.MapHdr = false; foreach (var x in M("no HDR")) yield return x; Settings.MapHdr = hd;
+        bool nrl = Settings.MapNrLook; Settings.MapNrLook = false; foreach (var x in M("old lighting")) yield return x; Settings.MapNrLook = nrl;
+        WorldDrawOff = true; foreach (var x in M("world not drawn (editable maps only)")) yield return x; WorldDrawOff = false;
+    }
+
     IEnumerable<object> MapModeTest(string gtaFolder)
     {
         Fresh();
@@ -1601,6 +1627,16 @@ public sealed partial class EditorApp
         Note("frame profile (ms): " + ProfileText() + $"  ·  GPU uploads during the turn: {renderer.Uploads - up0}");
         Note(WorstFrameText());
         Note($"memory: process {Environment.WorkingSet / 1048576:N0} MB, managed {GC.GetTotalMemory(false) / 1048576:N0} MB, {Scene.Objects.Count:N0} scene objects, {archSlots.Count:N0} models known ({archSlots.Values.Count(x => x.State == 2):N0} ready), {backdrop.Count:N0} far models");
+        {
+            // the same turn again, every model read: what the frame costs once streaming is over, and what each effect costs
+            int sw = stDts.Count;
+            for (int i = 0; i < 60; i++) { cam.Orbit(6, 0); yield return Frames(1); }
+            var dw2 = stDts.Skip(sw).Where(x => x > 0).OrderBy(x => x).ToList();
+            Note($"second turn (models read): median {(dw2.Count > 0 ? dw2[dw2.Count / 2] * 1000 : 0):0.0} ms; {ProfileText()}");
+            var rows = new List<string>();
+            foreach (var x in MapCostMatrix(cam, rows)) yield return x;
+            Note("Legion Square frame time matrix: " + string.Join("; ", rows));
+        }
         Expect(med < 30, $"map mode stays smooth (median {med:0.0} ms per frame)");
         // place a bench on the surface in the middle of the view
         var vp = Viewports[ActiveViewport];

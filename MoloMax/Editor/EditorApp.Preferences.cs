@@ -297,9 +297,22 @@ public sealed partial class EditorApp : IAddonHost
             if (d.ShowDialog(form) == System.Windows.Forms.DialogResult.OK) { renderer.Textures.SearchFolders.Add(d.SelectedPath); renderer.Textures.ClearResolveCache(); }
             Input.ReleaseAllKeys();
         }
-        foreach (var f in renderer.Textures.SearchFolders) Ui.TextDisabled(f);
+        TextureFolderList("##texfolders");
         ImGui.Separator();
         LibraryBuildPanel();
+    }
+
+    /// <summary>The texture folders searched, as a short scrolling list: MAP mode and game imports add a folder per
+    /// model read, so a plain list would push everything under it out of view.</summary>
+    void TextureFolderList(string id)
+    {
+        var folders = renderer.Textures.SearchFolders;
+        if (folders.Count == 0) return;
+        Ui.TextDisabled($"{folders.Count} folder(s) searched");
+        float lh = ImGui.GetTextLineHeightWithSpacing();
+        ImGui.BeginChild(id, new Vector2(-1, MathF.Min(folders.Count, 6) * lh + 6), ImGuiChildFlags.Borders);
+        foreach (var f in folders) Ui.TextDisabled(f);
+        ImGui.EndChild();
     }
 
     void PrefsTripo()
