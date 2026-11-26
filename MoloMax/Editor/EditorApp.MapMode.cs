@@ -74,7 +74,7 @@ public sealed partial class EditorApp
     int archLoading;
     double archScanTime, texForgetTime;
     /// <summary>Models read at the same time: most cores (the UI thread keeps priority over them).</summary>
-    static readonly int ArchParallel = Math.Clamp(Environment.ProcessorCount / 2, 3, 8);
+    static readonly int ArchParallel = Math.Clamp(Environment.ProcessorCount - 2, 3, 12);
     static string MapMeshesDir => Path.Combine(MapCacheDir, "meshes");
     static string MapCacheDir => Environment.GetEnvironmentVariable("POLYMORPH_MAPCACHE") is { Length: > 0 } envDir ? envDir
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Polymorph", "mapcache");
