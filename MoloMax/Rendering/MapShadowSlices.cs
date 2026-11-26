@@ -53,12 +53,12 @@ public sealed class MapShadowSlices
             int i = n == 0 ? 0 : 1 + (n - 1 + frame) % (Count - 1);
             float far = MathF.Max(distance * SplitShares[i], near + 1f);
             Splits[i] = far;
+            // a sphere around the eye holding the whole slice whatever way the camera looks: turning the view (orbit,
+            // look around) keeps every image, only moving the eye far enough draws them again (about 20 % coarser
+            // than a sphere fitted to the slice, many times fewer redraws while the view turns)
             float k = 1f + tanX * tanX + tanY * tanY;
-            var centreOffset = forward * MathF.Min(far, k * (far + near) * 0.5f);
-            float needed = MathF.Max(
-                Vector3.Distance(centreOffset, forward * far + right * (far * tanX) + up * (far * tanY)),
-                Vector3.Distance(centreOffset, forward * near + right * (near * tanX) + up * (near * tanY))) + 1f;
-            var neededCentre = eye + centreOffset;
+            float needed = far * MathF.Sqrt(k) + 1f;
+            var neededCentre = eye;
             bool covers = Radii[i] > 0f && Vector3.Distance(neededCentre, Centres[i]) + needed <= Radii[i] && Radii[i] <= needed * Margin * 1.3f;
             bool d = !covers || stale[i] && (i == 0 || farBudget-- > 0);
             draw[i] = d;
