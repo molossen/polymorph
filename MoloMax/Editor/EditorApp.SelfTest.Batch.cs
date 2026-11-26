@@ -1299,6 +1299,22 @@ public sealed partial class EditorApp
         }
         foreach (var grp in archSlots.Values.Where(a => a.State == 3).GroupBy(a => (a.Error ?? "?").Split(':')[0]).OrderByDescending(gq => gq.Count()).Take(5))
             Note($"not read x{grp.Count()}: {grp.First().Name ?? grp.First().Hash.ToString("X8")} - {grp.First().Error}");
+        {
+            // one model a .ydd was said not to hold: what that .ydd really holds
+            var miss = archSlots.Values.FirstOrDefault(a => a.State == 3 && (a.Error ?? "").StartsWith("not in ") && a.Error.EndsWith(".ydd"));
+            if (miss != null && game.FindDictionaryOf(miss.Hash) is { } dd)
+            {
+                string info;
+                try
+                {
+                    var r = ReadGameModel(game, dd, miss.Hash, new MoloMax.Core.IO.ImportOptions { Scale = 1, AutoSmoothAngle = 0 });
+                    info = string.Join(", ", r.Meshes.GroupBy(m => m.DrawableHash).Take(8).Select(gq => $"{gq.Key:X8}: {gq.Count()} parts {gq.Sum(m => m.Mesh.Faces.Count)} faces [{string.Join("/", gq.Select(m => m.GtaType).Distinct())}]"));
+                    info += $"; materials {string.Join(",", r.Materials.Select(m => m.Shader).Distinct().Take(6))}; warnings {string.Join(" | ", r.Warnings.Take(3))}";
+                }
+                catch (Exception ex) { info = "read failed: " + ex.Message; }
+                Note($"{dd.Name}.ydd, asked for {miss.Hash:X8} ({miss.Name}): {info}");
+            }
+        }
         { int failedInView = worldSel.Count(i => archSlots.TryGetValue(worldEnts.E[i].Arch, out var sl) && sl.State == 3 && Vector3.Distance(worldEnts.E[i].Pos, cam.Eye) < 600);
           Note($"chosen world objects within 600 m whose model could not be read: {failedInView}"); }
         yield return Frames(150); // trimming runs every 2 s
