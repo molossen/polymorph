@@ -1262,6 +1262,9 @@ public sealed partial class EditorApp
             var near = MapLive().Where(o => o.Id >= 0 && o.Name.Contains("tree", StringComparison.OrdinalIgnoreCase)).OrderBy(o => Vector3.Distance(o.Position, cam.Eye)).Take(3).ToList();
             foreach (var o in near)
                 Note($"{o.Name}: " + string.Join(" | ", o.Mesh.Faces.Select(f => f.MatId).Distinct().Select(Scene.Material).Select(m => $"{m.Shader} d={Path.GetFileName(m.DiffuseTexture ?? "-")} tint={Path.GetFileName(m.TintTexture ?? "-")} loaded={renderer.Textures.IsLoaded(m.DiffuseTexture)}")));
+            var terr = MapLive().Where(o => o.Id >= 0 && o.Mesh != null && o.Mesh.Faces.Any(f => Scene.Material(f.MatId).IsTerrain)).OrderBy(o => Vector3.Distance(o.Position, cam.Eye)).Take(4).ToList();
+            foreach (var o in terr)
+                Note($"terrain {o.Name} ({Vector3.Distance(o.Position, cam.Eye):0} m): " + string.Join(" | ", o.Mesh.Faces.Where(f => Scene.Material(f.MatId).IsTerrain).GroupBy(f => f.MatId).Select(g => { var m = Scene.Material(g.Key); return $"{m.Shader} mask={Path.GetFileName(m.LookupTexture ?? "-")} uv1={g.Count(f => f.UV1 != null)}/{g.Count()} layers={string.Join(",", Enumerable.Range(0, 4).Select(i => Path.GetFileName(m.Layer(i) ?? "-")))} {renderer.Textures.Describe(m.Layer(0))}"; })));
         }
         Hour = 19.5f; yield return Frames(10); yield return Shot("look_tataviam_19h30");
         Hour = 0; yield return Frames(10); yield return Shot("look_tataviam_0h");
