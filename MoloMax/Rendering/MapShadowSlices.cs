@@ -34,14 +34,15 @@ public sealed class MapShadowSlices
 
     /// <summary>Places the slices for this camera (eye, forward, right, vertical field of view, aspect), the sun towards
     /// <paramref name="sunDirection"/>, shadows up to <paramref name="distance"/> metres.</summary>
-    public void Update(Vector3 eye, Vector3 forward, Vector3 right, float fovY, float nearPlane, float aspect, Vector3 sunDirection, float distance, bool castersChanged)
+    public void Update(Vector3 eye, Vector3 forward, Vector3 right, float fovY, float nearPlane, float aspect, Vector3 sunDirection, float distance, bool castersChanged, bool farCastersChanged = true)
     {
         forward = Vector3.Normalize(forward);
         var up = Vector3.Cross(right, forward);
         CameraForward = forward;
         float tanY = MathF.Tan(fovY * 0.5f), tanX = tanY * aspect;
         var s = Vector3.Normalize(sunDirection);
-        if (s != sun || castersChanged) Invalidate();
+        if (s != sun) Invalidate();
+        else if (castersChanged) { stale[0] = true; if (farCastersChanged) for (int k = 1; k < Count; k++) stale[k] = true; }
         sun = s; frame++;
         var lightUp = MathF.Abs(s.Z) > 0.99f ? Vector3.UnitY : Vector3.UnitZ;
         var lightRotation = Matrix4x4.CreateLookAt(Vector3.Zero, -s, lightUp);

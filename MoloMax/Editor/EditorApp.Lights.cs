@@ -423,6 +423,7 @@ public sealed partial class EditorApp
     MoloMax.Core.Gta.Look.MapLighting mapLightBase; float mapLightHour = float.NaN; (bool, bool) mapLightHdr;
     int nrCasterHash; double nrCasterCheck;
 
+    double nrFarTime; bool nrFarPending;
     void NrShadows(GtaGlobalLights gl)
     {
         nrSlices ??= new MapShadowSlices(SceneRenderer.ShadowSize);
@@ -437,7 +438,12 @@ public sealed partial class EditorApp
             int hash = h.ToHashCode();
             changed = hash != nrCasterHash; nrCasterHash = hash;
         }
-        nrSlices.Update(cam.Eye, cam.Forward, cam.Right, cam.Fov, cam.Near, vp.Aspect, gl.LightDir, MathF.Max(50, Settings.MapShadowDistance), changed);
+        // the far images (hundreds of metres, thousands of casters) follow the arriving models less often: every 2 s
+        bool far = changed && ImGui.GetTime() - nrFarTime > 2.0;
+        if (far) nrFarTime = ImGui.GetTime();
+        nrFarPending |= changed && !far;
+        if (!changed && nrFarPending && ImGui.GetTime() - nrFarTime > 2.0) { changed = far = true; nrFarPending = false; nrFarTime = ImGui.GetTime(); }
+        nrSlices.Update(cam.Eye, cam.Forward, cam.Right, cam.Fov, cam.Near, vp.Aspect, gl.LightDir, MathF.Max(50, Settings.MapShadowDistance), changed, far);
         for (int i = 0; i < MapShadowSlices.Count; i++)
         {
             if (!nrSlices.MustDraw(i)) continue;

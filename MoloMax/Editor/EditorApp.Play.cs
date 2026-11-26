@@ -15,7 +15,7 @@ public sealed partial class EditorApp
 {
     public bool PlayOn { get; private set; }
     Vector3 playPos, playVel; float playYaw, playPitch; bool playGrounded, playSwimming; Vector3 playStart;
-    double playStepTime; internal string playStartedBy;
+    double playStepTime, playStartTime; internal string playStartedBy;
     /// <summary>Self test: keys held (forward / right, -1..1) and a jump, in place of the keyboard.</summary>
     internal Vector2? playTestWish; internal bool playTestJump, playTestSprint;
     internal Vector3 PlayPos => playPos; internal bool PlayGrounded => playGrounded; internal bool PlaySwimming => playSwimming;
@@ -31,7 +31,7 @@ public sealed partial class EditorApp
         var start = cam.Target;
         if (GpuPickMap(vp, new Vector2(vp.X + vp.W / 2, vp.Y + vp.H / 2), null) is { } h) start = h.Point;
         playStart = start; playStartedBy = string.Join(" < ", new System.Diagnostics.StackTrace().GetFrames().Skip(1).Take(5).Select(f => f.GetMethod()?.Name));
-        playCandAt = new Vector3(float.MaxValue);
+        playCandAt = new Vector3(float.MaxValue); playStartTime = ImGui.GetTime();
         playPos = start + new Vector3(0, 0, 0.05f); playVel = Vector3.Zero; playGrounded = false; playSwimming = false;
         var f = cam.Forward; playYaw = MathF.Atan2(f.Y, f.X); playPitch = 0;
         PlayOn = true; SculptMode = false; paintMode = false; nav = NavMode.None;
@@ -107,6 +107,8 @@ public sealed partial class EditorApp
         int steps = Math.Max(1, (int)MathF.Ceiling(move.Length() / 0.12f));
         var stepMove = move / steps;
         var cand = PlayColliders(playPos, 6f + move.Length());
+        // the ground around is still being read: the player waits in place (no fall through a ground not there yet)
+        if (playCandMissing > 0 && !playGrounded && !playSwimming && ImGui.GetTime() - playStartTime < 6) { playVel = Vector3.Zero; PlayColliders(playPos + new Vector3(0, 0, 0.001f), 6f); return; }
         for (int s = 0; s < steps; s++)
         {
             var dir = stepMove.LengthSquared() > 1e-10f ? Vector3.Normalize(stepMove) : Vector3.Zero;
@@ -342,7 +344,8 @@ public sealed partial class EditorApp
             Expect(PlayOn, $"{name}: Play starts");
             if (!PlayOn) continue;
             playYaw = yaw;
-            yield return Frames(60);
+            yield return Frames(10);
+            yield return Until(() => PlayGrounded || PlaySwimming, 400);
             var p0 = PlayPos;
             Note($"{name}: start {p0}, on the ground {PlayGrounded}, swimming {PlaySwimming}");
             Expect(PlayGrounded || PlaySwimming, $"{name}: lands on the ground");
