@@ -28,6 +28,17 @@ public sealed partial class EditorApp
 
     /// <summary>The level-of-detail world is on and read.</summary>
     bool LodTreeOn => Settings.MapLodTree && worldEnts != null;
+    readonly HashSet<int> worldSelSet = new();
+    HashSet<int> worldOpenMaps = new();
+
+    /// <summary>An editable object of a game map: drawn only when the tree chose its entity here (else its LOD / HD stands for it),
+    /// or when selected.</summary>
+    bool WorldHidesEditable(SceneObject o)
+    {
+        if (!LodTreeOn || !entOf.TryGetValue(o.Id, out var de) || !de.Doc.FromGame || Selected.Contains(o.Id)) return false;
+        int g = worldEnts.Find(worldEnts.YmapIndex(de.Doc.Name), de.Ent.Index);
+        return g >= 0 && !worldSelSet.Contains(g);
+    }
 
     void PumpWorldEntities()
     {
@@ -43,14 +54,15 @@ public sealed partial class EditorApp
         }
         if (worldEnts == null) return;
         // what to draw, worked out in the background when the camera moved (or a map was opened / closed for editing)
-        if (worldSelTask != null && worldSelTask.IsCompleted) { (worldSel, worldSelNext) = (worldSelNext, worldSel); worldSelTask = null; }
+        if (worldSelTask != null && worldSelTask.IsCompleted) { (worldSel, worldSelNext) = (worldSelNext, worldSel); worldSelTask = null; worldSelSet.Clear(); worldSelSet.UnionWith(worldSel); }
         var eye = Viewports[ActiveViewport].Camera.Eye;
         if (worldSelTask == null && (Vector3.Distance(eye, worldSelCam) > 8 || worldSelMaps != mapDocs.Count || worldSelMult != MapLodMult))
         {
             worldSelCam = eye; worldSelMaps = mapDocs.Count; worldSelMult = MapLodMult;
-            var open = new HashSet<int>(mapDocs.Keys.Select(worldEnts.YmapIndex).Where(i => i >= 0));
+            // maps open for editing: the tree still chooses their objects; the editable copies show the chosen ones (MapGatherDraws)
+            worldOpenMaps = new HashSet<int>(mapDocs.Keys.Select(worldEnts.YmapIndex).Where(i => i >= 0));
             var we = worldEnts; float mult = MapLodMult; var into = worldSelNext;
-            worldSelTask = System.Threading.Tasks.Task.Run(() => we.Select(eye, mult, open.Count > 0 ? open.Contains : null, into));
+            worldSelTask = System.Threading.Tasks.Task.Run(() => we.Select(eye, mult, null, into));
         }
     }
 
@@ -119,7 +131,7 @@ public sealed partial class EditorApp
         foreach (var i in worldSel)
         {
             ref var e = ref we.E[i];
-            if (e.Mlo) continue;
+            if (e.Mlo || worldOpenMaps.Contains(e.Ymap)) continue; // open for editing: its editable copy is drawn
             if (!archSlots.TryGetValue(e.Arch, out var s)) s = Slot(e.Arch, null);
             float sc = MathF.Max(e.ScaleXY, e.ScaleZ);
             if (!(s.State == 2 && s.Mesh != null || s.GpuOnly))

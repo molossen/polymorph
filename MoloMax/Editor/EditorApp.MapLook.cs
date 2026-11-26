@@ -61,7 +61,8 @@ public sealed partial class EditorApp
     void SetMapFog(Camera cam)
     {
         var (_, h, sun, disc) = GtaLighting.SkyOf(Hour);
-        float full = MathF.Min(MathF.Max(Settings.MapFogDistance, 300), cam.Far * 0.95f);
+        // seen from high above the haze starts further (the overview of the whole map stays clear)
+        float full = MathF.Min(MathF.Max(MathF.Max(Settings.MapFogDistance, 300), cam.Eye.Z * 2.5f), cam.Far * 0.95f);
         // warm light towards the sun when it is low (sunrise / sunset), nothing at night
         float low = 1 - MathF.Min(MathF.Abs(sun.Z) * 3, 1);
         renderer.SetFog(h, 0.9f, full * 0.35f, full, new Vector3(0.35f, 0.2f, 0.08f) * low * disc, sun);

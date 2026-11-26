@@ -51,6 +51,7 @@ public sealed partial class EditorApp
             var o = i < live.Count ? live[i] : backdrop[i - live.Count];
             if (o.Hidden || o.Mesh == null || o.Mesh.Faces.Count == 0) continue;
             if (o.Id < 0 && (FarSteppedAside(o, eye) || !FarLodVisible(o, eye))) continue; // far model: area loaded for editing, or another LOD level shows here
+            if (i < live.Count && WorldHidesEditable(o)) continue; // level-of-detail world: another level of it shows here
             var (mn, mx) = o.FastWorldBounds();
             // view radius: the game's far models (LOD / SLOD) go too, not only the editable entities
             if (vr2 > 0 && i >= live.Count && Vector3.DistanceSquared(Vector3.Clamp(eye, mn, mx), eye) > vr2) continue;

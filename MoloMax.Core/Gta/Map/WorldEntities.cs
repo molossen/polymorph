@@ -140,9 +140,21 @@ public sealed class WorldEntities
 
     static int Coarse(byte level) => level == 5 ? 0 : level;
 
+    int[] mapFirst, mapCount;
+    /// <summary>Global index of the object at place <paramref name="index"/> of map <paramref name="ymap"/> (-1 none).</summary>
+    public int Find(int ymap, int index)
+    {
+        if (mapFirst == null || ymap < 0 || ymap >= mapFirst.Length) return -1;
+        int lo = mapFirst[ymap], hi = lo + mapCount[ymap] - 1;
+        while (lo <= hi) { int m = (lo + hi) >> 1; int v = E[m].Index; if (v == index) return m; if (v < index) lo = m + 1; else hi = m - 1; }
+        return -1;
+    }
+
     /// <summary>Children lists, far roots and the grid of the near roots.</summary>
     void Index()
     {
+        mapFirst = new int[Ymaps.Length]; mapCount = new int[Ymaps.Length];
+        for (int i = E.Length - 1; i >= 0; i--) { int y = E[i].Ymap; if (y >= 0 && y < mapFirst.Length) { mapFirst[y] = i; mapCount[y]++; } }
         var count = new int[E.Length];
         foreach (var e in E) if (e.Parent >= 0) count[e.Parent]++;
         int at = 0;
