@@ -3677,7 +3677,13 @@ room.Mesh.Faces.Count");
         int Painted(SceneObject o) => o.Mesh.Faces.Sum(f => f.Col1?.Count(cc => cc.Y > 0.6f && cc.Z < 0.3f) ?? 0);
         int before = Painted(g);
         // a stroke across the middle of the model, with the real mouse
-        var a = ScreenOf(vp, c + vp.Camera.Right * (ext * 0.12f)); var b = ScreenOf(vp, c - vp.Camera.Right * (ext * 0.12f));
+        // on the terrain itself: the centre of the terrain face nearest the middle of the view, then 4 m along
+        var tf = g.Mesh.Faces.Select((f, k) => (f, k)).Where(x => Scene.Material(x.f.MatId)?.IsTerrain == true)
+            .Select(x => (x.k, P: Vector3.Transform(x.f.V.Aggregate(Vector3.Zero, (acc, vi) => acc + g.Mesh.Verts[vi]) / x.f.V.Length, g.World)))
+            .OrderBy(x => Vector3.Distance(x.P, c)).First();
+        vp.Camera.Target = tf.P; vp.Camera.Distance = 25; yield return Frames(6);
+        var a = ScreenOf(vp, tf.P - vp.Camera.Right * 2f); var b = ScreenOf(vp, tf.P + vp.Camera.Right * 2f);
+        brush.Radius = 1.5f;
         foreach (var x in MouseTo(a, 8)) yield return x;
         yield return Frames(4);
         Note($"before the stroke: hover hit {paintHover.Hit} at {paintHover.P}, screen {a}");
