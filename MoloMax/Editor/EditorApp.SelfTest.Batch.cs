@@ -1230,6 +1230,39 @@ public sealed partial class EditorApp
         SetMapMode(false);
     }
 
+    /// <summary>The same view as a reference picture (NodeRunner at 2461, -706, 115 looking west at 13:00), for the look of the map.</summary>
+    IEnumerable<object> MapLookTest(string gtaFolder)
+    {
+        Fresh();
+        SetMapMode(true); ClearMapBuild();
+        if (game == null) { Settings.GtaFolder = gtaFolder; if (gameTask == null || gameTask.IsCompleted) StartGameLoad(gtaFolder); }
+        yield return Until(() => game != null || gameError != null, 400);
+        yield return Until(() => world != null, 600);
+        if (world == null) { Expect(false, "map index"); SetMapMode(false); yield break; }
+        var cam = Viewports[ActiveViewport].Camera;
+        cam.Yaw = -0.1f; cam.Pitch = 0.2f; cam.Distance = 60;
+        var eye = new Vector3(2461, -706, 115);
+        cam.Target = eye + cam.Forward * 60;
+        Hour = 13;
+        var t0 = DateTime.Now;
+        yield return Frames(30);
+        yield return Until(() => mapLoadTask == null && mapStreamQueue.Count == 0 && archLoading == 0 && backdropIn.IsEmpty && renderer.Textures.Pending == 0, 240);
+        yield return Frames(30);
+        yield return Until(() => archLoading == 0 && renderer.Textures.Pending == 0, 60);
+        Note($"view ready in {(DateTime.Now - t0).TotalSeconds:0} s: {entOf.Count:N0} entities, {MapVisible:N0} drawn, {MapDrawCalls} draw calls; memory {Environment.WorkingSet / 1048576:N0} MB");
+        yield return Shot("look_tataviam_13h");
+        int st = stDts.Count;
+        for (int i = 0; i < 60; i++) { cam.Orbit(1, 0); yield return Frames(1); }
+        var dts = stDts.Skip(st).Where(x => x > 0).OrderBy(x => x).ToList();
+        Note($"frame median {(dts.Count > 0 ? dts[dts.Count / 2] * 1000 : 0):0.0} ms; {ProfileText()}");
+        cam.Orbit(-60, 0);
+        Hour = 19.5f; yield return Frames(10); yield return Shot("look_tataviam_19h30");
+        Hour = 0; yield return Frames(10); yield return Shot("look_tataviam_0h");
+        Hour = 13;
+        Expect(true, "look pictures taken");
+        SetMapMode(false);
+    }
+
     IEnumerable<object> MapModeTest(string gtaFolder)
     {
         Fresh();
