@@ -1390,6 +1390,16 @@ public sealed partial class EditorApp
         yield return Frames(5);
         Note($"night lights: {DistantLightCount:N0} distant lights");
         yield return Shot("look_tataviam_0h");
+        {
+            // the city at night from the hills
+            var kt = cam.Target; float kd = cam.Distance, kp = cam.Pitch, ky = cam.Yaw;
+            cam.Target = new Vector3(100, -600, 0); cam.Distance = 2200; cam.Pitch = 0.35f; cam.Yaw = 1.2f;
+            yield return Frames(30);
+            for (int k = 0; k < 120 && archLoading > 0; k++) yield return Frames(15);
+            yield return Frames(10);
+            yield return Shot("look_city_night");
+            cam.Target = kt; cam.Distance = kd; cam.Pitch = kp; cam.Yaw = ky;
+        }
         Hour = 13;
         {
             // the sea at Del Perro pier
