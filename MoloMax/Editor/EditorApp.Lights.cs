@@ -92,6 +92,13 @@ public sealed partial class EditorApp
 
         // sun shadows: an orthographic depth map from the sun over the visible scene, re-rendered when something moved
         var gl = ScaledLights(Lights);
+        // MAP look (NodeRunner's light): its sun / moon direction casts the shadows too
+        if (MapNrLookOn)
+        {
+            mapLight = MoloMax.Core.Gta.Look.MapLighting.ForHour(Hour, Settings.MapFogDistance);
+            gl.LightDir = mapLight.SunDirection;
+            flags |= RenderFlags.MapLook;
+        }
         ShadowsRendered = false;
         if (Settings.SunShadows && realistic && !InteriorLight && gl.LightDir.Z > 0.05f && ShadowStrength > 0)
         {

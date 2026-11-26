@@ -61,7 +61,7 @@ cbuffer MaterialVars : register(b2)
     uint  Parallax;             // 1 height map (heightSampler), 2 terrain: one height map per layer
     float HeightScale;
     float HeightBias;
-    uint  ParallaxPad;
+    uint  EmissiveNight;        // emissivenight shaders: lit only at night (MAP look)
     float4 LayerHeightScale;
     float4 LayerHeightBias;
 };
@@ -306,6 +306,54 @@ float2 ParallaxUv(float2 uv, float3 wp, float3 n, float3 t, float3 b, float4 w)
     return uv + (te.xy / z) * hb * scale + maxOff * (1 - saturate(fh));
 }
 
+// ---- MAP look: NodeRunner's lighting (sun or moon, light from the sky and the ground, sky mirrored by shiny
+//      surfaces, distance haze), in display colours. Ported with the author's agreement.
+cbuffer MapLookVars : register(b9)
+{
+    float4 NrLightDir;    // xyz towards the sun (the moon at night)
+    float4 NrSunColor;
+    float4 NrSkyAmbient;
+    float4 NrGroundAmbient;
+    float4 NrFogColor;    // a: 1 = haze on
+    float4 NrCameraFog;   // xyz camera, w distance where the haze hides everything
+    float4 NrSkyTop;      // sky overhead (mirrored)
+    float4 NrInfo;        // x night lights (0 day, 1 night)
+};
+
+float3 NrMirroredSky(float3 m)
+{
+    return m.z >= 0 ? lerp(NrFogColor.rgb, NrSkyTop.rgb, saturate(m.z * 1.6)) : lerp(NrFogColor.rgb, NrGroundAmbient.rgb * 0.5, saturate(-m.z * 4));
+}
+
+float4 NrShade(float4 color, float3 n, float3 world, float3 geoN, float4 spec, bool hasSpec)
+{
+    float sun = saturate(dot(n, NrLightDir.xyz));
+    if (sun > 0) sun *= SunShadow(world, geoN);
+    float sky = 0.5 + 0.5 * n.z;
+    float3 ambient = lerp(NrGroundAmbient.rgb, NrSkyAmbient.rgb, sky);
+    float3 light = ambient + NrSunColor.rgb * sun;
+    float emission = IsEmissive > 0 ? (EmissiveNight > 0 ? NrInfo.x : 1) : 0;
+    float3 lit = color.rgb * max(light, emission * 1.4);
+    float3 toCamera = normalize(NrCameraFog.xyz - world);
+    if (hasSpec)
+    {
+        if (sun > 0)
+        {
+            float3 halfway = normalize(NrLightDir.xyz + toCamera);
+            float power = clamp(spec.a * specularFalloffMult, 8, 512);
+            float highlight = pow(saturate(dot(n, halfway)), power) * 0.3;
+            lit += NrSunColor.rgb * (spec.r * spec.r * specularIntensityMult * highlight * sun);
+        }
+        float facing = 1 - saturate(dot(n, toCamera));
+        float fresnel = 0.04 + 0.96 * facing * facing * facing * facing * facing;
+        lit += NrMirroredSky(reflect(-toCamera, n)) * (fresnel * spec.r * saturate(specularIntensityMult) * 0.45);
+    }
+    float dist = length(world - NrCameraFog.xyz);
+    float fog = NrFogColor.a * saturate((dist - 0.25 * NrCameraFog.w) / (0.75 * NrCameraFog.w));
+    fog = fog * fog * (3 - 2 * fog);
+    return float4(lerp(lit, NrFogColor.rgb, fog), color.a);
+}
+
 // sun visibility from the shadow maps, 3x3 PCF (soft edge): the near map where it covers the point, else the wider ones
 float ShadowSample(float slice, float2 uv, float z)
 {
@@ -502,6 +550,11 @@ float4 PSMain(VS_OUTPUT input, bool front : SV_IsFrontFace) : SV_TARGET
         norm = NormalMap(nmv, bumpiness, nrm, input.Tangent.xyz, input.Bitangent.xyz);
     }
     if (EnableSpecMap == 0) sv = float4(0.1, 0.1, 0.1, 0.1);
+    if ((SceneFlags & 16) != 0 && RenderMode == 0)
+    {
+        float4 o = NrShade(float4(saturate(c.rgb), c.a), norm, input.WorldPos, nrm, EnableSpecMap > 0 ? Specmap.Sample(TextureSS, tc) : 0, EnableSpecMap > 0);
+        return o;
+    }
     float4 svRaw = sv;               // local lights use the map as is
     sv.xy = sv.xy * sv.xy;           // the sun term squares it (CodeWalker)
 

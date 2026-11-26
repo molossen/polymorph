@@ -376,7 +376,7 @@ public sealed partial class EditorApp : IDisposable
         var l = ScaledLights(Lights);
         var cur = Current;
         renderer.EditObjectId = Level != SubObject.Object && cur != null ? cur.Id : -1;
-        if (skyView && Settings.MapFog) SetMapFog(cam); else renderer.FogOff();
+        if (skyView && (Settings.MapFog || MapNrLookOn)) SetMapFog(cam); else renderer.FogOff();
         renderer.BeginScene(viewProj, cam.Eye, l, vp.Shading, Exposure, AmbientBoost);
         ctx.OutputMerger.SetDepthStencilState(renderer.DepthDefault);
         ctx.OutputMerger.SetBlendState(renderer.Opaque, blendCol, -1);
