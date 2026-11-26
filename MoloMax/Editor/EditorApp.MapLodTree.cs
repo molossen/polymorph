@@ -1,4 +1,5 @@
 using System.Numerics;
+using ImGuiNET;
 using MoloMax.Core.Gta.Map;
 using MoloMax.Core.Mesh;
 using MoloMax.Core.Scenes;
@@ -54,8 +55,36 @@ public sealed partial class EditorApp
     }
 
     /// <summary>The shared object standing for every world entity of one model (drawn instanced).</summary>
+    double worldNow, worldTrimTime;
+    static readonly PolyMesh GpuOnlyStub = new();
+
+    /// <summary>Models drawn only by the level-of-detail world let go of their CPU copy once on the graphics card, and leave
+    /// the graphics card 20 s after they were last drawn (read again from the cache when the camera comes back).</summary>
+    void TrimWorldModels()
+    {
+        if (!LodTreeOn || ImGui.GetTime() - worldTrimTime < 2) return;
+        worldTrimTime = ImGui.GetTime();
+        var sceneKeys = new HashSet<string>(Scene.Objects.Where(o => o.InstanceKey != null).Select(o => o.InstanceKey));
+        var keep = new HashSet<string>(backdrop.Select(o => o.InstanceKey));
+        double now = ImGui.GetTime();
+        foreach (var (hash, t) in worldTpl)
+        {
+            if (!archSlots.TryGetValue(hash, out var s)) continue;
+            bool recent = now - s.LastUsed < 20;
+            if (recent) keep.Add(t.InstanceKey);
+            if (sceneKeys.Contains(t.InstanceKey)) continue; // scene objects use the real mesh
+            if (s.GpuOnly && !recent) { s.GpuOnly = false; s.State = 0; s.Mesh = null; s.Ver = 0; t.Mesh = null; continue; } // gone from the graphics card at the next collect
+            if (!s.GpuOnly && s.State == 2 && s.Mesh != null && !renderer.NeedsUpload(t))
+            {
+                s.GpuOnly = true; s.Mesh = null; t.Mesh = GpuOnlyStub; // the CPU copy goes, the GPU one stays (same version)
+            }
+        }
+        renderer.KeepInstanceKeys = keep;
+    }
+
     SceneObject WorldTemplate(ArchSlot s)
     {
+        if (s.GpuOnly && worldTpl.TryGetValue(s.Hash, out var g)) return g;
         if (!worldTpl.TryGetValue(s.Hash, out var t))
         {
             worldTpl[s.Hash] = t = new SceneObject { Id = worldTplNext--, Name = s.Name ?? s.Hash.ToString("X8"), InstanceKey = "map:" + s.Hash.ToString("X8"), Mesh = s.Mesh };
@@ -72,13 +101,15 @@ public sealed partial class EditorApp
     void GatherWorld(Vector4[] planes, Vector3 eye, float pix, float vr2)
     {
         if (!LodTreeOn) return;
+        worldNow = ImGui.GetTime();
         var we = worldEnts;
         foreach (var i in worldSel)
         {
             ref var e = ref we.E[i];
             if (e.Mlo) continue;
             if (!archSlots.TryGetValue(e.Arch, out var s)) s = Slot(e.Arch, null);
-            if (s.State != 2 || s.Mesh == null) continue;
+            if (!(s.State == 2 && s.Mesh != null || s.GpuOnly)) continue;
+            s.LastUsed = worldNow;
             float sc = MathF.Max(e.ScaleXY, e.ScaleZ);
             var lc = (s.Min + s.Max) * 0.5f;
             var c = e.Pos + Vector3.Transform(lc * new Vector3(e.ScaleXY, e.ScaleXY, e.ScaleZ), e.Rot);

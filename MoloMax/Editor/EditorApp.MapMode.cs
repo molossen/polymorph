@@ -62,6 +62,7 @@ public sealed partial class EditorApp
         public string Error; public float Priority = float.MaxValue;
         public bool Seen; // went through a priority scan (until then nobody knows if it is wanted)
         public int Ver;   // GPU mesh version shared by every object of this model
+        public bool GpuOnly; public double LastUsed; // level-of-detail world: only on the graphics card (the CPU copy let go), last frame drawn
     }
     /// <summary>A model read in the background: merged mesh (materials still numbered as in the file) and its GPU triangles.</summary>
     sealed class ArchLoad { public string Why; public MoloMax.Core.IO.ImportResult R; public PolyMesh Mesh; public List<MoloMax.Core.Mesh.RenderGroup> Groups; public Vector3 Min, Max; }
@@ -175,7 +176,7 @@ public sealed partial class EditorApp
             });
         }
         PumpMapLoad(); Prof("map load");
-        PumpWorldEntities();
+        PumpWorldEntities(); TrimWorldModels();
         if (!LodTreeOn) PumpBackdrop(); Prof("map far");
         PumpArchetypes(); Prof("map models");
         if (MapStream && world != null && ImGui.GetTime() - mapLastStream > 0.5) { mapLastStream = ImGui.GetTime(); StreamWorld(HdStreamingNow); }
@@ -222,7 +223,7 @@ public sealed partial class EditorApp
         }
         if (near)
             // with the level-of-detail world the game's objects are drawn already: only the maps holding interiors open by themselves
-            foreach (var y in world.Near(p, MapStreamRadius).Where(y => (!LodTreeOn || y.Interior) && !mapDocs.ContainsKey(y.Name) && !mapStreamQueue.Contains(y) && !mapLoadQueue.Contains(y))
+            foreach (var y in world.Near(p, MapStreamRadius).Where(y => (!Settings.MapLodTree || y.Interior) && !mapDocs.ContainsKey(y.Name) && !mapStreamQueue.Contains(y) && !mapLoadQueue.Contains(y))
                                     .OrderBy(y => Vector3.DistanceSquared(Vector3.Clamp(p, y.Min, y.Max), p)))
                 mapStreamQueue.Enqueue(y);
         // unload far maps that have no change (the ones opened by hand stay); zoomed out: every streamed one goes
@@ -411,7 +412,12 @@ public sealed partial class EditorApp
 
     ArchSlot Slot(uint hash, string name)
     {
-        if (archSlots.TryGetValue(hash, out var s)) return s;
+        if (archSlots.TryGetValue(hash, out var s))
+        {
+            // a scene object needs the mesh itself: a model kept only on the graphics card is read again (from the cache, quick)
+            if (s.GpuOnly) { s.GpuOnly = false; s.Mesh = null; s.State = 0; s.Ver = 0; }
+            return s;
+        }
         s = new ArchSlot { Hash = hash, Name = name };
         // a model of the project (MODEL mode) with that name: use its mesh at once
         var proj = ProjectModel(name);
