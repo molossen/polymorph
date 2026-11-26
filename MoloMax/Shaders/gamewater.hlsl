@@ -2,6 +2,7 @@
 // the camera moved by the game's swell, waves rolling in along the shore, foam, the colour of each place, reflections and
 // the bottom seen through it. Standard depth (the reference used reversed depth): see ViewDepth.
 
+// Matrices are packed row-major (the loader's flag) and used as mul(rowVector, M), like System.Numerics.
 cbuffer Constants : register(b0)
 {
     float4x4 ViewProjection;
@@ -216,7 +217,7 @@ bool IsOpenWater(float2 p)
 PS_INPUT VS(VS_INPUT input)
 {
     PS_INPUT output;
-    output.pos = mul(ViewProjection, float4(input.pos, 1.0f));
+    output.pos = mul(float4(input.pos, 1.0f), ViewProjection);
     output.world = input.pos;
     output.rest = input.pos;
     output.waves = input.waves;
@@ -240,7 +241,7 @@ PS_INPUT VSGrid(VS_GRID_INPUT input)
         Swell(rest.xy, WaveAt(rest.xy), 1.0f, input.spacing, offset, tx, ty, shore);
         world += offset * reach;
     }
-    output.pos = mul(ViewProjection, float4(world, 1.0f));
+    output.pos = mul(float4(world, 1.0f), ViewProjection);
     output.world = world;
     output.rest = rest;
     output.waves = 1.0f;
@@ -252,12 +253,12 @@ PS_INPUT VSGrid(VS_GRID_INPUT input)
 PS_INPUT VSMesh(VS_MESH_INPUT input)
 {
     PS_INPUT output;
-    float4 world = mul(World, float4(input.pos, 1.0f));
-    output.pos = mul(ViewProjection, world);
+    float4 world = mul(float4(input.pos, 1.0f), World);
+    output.pos = mul(world, ViewProjection);
     output.world = world.xyz;
     output.rest = world.xyz;
     output.waves = MeshWaves.x;
-    output.up = mul((float3x3)World, input.normal);
+    output.up = mul(input.normal, (float3x3)World);
     output.kind = float2(0.0f, 0.0f);
     return output;
 }
@@ -342,7 +343,7 @@ float3 SkyColor(float3 ray)
 // Returns -1e9 off screen or where only the sky is drawn.
 float Behind(float3 p, out int2 pixel, out float2 ndc)
 {
-    float4 clip = mul(ViewProjection, float4(p, 1.0f));
+    float4 clip = mul(float4(p, 1.0f), ViewProjection);
     pixel = int2(0, 0);
     ndc = float2(2.0f, 2.0f);
     if (clip.w <= SunDirection.w)
