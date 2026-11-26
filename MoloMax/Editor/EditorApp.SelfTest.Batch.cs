@@ -1260,6 +1260,18 @@ public sealed partial class EditorApp
         Note($"frame median {(dts.Count > 0 ? dts[dts.Count / 2] * 1000 : 0):0.0} ms; {ProfileText()}");
         Note($"drawn by level: " + string.Join(", ", Enumerable.Range(0, 6).Select(l => $"L{l} {instGroups.Values.Sum(g => Enumerable.Range(0, g.Count).Count(k => g.Ents[k] >= 0 && worldEnts.E[g.Ents[k]].Level == l))}")));
         cam.Orbit(-60, 0);
+        renderer.TintPalettes = false; yield return Frames(5); yield return Shot("look_tataviam_13h_notint"); renderer.TintPalettes = true;
+        {
+            // which shaders and textures the white-looking trees use
+            var near = MapLive().Where(o => o.Id >= 0 && o.Name.Contains("tree", StringComparison.OrdinalIgnoreCase)).OrderBy(o => Vector3.Distance(o.Position, cam.Eye)).Take(3).ToList();
+            foreach (var o in near)
+                Note($"{o.Name}: " + string.Join(" | ", o.Mesh.Faces.Select(f => f.MatId).Distinct().Select(Scene.Material).Select(m => $"{m.Shader} d={Path.GetFileName(m.DiffuseTexture ?? "-")} tint={Path.GetFileName(m.TintTexture ?? "-")} loaded={renderer.Textures.IsLoaded(m.DiffuseTexture)}")));
+            var terr = MapLive().Where(o => o.Id >= 0 && o.Mesh != null && o.Mesh.Faces.Any(f => Scene.Material(f.MatId).IsTerrain)).OrderBy(o => Vector3.Distance(o.Position, cam.Eye)).Take(4).ToList();
+            foreach (var o in terr)
+                Note($"terrain {o.Name} ({Vector3.Distance(o.Position, cam.Eye):0} m): " + string.Join(" | ", o.Mesh.Faces.Where(f => Scene.Material(f.MatId).IsTerrain).GroupBy(f => f.MatId).Select(g => { var m = Scene.Material(g.Key); return $"{m.Shader} mask={Path.GetFileName(m.LookupTexture ?? "-")} uv1={g.Count(f => f.UV1 != null)}/{g.Count()} layers={string.Join(",", Enumerable.Range(0, 4).Select(i => Path.GetFileName(m.Layer(i) ?? "-")))} {renderer.Textures.Describe(m.Layer(0))}"; })));
+        }
+        { var tf = DateTime.Now; for (int k = 0; k < 600 && (archLoading > 0 || renderer.Textures.Pending > 0); k++) yield return Frames(15);
+          Note($"every chosen model read {(DateTime.Now - tf).TotalSeconds:0} s later ({archLoading} still reading); memory {Environment.WorkingSet / 1048576:N0} MB"); }
         {
             // what the frame time is made of: the same view with one thing changed at a time
             IEnumerable<object> Measure(string label, List<string> outp)
@@ -1285,18 +1297,6 @@ public sealed partial class EditorApp
             Settings.MapSky = sk; Settings.MapFog = fg;
             Note("frame time matrix: " + string.Join("; ", rows));
         }
-        renderer.TintPalettes = false; yield return Frames(5); yield return Shot("look_tataviam_13h_notint"); renderer.TintPalettes = true;
-        {
-            // which shaders and textures the white-looking trees use
-            var near = MapLive().Where(o => o.Id >= 0 && o.Name.Contains("tree", StringComparison.OrdinalIgnoreCase)).OrderBy(o => Vector3.Distance(o.Position, cam.Eye)).Take(3).ToList();
-            foreach (var o in near)
-                Note($"{o.Name}: " + string.Join(" | ", o.Mesh.Faces.Select(f => f.MatId).Distinct().Select(Scene.Material).Select(m => $"{m.Shader} d={Path.GetFileName(m.DiffuseTexture ?? "-")} tint={Path.GetFileName(m.TintTexture ?? "-")} loaded={renderer.Textures.IsLoaded(m.DiffuseTexture)}")));
-            var terr = MapLive().Where(o => o.Id >= 0 && o.Mesh != null && o.Mesh.Faces.Any(f => Scene.Material(f.MatId).IsTerrain)).OrderBy(o => Vector3.Distance(o.Position, cam.Eye)).Take(4).ToList();
-            foreach (var o in terr)
-                Note($"terrain {o.Name} ({Vector3.Distance(o.Position, cam.Eye):0} m): " + string.Join(" | ", o.Mesh.Faces.Where(f => Scene.Material(f.MatId).IsTerrain).GroupBy(f => f.MatId).Select(g => { var m = Scene.Material(g.Key); return $"{m.Shader} mask={Path.GetFileName(m.LookupTexture ?? "-")} uv1={g.Count(f => f.UV1 != null)}/{g.Count()} layers={string.Join(",", Enumerable.Range(0, 4).Select(i => Path.GetFileName(m.Layer(i) ?? "-")))} {renderer.Textures.Describe(m.Layer(0))}"; })));
-        }
-        { var tf = DateTime.Now; for (int k = 0; k < 600 && (archLoading > 0 || renderer.Textures.Pending > 0); k++) yield return Frames(15);
-          Note($"every chosen model read {(DateTime.Now - tf).TotalSeconds:0} s later ({archLoading} still reading); memory {Environment.WorkingSet / 1048576:N0} MB"); }
         yield return Frames(150); // trimming runs every 2 s
         {
             long before = GC.GetTotalMemory(false); GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); long after = GC.GetTotalMemory(true);
