@@ -80,7 +80,7 @@ public sealed partial class EditorApp
         {
             if (g.Count == 0) continue;
             renderer.SetClip(g.Template.Id < 0 ? hiddenClip : null);
-            if (g.Count == 1) { renderer.DrawObject(Scene, g.Template, alphaPass, Vector4.Zero, BackfaceCull); MapDrawCalls++; continue; }
+            if (g.Count == 1 && g.Ents[0] < 0) { renderer.DrawObject(Scene, g.Template, alphaPass, Vector4.Zero, BackfaceCull); MapDrawCalls++; continue; }
             renderer.DrawInstanced(Scene, g.Template, g.Worlds, g.Count, alphaPass, BackfaceCull);
             MapDrawCalls++;
         }

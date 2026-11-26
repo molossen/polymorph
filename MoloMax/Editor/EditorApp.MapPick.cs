@@ -48,7 +48,7 @@ public sealed partial class EditorApp
             if (n == 0) continue;
             renderer.SetClip(g.Template.Id < 0 ? hiddenClip : null);
             renderer.SetPickBase((uint)first);
-            if (n == 1) renderer.DrawObject(Scene, pickIds[first], false, Vector4.Zero, BackfaceCull);
+            if (n == 1 && pickEnts[first] < 0) renderer.DrawObject(Scene, pickIds[first], false, Vector4.Zero, BackfaceCull); // a world object has no place of its own: always instanced
             else renderer.DrawInstanced(Scene, g.Template, pickWorlds, n, false, BackfaceCull);
         }
         foreach (var o in mapSingles)
