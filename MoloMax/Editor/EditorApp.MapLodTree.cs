@@ -110,21 +110,34 @@ public sealed partial class EditorApp
     {
         if (!LodTreeOn) return;
         worldNow = ImGui.GetTime();
+        worldWanted.Clear();
         var we = worldEnts;
         foreach (var i in worldSel)
         {
             ref var e = ref we.E[i];
             if (e.Mlo) continue;
             if (!archSlots.TryGetValue(e.Arch, out var s)) s = Slot(e.Arch, null);
-            if (!(s.State == 2 && s.Mesh != null || s.GpuOnly)) continue;
-            s.LastUsed = worldNow;
             float sc = MathF.Max(e.ScaleXY, e.ScaleZ);
+            if (!(s.State == 2 && s.Mesh != null || s.GpuOnly))
+            {
+                // not read yet: wanted when it would be on screen (rough size from the archetype until the model is here)
+                if (s.State != 0) continue;
+                float rr = MathF.Max(game?.ArchetypeSize(e.Arch) ?? 20f, 5f) * sc;
+                bool on = true;
+                foreach (var p in planes) if (p.X * e.Pos.X + p.Y * e.Pos.Y + p.Z * e.Pos.Z + p.W < -rr) { on = false; break; }
+                if (!on) continue;
+                float d2 = Vector3.DistanceSquared(e.Pos, eye);
+                if (!worldWanted.TryGetValue(e.Arch, out var w0) || d2 < w0) worldWanted[e.Arch] = d2;
+                s.LastUsed = worldNow;
+                continue;
+            }
             var lc = (s.Min + s.Max) * 0.5f;
             var c = e.Pos + Vector3.Transform(lc * new Vector3(e.ScaleXY, e.ScaleXY, e.ScaleZ), e.Rot);
             float r = (s.Max - s.Min).Length() * 0.5f * sc;
             bool vis = true;
             foreach (var p in planes) if (p.X * c.X + p.Y * c.Y + p.Z * c.Z + p.W < -r) { vis = false; break; }
             if (!vis) continue;
+            s.LastUsed = worldNow;
             float d = Vector3.Distance(c, eye);
             if (pix > 0 && d > r && r / d < pix * 1.5f) continue;
             if (vr2 > 0 && MathF.Max(0, d - r) * MathF.Max(0, d - r) > vr2) continue;
@@ -140,17 +153,12 @@ public sealed partial class EditorApp
     }
 
     /// <summary>Archetypes the chosen world entities need, nearest first (added to the reading order).</summary>
+    readonly Dictionary<uint, float> worldWanted = new();
     void WorldPriorities(Vector3 eye)
     {
         if (!LodTreeOn) return;
-        foreach (var i in worldSel)
-        {
-            ref var e = ref worldEnts.E[i];
-            if (e.Mlo) continue;
-            if (!archSlots.TryGetValue(e.Arch, out var s)) s = Slot(e.Arch, null);
-            if (s.State != 0) continue;
-            s.Priority = MathF.Min(s.Priority, Vector3.DistanceSquared(e.Pos, eye));
-        }
+        foreach (var (h, d2) in worldWanted)
+            if (archSlots.TryGetValue(h, out var s) && s.State == 0) s.Priority = MathF.Min(s.Priority, d2);
     }
 
     /// <summary>A click on a world entity: its .ymap opens for editing, then the entity is selected.</summary>
