@@ -306,54 +306,6 @@ float2 ParallaxUv(float2 uv, float3 wp, float3 n, float3 t, float3 b, float4 w)
     return uv + (te.xy / z) * hb * scale + maxOff * (1 - saturate(fh));
 }
 
-// ---- MAP look: NodeRunner's lighting (sun or moon, light from the sky and the ground, sky mirrored by shiny
-//      surfaces, distance haze), in display colours. Ported with the author's agreement.
-cbuffer MapLookVars : register(b9)
-{
-    float4 NrLightDir;    // xyz towards the sun (the moon at night)
-    float4 NrSunColor;
-    float4 NrSkyAmbient;
-    float4 NrGroundAmbient;
-    float4 NrFogColor;    // a: 1 = haze on
-    float4 NrCameraFog;   // xyz camera, w distance where the haze hides everything
-    float4 NrSkyTop;      // sky overhead (mirrored)
-    float4 NrInfo;        // x night lights (0 day, 1 night)
-};
-
-float3 NrMirroredSky(float3 m)
-{
-    return m.z >= 0 ? lerp(NrFogColor.rgb, NrSkyTop.rgb, saturate(m.z * 1.6)) : lerp(NrFogColor.rgb, NrGroundAmbient.rgb * 0.5, saturate(-m.z * 4));
-}
-
-float4 NrShade(float4 color, float3 n, float3 world, float3 geoN, float4 spec, bool hasSpec)
-{
-    float sun = saturate(dot(n, NrLightDir.xyz));
-    if (sun > 0) sun *= SunShadow(world, geoN);
-    float sky = 0.5 + 0.5 * n.z;
-    float3 ambient = lerp(NrGroundAmbient.rgb, NrSkyAmbient.rgb, sky);
-    float3 light = ambient + NrSunColor.rgb * sun;
-    float emission = IsEmissive > 0 ? (EmissiveNight > 0 ? NrInfo.x : 1) : 0;
-    float3 lit = color.rgb * max(light, emission * 1.4);
-    float3 toCamera = normalize(NrCameraFog.xyz - world);
-    if (hasSpec)
-    {
-        if (sun > 0)
-        {
-            float3 halfway = normalize(NrLightDir.xyz + toCamera);
-            float power = clamp(spec.a * specularFalloffMult, 8, 512);
-            float highlight = pow(saturate(dot(n, halfway)), power) * 0.3;
-            lit += NrSunColor.rgb * (spec.r * spec.r * specularIntensityMult * highlight * sun);
-        }
-        float facing = 1 - saturate(dot(n, toCamera));
-        float fresnel = 0.04 + 0.96 * facing * facing * facing * facing * facing;
-        lit += NrMirroredSky(reflect(-toCamera, n)) * (fresnel * spec.r * saturate(specularIntensityMult) * 0.45);
-    }
-    float dist = length(world - NrCameraFog.xyz);
-    float fog = NrFogColor.a * saturate((dist - 0.25 * NrCameraFog.w) / (0.75 * NrCameraFog.w));
-    fog = fog * fog * (3 - 2 * fog);
-    return float4(lerp(lit, NrFogColor.rgb, fog), color.a);
-}
-
 // sun visibility from the shadow maps, 3x3 PCF (soft edge): the near map where it covers the point, else the wider ones
 float ShadowSample(float slice, float2 uv, float z)
 {
@@ -385,6 +337,84 @@ float SunShadow(float3 wp, float3 n)
     if (!inside && CascadeInfo.z >= 1) s = ShadowIn(CascadeVP1, 1, CascadeInfo.x, wp, n, inside);
     if (!inside && CascadeInfo.z >= 2) s = ShadowIn(CascadeVP2, 2, CascadeInfo.y, wp, n, inside);
     return lerp(1, s, ShadowStrength);
+}
+
+// ---- MAP look: NodeRunner's lighting (sun or moon, light from the sky and the ground, sky mirrored by shiny
+//      surfaces, distance haze), in display colours. Ported with the author's agreement.
+cbuffer MapLookVars : register(b9)
+{
+    float4 NrLightDir;    // xyz towards the sun (the moon at night)
+    float4 NrSunColor;
+    float4 NrSkyAmbient;
+    float4 NrGroundAmbient;
+    float4 NrFogColor;    // a: 1 = haze on
+    float4 NrCameraFog;   // xyz camera, w distance where the haze hides everything
+    float4 NrSkyTop;      // sky overhead (mirrored)
+    float4 NrInfo;        // x night lights (0 day, 1 night)
+};
+
+// sun shadows of the MAP look: one image per slice of the view (NodeRunner's ShadowMaps)
+cbuffer NrShadowVars : register(b10)
+{
+    row_major float4x4 NrShadowMatrix0;
+    row_major float4x4 NrShadowMatrix1;
+    row_major float4x4 NrShadowMatrix2;
+    float4 NrShadowSplits;   // xyz far end of each slice (m along the view), w 1 = on
+    float4 NrShadowTexels;   // xyz texel (m) of each slice, w 1 / image size
+    float4 NrShadowForward;  // xyz camera view direction
+};
+
+float NrSunShadow(float3 world, float3 n)
+{
+    float depth = dot(world - NrCameraFog.xyz, NrShadowForward.xyz);
+    if (NrShadowSplits.w < 0.5 || depth >= NrShadowSplits.z) return 1;
+    int c = depth < NrShadowSplits.x ? 0 : depth < NrShadowSplits.y ? 1 : 2;
+    float texel = c == 0 ? NrShadowTexels.x : c == 1 ? NrShadowTexels.y : NrShadowTexels.z;
+    float4x4 m = c == 0 ? NrShadowMatrix0 : c == 1 ? NrShadowMatrix1 : NrShadowMatrix2;
+    float4 p = mul(float4(world + n * (1.5 * texel), 1), m);
+    float2 uv = p.xy * float2(0.5, -0.5) + 0.5;
+    float reference = p.z - 1.5 * NrShadowTexels.w;
+    float lit = 0;
+    [unroll] for (int y = -1; y <= 1; y++)
+        [unroll] for (int x = -1; x <= 1; x++)
+            lit += ShadowSample(c, uv + float2(x, y) * NrShadowTexels.w, reference);
+    lit /= 9.0;
+    float fade = saturate((NrShadowSplits.z - depth) / (0.15 * NrShadowSplits.z));
+    return lerp(1, lit, fade);
+}
+
+float3 NrMirroredSky(float3 m)
+{
+    return m.z >= 0 ? lerp(NrFogColor.rgb, NrSkyTop.rgb, saturate(m.z * 1.6)) : lerp(NrFogColor.rgb, NrGroundAmbient.rgb * 0.5, saturate(-m.z * 4));
+}
+
+float4 NrShade(float4 color, float3 n, float3 world, float3 geoN, float4 spec, bool hasSpec)
+{
+    float sun = saturate(dot(n, NrLightDir.xyz));
+    if (sun > 0) sun *= NrSunShadow(world, geoN);
+    float sky = 0.5 + 0.5 * n.z;
+    float3 ambient = lerp(NrGroundAmbient.rgb, NrSkyAmbient.rgb, sky);
+    float3 light = ambient + NrSunColor.rgb * sun;
+    float emission = IsEmissive > 0 ? (EmissiveNight > 0 ? NrInfo.x : 1) : 0;
+    float3 lit = color.rgb * max(light, emission * 1.4);
+    float3 toCamera = normalize(NrCameraFog.xyz - world);
+    if (hasSpec)
+    {
+        if (sun > 0)
+        {
+            float3 halfway = normalize(NrLightDir.xyz + toCamera);
+            float power = clamp(spec.a * specularFalloffMult, 8, 512);
+            float highlight = pow(saturate(dot(n, halfway)), power) * 0.3;
+            lit += NrSunColor.rgb * (spec.r * spec.r * specularIntensityMult * highlight * sun);
+        }
+        float facing = 1 - saturate(dot(n, toCamera));
+        float fresnel = 0.04 + 0.96 * facing * facing * facing * facing * facing;
+        lit += NrMirroredSky(reflect(-toCamera, n)) * (fresnel * spec.r * saturate(specularIntensityMult) * 0.45);
+    }
+    float dist = length(world - NrCameraFog.xyz);
+    float fog = NrFogColor.a * saturate((dist - 0.25 * NrCameraFog.w) / (0.75 * NrCameraFog.w));
+    fog = fog * fog * (3 - 2 * fog);
+    return float4(lerp(lit, NrFogColor.rgb, fog), color.a);
 }
 
 // GTA lights like the game: distance falloff = RagePowApprox(1 - d^2/R^2, exponent), linear spot cone, capsule = nearest

@@ -529,7 +529,7 @@ public sealed partial class EditorApp
             foreach (var f in mesh.Faces) f.MatId = ids[f.MatId];
             foreach (var g in ld.Groups) g.MaterialId = ids[Math.Clamp(g.MaterialId, 0, ids.Length - 1)];
             renderer.Prebuilt.AddOrUpdate(mesh, ld.Groups);
-            s.Mesh = mesh; s.Min = ld.Min; s.Max = ld.Max; s.State = 2;
+            s.Mesh = mesh; s.Min = ld.Min; s.Max = ld.Max; s.State = 2; archReady++;
             string key = "map:" + s.Hash.ToString("X8");
             if (byKey == null)
             {

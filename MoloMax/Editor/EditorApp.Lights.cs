@@ -102,6 +102,7 @@ public sealed partial class EditorApp
         ShadowsRendered = false;
         if (Settings.SunShadows && realistic && !InteriorLight && gl.LightDir.Z > 0.05f && ShadowStrength > 0)
         {
+            if (MapNrLookOn) { NrShadows(gl); flags |= RenderFlags.SunShadows; ShadowsRendered = true; renderer.SetLights(viewLights, flags, shadowVP, shadowTexel, ShadowStrength); return; }
             if (MapMode) { MapShadows(gl); MapCascades(gl); flags |= RenderFlags.SunShadows; ShadowsRendered = true; renderer.SetLights(viewLights, flags, shadowVP, shadowTexel, ShadowStrength); return; }
             CascadesOff();
             var casters = Scene.Objects.Where(CastsShadow).ToList();
@@ -129,7 +130,7 @@ public sealed partial class EditorApp
                 ShadowsRendered = true;
             }
         }
-        else shadowHash = 0;
+        else { shadowHash = 0; if (MapNrLookOn && nrSlices != null) renderer.SetMapShadows(nrSlices, false); }
         renderer.SetLights(viewLights, flags, shadowVP, shadowTexel, ShadowStrength);
     }
 
@@ -409,6 +410,45 @@ public sealed partial class EditorApp
         }
         cascCount = 2;
         renderer.SetCascades(cascVP[1], cascTexel[1], cascVP[2], cascTexel[2], cascVP[2] != default ? 2 : cascVP[1] != default ? 1 : 0);
+    }
+
+    // MAP look: NodeRunner's sun shadows, three slices of the view
+    MapShadowSlices nrSlices;
+    int nrCasterHash; double nrCasterCheck;
+
+    void NrShadows(GtaGlobalLights gl)
+    {
+        nrSlices ??= new MapShadowSlices(SceneRenderer.ShadowSize);
+        var vp = Viewports[ActiveViewport]; var cam = vp.Camera;
+        // something casting a shadow changed: other objects chosen, models arrived, editable objects moved
+        bool changed = false;
+        if (ImGui.GetTime() - nrCasterCheck > 0.25)
+        {
+            nrCasterCheck = ImGui.GetTime();
+            var h = new HashCode(); h.Add(worldSel.Count); h.Add(worldSelGen); h.Add(archReady);
+            foreach (var o in MapLive()) { h.Add(o.Version); h.Add(o.Position); }
+            int hash = h.ToHashCode();
+            changed = hash != nrCasterHash; nrCasterHash = hash;
+        }
+        nrSlices.Update(cam.Eye, cam.Forward, cam.Right, cam.Fov, cam.Near, vp.Aspect, gl.LightDir, MathF.Max(50, Settings.MapShadowDistance), changed);
+        for (int i = 0; i < MapShadowSlices.Count; i++)
+        {
+            if (!nrSlices.MustDraw(i)) continue;
+            var c = nrSlices.Centres[i]; float r = nrSlices.Radii[i];
+            var live = new List<SceneObject>();
+            foreach (var o in MapLive())
+            {
+                if (!CastsShadow(o) || WorldHidesEditable(o)) continue;
+                var (mn, mx) = o.FastWorldBounds();
+                if (mx.X < c.X - r || mn.X > c.X + r || mx.Y < c.Y - r || mn.Y > c.Y + r) continue;
+                live.Add(o);
+            }
+            long ver = 0;
+            var wl = WorldShadowCasters(c, r, ref ver, r / 300);
+            bool complete = renderer.RenderShadows(Scene, live, nrSlices.Cascades[i], gl, 8, wl, i, noDepthClip: true);
+            if (!complete) nrSlices.Unfinished(i);
+        }
+        renderer.SetMapShadows(nrSlices, true);
     }
 
     void MapShadows(GtaGlobalLights gl)

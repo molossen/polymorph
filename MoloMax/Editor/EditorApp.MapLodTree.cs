@@ -29,6 +29,9 @@ public sealed partial class EditorApp
     /// <summary>The level-of-detail world is on and read.</summary>
     bool LodTreeOn => Settings.MapLodTree && worldEnts != null;
     readonly HashSet<int> worldSelSet = new();
+    int worldSelGen;
+    /// <summary>Models read so far (any change: the shadows are drawn again).</summary>
+    int archReady;
     HashSet<int> worldOpenMaps = new();
 
     /// <summary>An editable object of a game map: drawn only when the tree chose its entity here (else its LOD / HD stands for it),
@@ -54,7 +57,7 @@ public sealed partial class EditorApp
         }
         if (worldEnts == null) return;
         // what to draw, worked out in the background when the camera moved (or a map was opened / closed for editing)
-        if (worldSelTask != null && worldSelTask.IsCompleted) { (worldSel, worldSelNext) = (worldSelNext, worldSel); worldSelTask = null; worldSelSet.Clear(); worldSelSet.UnionWith(worldSel); }
+        if (worldSelTask != null && worldSelTask.IsCompleted) { (worldSel, worldSelNext) = (worldSelNext, worldSel); worldSelTask = null; worldSelSet.Clear(); worldSelSet.UnionWith(worldSel); worldSelGen++; }
         var eye = Viewports[ActiveViewport].Camera.Eye;
         if (worldSelTask == null && (Vector3.Distance(eye, worldSelCam) > 8 || worldSelMaps != mapDocs.Count || worldSelMult != MapLodMult))
         {

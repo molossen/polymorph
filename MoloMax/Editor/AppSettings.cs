@@ -96,6 +96,8 @@ public sealed class AppSettings
     public bool MapWater { get; set; } = true;
     /// <summary>MAP: lit like NodeRunner (its light of the hour, sky, haze).</summary>
     public bool MapNrLook { get; set; } = true;
+    /// <summary>MAP look: sun shadows up to this distance (m).</summary>
+    public float MapShadowDistance { get; set; } = 400;
     /// <summary>MAP: at night, the game's distant lights.</summary>
     public bool MapNightLights { get; set; } = true;
     /// <summary>Distance (m) where the haze hides everything.</summary>

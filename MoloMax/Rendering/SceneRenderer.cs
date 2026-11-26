@@ -184,7 +184,9 @@ public sealed class SceneRenderer : IDisposable
     readonly DepthStencilView[] shadowSlices = new DepthStencilView[3];
     readonly Texture2D[] shadowTexs = new Texture2D[3];
     readonly ShaderResourceView[] shadowSrvs = new ShaderResourceView[3];
-    Buffer cascadeCB, mapLookCB;
+    Buffer cascadeCB, mapLookCB, nrShadowCB;
+    RasterizerState shadowRasClamp;
+    readonly Vector4[] nrShadowData = new Vector4[15];
     readonly Vector4[] mapLookData = new Vector4[8];
     readonly Vector4[] cascadeData = new Vector4[9];
     ShaderResourceView shadowSrv;
@@ -237,6 +239,7 @@ public sealed class SceneRenderer : IDisposable
         using (var psp = ShaderLoader.Compile("gta_basic.hlsl", "PSPick", "ps_4_0")) psPick = new PixelShader(device, psp);
         pickCB = new Buffer(device, 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
         cascadeCB = new Buffer(device, cascadeData.Length * 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+        nrShadowCB = new Buffer(device, nrShadowData.Length * 16 + 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
         mapLookCB = new Buffer(device, mapLookData.Length * 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
         ctx.UpdateSubresource(cascadeData, cascadeCB);
 
@@ -255,6 +258,10 @@ public sealed class SceneRenderer : IDisposable
         shadowRas = new RasterizerState(device, new RasterizerStateDescription
         {
             FillMode = FillMode.Solid, CullMode = CullMode.None, IsDepthClipEnabled = true, DepthBias = 0, SlopeScaledDepthBias = 2.5f, DepthBiasClamp = 0.01f,
+        });
+        shadowRasClamp = new RasterizerState(device, new RasterizerStateDescription
+        {
+            FillMode = FillMode.Solid, CullMode = CullMode.None, IsDepthClipEnabled = false, DepthBias = 0, SlopeScaledDepthBias = 2.5f, DepthBiasClamp = 0.01f,
         });
         sampler = new SamplerState(device, new SamplerStateDescription
         {
@@ -480,7 +487,7 @@ public sealed class SceneRenderer : IDisposable
         ctx.PixelShader.SetSampler(1, shadowSampler);
         ctx.PixelShader.SetShaderResource(5, shadowSrv);
         ctx.PixelShader.SetShaderResource(21, shadowSrvs[1]); ctx.PixelShader.SetShaderResource(22, shadowSrvs[2]);
-        ctx.PixelShader.SetConstantBuffer(8, cascadeCB); ctx.PixelShader.SetConstantBuffer(9, mapLookCB);
+        ctx.PixelShader.SetConstantBuffer(8, cascadeCB); ctx.PixelShader.SetConstantBuffer(9, mapLookCB); ctx.PixelShader.SetConstantBuffer(10, nrShadowCB);
     }
 
     /// <summary>Last haze sent (for the water, drawn with the same).</summary>
@@ -512,7 +519,7 @@ public sealed class SceneRenderer : IDisposable
         ctx.PixelShader.SetSampler(1, shadowSampler);
         ctx.PixelShader.SetShaderResource(5, shadowSrv);
         ctx.PixelShader.SetShaderResource(21, shadowSrvs[1]); ctx.PixelShader.SetShaderResource(22, shadowSrvs[2]);
-        ctx.PixelShader.SetConstantBuffer(8, cascadeCB); ctx.PixelShader.SetConstantBuffer(9, mapLookCB);
+        ctx.PixelShader.SetConstantBuffer(8, cascadeCB); ctx.PixelShader.SetConstantBuffer(9, mapLookCB); ctx.PixelShader.SetConstantBuffer(10, nrShadowCB);
         ctx.GeometryShader.Set(null);
         if (Picking) PickShaders();
     }
@@ -562,6 +569,17 @@ public sealed class SceneRenderer : IDisposable
         shadowTex = shadowTexs[0]; shadowDsv = shadowSlices[0]; shadowSrv = shadowSrvs[0];
     }
 
+    /// <summary>MAP look: the sun shadow slices (matrices, far end of each slice along the view, texel sizes, on / off).</summary>
+    public void SetMapShadows(MapShadowSlices sl, bool on)
+    {
+        var d = nrShadowData;
+        for (int i = 0; i < 3; i++) { var m = sl.Cascades[i]; d[i * 4] = new(m.M11, m.M12, m.M13, m.M14); d[i * 4 + 1] = new(m.M21, m.M22, m.M23, m.M24); d[i * 4 + 2] = new(m.M31, m.M32, m.M33, m.M34); d[i * 4 + 3] = new(m.M41, m.M42, m.M43, m.M44); }
+        d[12] = new(sl.Splits[0], sl.Splits[1], sl.Splits[2], on ? 1 : 0);
+        d[13] = new(sl.TexelSizes[0], sl.TexelSizes[1], sl.TexelSizes[2], 1f / sl.Size);
+        d[14] = new(sl.CameraForward, 0);
+        ctx.UpdateSubresource(d, nrShadowCB);
+    }
+
     /// <summary>MAP look (NodeRunner's lighting): the light of the hour, for the RenderFlags.MapLook pass.</summary>
     public void SetMapLook(in MoloMax.Core.Gta.Look.MapLighting l, Vector3 camera, bool haze)
     {
@@ -601,7 +619,7 @@ public sealed class SceneRenderer : IDisposable
 
     /// <summary>Returns false when it stopped sending new meshes to stay smooth (some casters left out: call again soon).</summary>
     public bool RenderShadows(Scene scene, IEnumerable<SceneObject> casters, Matrix4x4 lightViewProj, in GtaGlobalLights l, double uploadBudgetMs = double.MaxValue,
-        IReadOnlyList<(SceneObject Template, Matrix4x4[] Worlds, int Count)> instanced = null, int slice = 0)
+        IReadOnlyList<(SceneObject Template, Matrix4x4[] Worlds, int Count)> instanced = null, int slice = 0, bool noDepthClip = false)
     {
         double up0 = UploadMs; bool complete = true;
         EnsureShadowMap();
@@ -615,7 +633,7 @@ public sealed class SceneRenderer : IDisposable
         BeginScene(lightViewProj, Vector3.Zero, l, ShadingMode.Realistic, 1, 0);
         ctx.PixelShader.SetShaderResource(5, null);
         ctx.PixelShader.Set(null);
-        ctx.Rasterizer.State = shadowRas;
+        ctx.Rasterizer.State = noDepthClip ? shadowRasClamp : shadowRas;
         ctx.OutputMerger.SetDepthStencilState(DepthDefault);
         foreach (var o in casters)
         {
@@ -853,7 +871,7 @@ public sealed class SceneRenderer : IDisposable
         Textures.Dispose();
         CullBack.Dispose(); CullNone.Dispose(); LinesState.Dispose();
         DepthDefault.Dispose(); DepthRead.Dispose(); DepthOff.Dispose(); Opaque.Dispose(); Alpha.Dispose();
-        foreach (var d in shadowSrvs) d?.Dispose(); foreach (var d in shadowSlices) d?.Dispose(); foreach (var d in shadowTexs) d?.Dispose(); cascadeCB?.Dispose(); mapLookCB?.Dispose(); shadowSampler.Dispose(); shadowRas.Dispose(); lightCB.Dispose(); clipCB.Dispose(); fogCB.Dispose(); pickCB.Dispose(); psPick.Dispose(); pickRtv?.Dispose(); pickTex?.Dispose(); pickZRtv?.Dispose(); pickZTex?.Dispose(); pickDsv?.Dispose(); pickDepth?.Dispose(); pickStage?.Dispose(); pickZStage?.Dispose();
+        foreach (var d in shadowSrvs) d?.Dispose(); foreach (var d in shadowSlices) d?.Dispose(); foreach (var d in shadowTexs) d?.Dispose(); cascadeCB?.Dispose(); mapLookCB?.Dispose(); nrShadowCB?.Dispose(); shadowRasClamp?.Dispose(); shadowSampler.Dispose(); shadowRas.Dispose(); lightCB.Dispose(); clipCB.Dispose(); fogCB.Dispose(); pickCB.Dispose(); psPick.Dispose(); pickRtv?.Dispose(); pickTex?.Dispose(); pickZRtv?.Dispose(); pickZTex?.Dispose(); pickDsv?.Dispose(); pickDepth?.Dispose(); pickStage?.Dispose(); pickZStage?.Dispose();
         sampler.Dispose(); sceneCB.Dispose(); objectCB.Dispose(); materialCB.Dispose();
         layout.Dispose(); ps.Dispose(); vs.Dispose();
     }
