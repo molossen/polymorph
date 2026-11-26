@@ -1256,6 +1256,13 @@ public sealed partial class EditorApp
         var dts = stDts.Skip(st).Where(x => x > 0).OrderBy(x => x).ToList();
         Note($"frame median {(dts.Count > 0 ? dts[dts.Count / 2] * 1000 : 0):0.0} ms; {ProfileText()}");
         cam.Orbit(-60, 0);
+        renderer.TintPalettes = false; yield return Frames(5); yield return Shot("look_tataviam_13h_notint"); renderer.TintPalettes = true;
+        {
+            // which shaders and textures the white-looking trees use
+            var near = MapLive().Where(o => o.Id >= 0 && o.Name.Contains("tree", StringComparison.OrdinalIgnoreCase)).OrderBy(o => Vector3.Distance(o.Position, cam.Eye)).Take(3).ToList();
+            foreach (var o in near)
+                Note($"{o.Name}: " + string.Join(" | ", o.Mesh.Faces.Select(f => f.MatId).Distinct().Select(Scene.Material).Select(m => $"{m.Shader} d={Path.GetFileName(m.DiffuseTexture ?? "-")} tint={Path.GetFileName(m.TintTexture ?? "-")} loaded={renderer.Textures.IsLoaded(m.DiffuseTexture)}")));
+        }
         Hour = 19.5f; yield return Frames(10); yield return Shot("look_tataviam_19h30");
         Hour = 0; yield return Frames(10); yield return Shot("look_tataviam_0h");
         Hour = 13;
