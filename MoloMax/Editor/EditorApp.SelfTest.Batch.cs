@@ -1307,6 +1307,24 @@ public sealed partial class EditorApp
             Note($"after a full collection: managed {before / 1048576:N0} -> {after / 1048576:N0} MB, process {Environment.WorkingSet / 1048576:N0} MB; models: {archSlots.Values.Count(x => x.State == 2 && x.Mesh != null):N0} with CPU mesh ({archSlots.Values.Where(x => x.Mesh != null).Sum(x => (long)x.Mesh.Faces.Count):N0} faces), {archSlots.Values.Count(x => x.GpuOnly):N0} GPU only, {archSlots.Values.Count(x => x.State == 3):N0} failed, {archSlots.Count:N0} known; world templates {worldTpl.Count:N0}");
         }
         yield return Frames(10); yield return Shot("look_tataviam_13h_full");
+        {
+            // what is under a few screen points (a floating sheet and a grey band seen there)
+            var vpL = Viewports[ActiveViewport];
+            string Desc(int i)
+            {
+                if (i < 0) return "-";
+                var e = worldEnts.E[i]; archSlots.TryGetValue(e.Arch, out var sl);
+                var par = e.Parent >= 0 ? worldEnts.E[e.Parent] : default;
+                int kidsChosen = 0, kidsReady = 0;
+                for (int k = 0; k < e.ChildCount; k++) { int c = worldEnts.ChildList[e.FirstChild + k]; if (worldSel.Contains(c)) kidsChosen++; if (archSlots.TryGetValue(worldEnts.E[c].Arch, out var cs) && (cs.State == 2 || cs.GpuOnly)) kidsReady++; }
+                return $"{sl?.Name ?? e.Arch.ToString("X8")} L{e.Level} {worldEnts.Ymaps[e.Ymap]}#{e.Index} lod {e.LodDist:0} at {Vector3.Distance(e.Pos, cam.Eye):0} m, children {e.ChildCount} ({kidsChosen} chosen, {kidsReady} ready), parent {(e.Parent >= 0 ? $"{(archSlots.TryGetValue(par.Arch, out var ps) ? ps.Name : "?")} L{par.Level} chosen={worldSel.Contains(e.Parent)}" : "none")}";
+            }
+            foreach (var pt in new[] { new Vector2(1121, 713), new Vector2(501, 445), new Vector2(800, 600), new Vector2(1400, 760) })
+            {
+                var h = GpuPickMap(vpL, pt, null);
+                Note($"under {pt.X:0},{pt.Y:0}: {(h == null ? "nothing" : Desc(lastPickEnt))}");
+            }
+        }
         Hour = 19.5f; yield return Frames(10); yield return Shot("look_tataviam_19h30");
         Hour = 0; yield return Frames(10); yield return Shot("look_tataviam_0h");
         Hour = 13;
