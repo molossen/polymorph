@@ -15,7 +15,7 @@ public sealed partial class EditorApp
 {
     public bool PlayOn { get; private set; }
     Vector3 playPos, playVel; float playYaw, playPitch; bool playGrounded, playSwimming; Vector3 playStart;
-    double playStepTime;
+    double playStepTime; internal string playStartedBy;
     /// <summary>Self test: keys held (forward / right, -1..1) and a jump, in place of the keyboard.</summary>
     internal Vector2? playTestWish; internal bool playTestJump, playTestSprint;
     internal Vector3 PlayPos => playPos; internal bool PlayGrounded => playGrounded; internal bool PlaySwimming => playSwimming;
@@ -30,7 +30,7 @@ public sealed partial class EditorApp
         var vp = Viewports[ActiveViewport]; var cam = vp.Camera;
         var start = cam.Target;
         if (GpuPickMap(vp, new Vector2(vp.X + vp.W / 2, vp.Y + vp.H / 2), null) is { } h) start = h.Point;
-        playStart = start;
+        playStart = start; playStartedBy = string.Join(" < ", new System.Diagnostics.StackTrace().GetFrames().Skip(1).Take(5).Select(f => f.GetMethod()?.Name));
         playPos = start + new Vector3(0, 0, 0.05f); playVel = Vector3.Zero; playGrounded = false; playSwimming = false;
         var f = cam.Forward; playYaw = MathF.Atan2(f.Y, f.X); playPitch = 0;
         PlayOn = true; SculptMode = false; paintMode = false; nav = NavMode.None;

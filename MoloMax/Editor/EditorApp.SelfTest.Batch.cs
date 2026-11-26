@@ -1280,6 +1280,7 @@ public sealed partial class EditorApp
                     yield return Shot("cmp_sea_close_down_flat");
                     Settings.MapWaterWaves = w0; cam.Pitch = p0; cam.Target = eye + cam.Forward * 20;
                 }
+                if (PlayOn) Note($"Play is on during the comparison (started by {playStartedBy})");
                 if (sec == 3) Note($"water: quads {gameWaterData?.Quads.Count}, drawn by the game water {gameWater != null}, failed {gameWaterFailed}, task {gameWaterTask?.Status}, look {MapNrLookOn}, HDR {mapLight.IsHdr}, image {hdrImage != null}, DX11 {gpu.FeatureLevel11}, water on {Settings.MapWater}; colour maps {gameWaterData?.ColorMaps.Count}, ocean waves {gameWaterData?.OceanWaves != null}, shore {gameWaterData?.ShoreWaves != null}, ripples {gameWaterData?.Ripples != null}, foam {gameWaterData?.Foam != null}, caustics {gameWaterData?.Caustics != null}, errors: {string.Join(" | ", gameWaterData?.Errors ?? new List<string>())}; {status}");
             }
             // what is where on screen (holes, odd surfaces): a grid of picks

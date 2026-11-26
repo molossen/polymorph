@@ -100,6 +100,7 @@ public sealed partial class EditorApp
     public void SetMapMode(bool on)
     {
         if (on == MapMode) return;
+        if (PlayOn) StopPlay();
         if (ModalActive) CancelModal();
         if (placeGhost >= 0) EndPlacement();
         cubeProj = null; lastMeshOp = null; lastAdd = null; SculptMode = false; paintMode = false;

@@ -140,6 +140,7 @@ public sealed partial class EditorApp
     void Fresh()
     {
         if (Current is { ModEdit: not null } me) EndModifierEdit(me);
+        if (PlayOn) { Note("Play was on, started by: " + playStartedBy); StopPlay(); }
         if (MapMode) SetMapMode(false); // a MAP test before leaves MODEL mode to the next one
         if (Settings.Mode != UiMode.Blender) SetMode(UiMode.Blender); // a Classic test before leaves Standard to the next one
         AnimPlaying = false; AutoKey = false; keySel.Clear(); animFrame = 0; ycdWindow = false; ShowPanel = true;
