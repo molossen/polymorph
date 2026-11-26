@@ -1248,9 +1248,10 @@ public sealed partial class EditorApp
         yield return Until(() => !Settings.MapLodTree || worldEnts != null || worldEntsTask is { IsCompleted: true }, 300);
         Note($"level-of-detail world: {worldEnts?.E.Length ?? 0:N0} map objects read in {(DateTime.Now - t0).TotalSeconds:0} s ({worldEntsStatus})");
         yield return Frames(30);
-        yield return Until(() => mapLoadTask == null && mapStreamQueue.Count == 0 && archLoading == 0 && worldSelTask == null && (LodTreeOn || backdropIn.IsEmpty) && renderer.Textures.Pending == 0, 240);
-        yield return Frames(30);
-        yield return Until(() => archLoading == 0 && renderer.Textures.Pending == 0, 60);
+        // the models within 800 m read (far ones may still come in the background)
+        int NearWaiting() => LodTreeOn ? worldSel.Count(i => { var e = worldEnts.E[i]; return !e.Mlo && Vector3.Distance(e.Pos, cam.Eye) < 800 && (!archSlots.TryGetValue(e.Arch, out var sl) || sl.State < 2); }) : archLoading;
+        for (int k = 0; k < 400 && (NearWaiting() > 0 || mapLoadTask != null || renderer.Textures.Pending > 0); k++) yield return Frames(15);
+        Note($"near models waiting: {NearWaiting()}, reads running {archLoading}, textures pending {renderer.Textures.Pending}");
         Note($"view ready in {(DateTime.Now - t0).TotalSeconds:0} s: {entOf.Count:N0} entities, {worldSel.Count:N0} world objects chosen, {MapVisible:N0} drawn, {MapDrawCalls} draw calls; memory {Environment.WorkingSet / 1048576:N0} MB");
         yield return Shot("look_tataviam_13h");
         int st = stDts.Count;
