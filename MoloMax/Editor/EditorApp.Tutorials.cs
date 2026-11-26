@@ -3669,7 +3669,7 @@ room.Mesh.Faces.Count");
         {
             var t = Path.Combine(dir, Path.GetRelativePath(src, f)); Directory.CreateDirectory(Path.GetDirectoryName(t)); File.Copy(f, t);
         }
-        Fresh(); paintMode = false; terrainPaintLayer = -1;
+        Fresh(); paintMode = false; terrainPaintLayer = -1; nav = NavMode.None; rmbTracking = false;
         Maximized = true; var vp = Viewports[ActiveViewport]; vp.Camera.Ortho = false; vp.Shading = ShadingMode.Realistic;
         SetMapMode(true); ClearMapBuild();
         if (game == null && !string.IsNullOrEmpty(gtaFolder)) { Settings.GtaFolder = gtaFolder; if (gameTask == null || gameTask.IsCompleted) StartGameLoad(gtaFolder); }
