@@ -310,3 +310,14 @@ public static class WaterLookReader
         return new Vector4(a.X, a.Y, b.X, b.Y);
     }
 }
+
+public static class GameWater
+{
+    /// <summary>The game's water with its look, read from an installed game (background thread).</summary>
+    public static WaterMap Load(MoloMax.Core.Gta.Game.GameFiles g)
+    {
+        var w = WaterMap.Load(g.ReadPath);
+        WaterLookReader.Load(path => { try { return g.Rpf.GetFile<CodeWalker.GameFiles.YtdFile>(path); } catch { return null; } }, g.ReadPath, w);
+        return w;
+    }
+}

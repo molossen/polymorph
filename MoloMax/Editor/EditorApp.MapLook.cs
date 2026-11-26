@@ -104,12 +104,7 @@ public sealed partial class EditorApp
             if (gameWaterData == null)
             {
                 var g = game;
-                gameWaterTask ??= System.Threading.Tasks.Task.Run(() =>
-                {
-                    var w = MoloMax.Core.Gta.WaterLook.WaterMap.Load(g.ReadPath);
-                    MoloMax.Core.Gta.WaterLook.WaterLookReader.Load(path => { try { return g.Rpf.GetFile<CodeWalker.GameFiles.YtdFile>(path); } catch { return null; } }, g.ReadPath, w);
-                    return w;
-                });
+                gameWaterTask ??= System.Threading.Tasks.Task.Run(() => MoloMax.Core.Gta.WaterLook.GameWater.Load(g));
                 if (gameWaterTask.IsCompleted)
                 {
                     if (gameWaterTask.IsFaulted) { gameWaterFailed = true; SetStatus("Water: " + gameWaterTask.Exception?.GetBaseException().Message); }
