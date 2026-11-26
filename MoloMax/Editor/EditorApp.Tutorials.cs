@@ -249,6 +249,7 @@ public sealed partial class EditorApp
         T("ANIM: timeline, I key, auto key, play, UV keys, camera, .ycd out and in, your .ycd files", AnimTest);
         T("DIAG cables: what the cable models hold", CableDiag);
         T("MAP STREAM: open a stream folder (ymap, ytyp, ydr), edit, save in place", MapStreamTest);
+        T("USER: MAP 4-layer paint: on a terrain model of my own map (stream folder), PAINT TERRAIN LAYERS and a real mouse stroke", MapTerrainPaintTest);
         T("UX tour: panels a 3D artist uses", UxTour);
         T("CHECKLIST: the points without their own test", ChecklistTest);
         T("ASSETS: browser thumbnails + placing", AssetTest);
@@ -3617,6 +3618,80 @@ room.Mesh.Faces.Count");
             catch (Exception e) { Note("   raw read: " + e.Message); }
         }
         Expect(true, "diag done");
+    }
+
+    IEnumerable<object> MapTerrainPaintTest()
+    {
+        var gtaFolder = SelfTestArgs.ElementAtOrDefault(0);
+        string src = null;
+        foreach (var n in new[] { "molo_ile_keys", "molo_ile_cartel", "molo_narcos_island" })
+        {
+            var d = Path.Combine(@"C:\Users\molo3\Desktop\base_para_testes\resources\[map]", n, "stream");
+            if (Directory.Exists(d)) { src = d; break; }
+        }
+        if (src == null) { Note("no map of Mimi found: not checked"); yield break; }
+        var dir = Path.Combine(StPath("paint_copy"), "stream");
+        if (Directory.Exists(StPath("paint_copy"))) Directory.Delete(StPath("paint_copy"), true);
+        foreach (var f in Directory.EnumerateFiles(src, "*.*", SearchOption.AllDirectories))
+        {
+            var t = Path.Combine(dir, Path.GetRelativePath(src, f)); Directory.CreateDirectory(Path.GetDirectoryName(t)); File.Copy(f, t);
+        }
+        Fresh(); paintMode = false; terrainPaintLayer = -1;
+        Maximized = true; var vp = Viewports[ActiveViewport]; vp.Camera.Ortho = false; vp.Shading = ShadingMode.Realistic;
+        SetMapMode(true); ClearMapBuild();
+        if (game == null && !string.IsNullOrEmpty(gtaFolder)) { Settings.GtaFolder = gtaFolder; if (gameTask == null || gameTask.IsCompleted) StartGameLoad(gtaFolder); }
+        yield return Until(() => game != null || gameError != null, 400);
+        foreach (var md in mapDocs.Values) md.Modified = false;
+        mapDeleted.Clear();
+        OpenStreamFolder(dir);
+        Note($"opened {src}: {status}");
+        yield return Settle(() => archLoading == 0, 180);
+        yield return Frames(20);
+        // terrain models of the folder (4-layer shader)
+        var terr = MapLive().Where(o => o.Mesh != null && o.Mesh.Faces.Count > 0 && entOf.TryGetValue(o.Id, out var de) && stream.Contains(de.Doc.FilePath)
+            && o.Mesh.Faces.Any(f => Scene.Material(f.MatId)?.IsTerrain == true)).OrderByDescending(o => o.Mesh.Faces.Count).ToList();
+        Note($"terrain models in the folder: {terr.Count} ({string.Join(", ", terr.Take(5).Select(o => $"{o.Name} {o.Mesh.Faces.Count} faces"))}); all models {MapLive().Count(o => entOf.TryGetValue(o.Id, out var de) && stream.Contains(de.Doc.FilePath))}");
+        if (terr.Count == 0)
+        {
+            var shaders = MapLive().Where(o => o.Mesh != null && entOf.TryGetValue(o.Id, out var de) && stream.Contains(de.Doc.FilePath)).SelectMany(o => o.Mesh.Faces.Select(f => Scene.Material(f.MatId)?.Shader)).Distinct().Take(20);
+            Expect(false, "a terrain model to paint: shaders in the folder " + string.Join(", ", shaders));
+            yield break;
+        }
+        var g = terr[0];
+        UI.ImGuiBackend.SyntheticInput = true;
+        SelectOnly(g); yield return Frames(3);
+        var (bmin, bmax) = g.Mesh.Bounds(); var c = Vector3.Transform((bmin + bmax) / 2, g.World);
+        float ext = MathF.Max(bmax.X - bmin.X, bmax.Y - bmin.Y) * MathF.Max(g.Scale.X, g.Scale.Y);
+        vp.Camera.Yaw = 0.6f; vp.Camera.Pitch = 1.1f; vp.Camera.Target = c; vp.Camera.Distance = MathF.Min(MathF.Max(ext * 0.35f, 20), 160);
+        yield return Frames(10);
+        Note($"selected {Current?.Name} (instance key {g.InstanceKey}, shared mesh users {MapLive().Count(o => o.InstanceKey == g.InstanceKey)}), paint set {g.Paint != null}, terrain material {TerrainMaterialOf(g)?.Name} ({TerrainMaterialOf(g)?.Shader}), level {Level}");
+        propTab = PropTab.Paint; ShowPanel = true; yield return Frames(25);
+        yield return Shot("map_paint_tab");
+        foreach (var x in ClickAt(TutCentre("terrain_start"))) yield return x;
+        yield return Frames(6);
+        Note($"after PAINT TERRAIN LAYERS: paint mode {paintMode}, layer {terrainPaintLayer}, tool {paintTool}, brush {brush.Radius:0.00} m, current {Current?.Name}");
+        Expect(paintMode && terrainPaintLayer >= 0, $"the button starts the terrain painting (paint mode {paintMode}, layer {terrainPaintLayer})");
+        if (!(paintMode && terrainPaintLayer >= 0)) StartTerrainPaint(g);
+        terrainPaintLayer = 2; brush.Strength = 1; brush.Hardness = 0.6f;
+        g = Scene.Find(g.Id);
+        int Painted(SceneObject o) => o.Mesh.Faces.Sum(f => f.Col1?.Count(cc => cc.Y > 0.6f && cc.Z < 0.3f) ?? 0);
+        int before = Painted(g);
+        // a stroke across the middle of the model, with the real mouse
+        var a = ScreenOf(vp, c + vp.Camera.Right * (ext * 0.12f)); var b = ScreenOf(vp, c - vp.Camera.Right * (ext * 0.12f));
+        foreach (var x in MouseTo(a, 8)) yield return x;
+        yield return Frames(4);
+        Note($"before the stroke: hover hit {paintHover.Hit} at {paintHover.P}, screen {a}");
+        foreach (var x in DragTo(a, b, 40)) yield return x;
+        yield return Frames(8); g = Scene.Find(g.Id);
+        int after = Painted(g);
+        Note($"after the stroke: undo step '{Undo.UndoName}', texture-3 corners {before} -> {after}, version {g.Version}");
+        Expect(after > before, $"the stroke paints texture 3 on my map's terrain ({before} -> {after} corners)");
+        yield return Shot("map_paint_stroke");
+        // the copies of this model drawn by the level-of-detail world must show the paint too: the editable object is the one drawn
+        Expect(!WorldHidesEditable(g), "the painted terrain is the one drawn (not hidden behind a world copy)");
+        paintMode = false; terrainPaintLayer = -1;
+        UI.ImGuiBackend.SyntheticInput = false;
+        SetMapMode(false);
     }
 
     IEnumerable<object> MapStreamTest()
