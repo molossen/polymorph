@@ -716,7 +716,7 @@ public sealed partial class EditorApp
         {
             var cam = vp.Camera; MapStream = true;
             cam.Target = new Vector3(-300, 900, 0); cam.Distance = 6500; cam.Pitch = 1.05f;
-            yield return Until(() => backdropIn.IsEmpty && backdropMaps >= backdropTotal && archLoading == 0, 300);
+            yield return Until(() => MapSettled() && archLoading == 0, 300);
             yield return Frames(20);
             recordDir = held;
             for (int i = 0; i < 50; i++) { cam.Orbit(2, 0); yield return Frames(1); }
@@ -3555,7 +3555,7 @@ room.Mesh.Faces.Count");
         var cam = vp.Camera; MapStream = true;
         var spot = new Vector3(445, -1000, 30);
         GoTo(spot); cam.Distance = 45; cam.Pitch = 0.5f;
-        yield return Settle(() => backdropIn.IsEmpty && backdropMaps >= backdropTotal, 120);
+        yield return Settle(() => MapSettled(), 120);
         yield return Settle(() => mapStreamQueue.Count == 0 && mapLoadTask == null, 60);
         yield return Settle(() => archLoading == 0, 60);
         yield return Frames(20);
@@ -4011,7 +4011,7 @@ room.Mesh.Faces.Count");
         foreach (var spot in new[] { new Vector3(-800, -1300, 20), new Vector3(-1100, 400, 70) })
         {
             GoTo(spot); cam.Distance = 60; cam.Pitch = 0.45f;
-            yield return Settle(() => backdropIn.IsEmpty && backdropMaps >= backdropTotal, 120);
+            yield return Settle(() => MapSettled(), 120);
             yield return Settle(() => mapStreamQueue.Count == 0 && mapLoadTask == null, 60);
             yield return Settle(() => archLoading == 0, 60);
             yield return Frames(30);
@@ -4036,7 +4036,7 @@ room.Mesh.Faces.Count");
         var cam = vp.Camera; MapStream = true;
         var spot = new Vector3(445, -1000, 30);
         GoTo(spot); cam.Distance = 35; cam.Pitch = 0.5f;
-        yield return Settle(() => backdropIn.IsEmpty && backdropMaps >= backdropTotal, 120);
+        yield return Settle(() => MapSettled(), 120);
         yield return Settle(() => mapStreamQueue.Count == 0 && mapLoadTask == null, 60);
         yield return Settle(() => archLoading == 0, 60);
         yield return Frames(30);
@@ -4089,7 +4089,7 @@ room.Mesh.Faces.Count");
         {
             MapStream = true;
             cam.Target = new Vector3(-300, 600, 0); cam.Distance = 5200; cam.Pitch = 0.95f;
-            yield return Settle(() => backdropIn.IsEmpty && backdropMaps >= backdropTotal && archLoading == 0, 240);
+            yield return Settle(() => MapSettled() && archLoading == 0, 240);
             yield return Frames(20);
         }
         // the map is read now (off camera); the film starts in MODEL with the modeling
@@ -4558,7 +4558,7 @@ room.Mesh.Faces.Count");
         Maximized = true; var vp = Viewports[ActiveViewport]; var cam = vp.Camera;
         MapStream = true;
         cam.Target = new Vector3(-300, 900, 0); cam.Distance = 6500; cam.Pitch = 1.05f;
-        yield return Until(() => backdropIn.IsEmpty && backdropMaps >= backdropTotal && archLoading == 0, 300);
+        yield return Until(() => MapSettled() && archLoading == 0, 300);
         yield return Frames(30);
         foreach (var x in StartFilm("07_map_mode", 5)) yield return x;
         foreach (var x in Say("MAP mode: the whole GTA V map", "Far models (LOD / SLOD) like the game, light and fast", 70)) yield return x;

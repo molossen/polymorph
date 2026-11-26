@@ -125,7 +125,7 @@ public sealed partial class EditorApp
         backdrop.Clear(); backdropHidden.Clear(); farInfo.Clear(); farByIndex.Clear(); farLinks.Clear();
         while (backdropIn.TryDequeue(out _)) { }
         renderer.KeepInstanceKeys = new HashSet<string>();
-        backdropLevel = -1; backdropMaps = 0;
+        backdropLevel = -1; backdropMaps = 0; backdropTotal = 0;
     }
 
     void PumpBackdrop()

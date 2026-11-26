@@ -38,6 +38,10 @@ public sealed partial class EditorApp
     static object Frames(int n) => n;
     static object Shot(string name) => "shot:" + name;
     static object Until(Func<bool> c, double seconds = 180) => (c, seconds);
+    /// <summary>The map around the camera is read: the level-of-detail world has every model it wants, or the far models are all in.</summary>
+    bool MapSettled() => Settings.MapLodTree
+        ? (worldEnts != null || worldEntsTask is { IsCompleted: true }) && worldWanted.All(kv => !archSlots.TryGetValue(kv.Key, out var sl) || sl.State >= 2)
+        : backdropIn.IsEmpty && backdropMaps >= backdropTotal;
     /// <summary>Like Until, but giving up is not a failure (films: wait for the streaming to settle, at most so long).</summary>
     static object Settle(Func<bool> c, double seconds)
     {
