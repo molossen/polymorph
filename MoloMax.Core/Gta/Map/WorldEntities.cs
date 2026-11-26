@@ -42,7 +42,7 @@ public sealed class WorldEntities
     public int[] FarRoots = Array.Empty<int>();
     readonly Dictionary<long, List<int>> cells = new();
     public const float CellSize = 100f, NearRootDistance = 750f;
-    const int Magic = 0x45574D50, Version = 1; // "PMWE"
+    const int Magic = 0x45574D50, Version = 2; // "PMWE"; 2: scripted maps left out
 
     static long Key(int x, int y) => ((long)x << 32) ^ (uint)y;
 
@@ -68,7 +68,7 @@ public sealed class WorldEntities
         var w = new WorldEntities();
         var ymaps = idx.Ymaps.ToList();
         var names = ymaps.Select(y => y.Name.ToLowerInvariant()).ToArray();
-        var perMap = new (WorldEnt[] Ents, uint Parent)[ymaps.Count];
+        var perMap = new (WorldEnt[] Ents, uint Parent, uint Name, uint Flags, bool ShortLod)[ymaps.Count];
         int done = 0;
         System.Threading.Tasks.Parallel.For(0, ymaps.Count, new System.Threading.Tasks.ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount - 2) }, i =>
         {
@@ -92,18 +92,23 @@ public sealed class WorldEntities
                         Ymap = i, Index = ei, Parent = c.parentIndex, // local index for now
                     });
                 }
-                perMap[i] = (list.ToArray(), y._CMapData.parent.Hash);
+                perMap[i] = (list.ToArray(), y._CMapData.parent.Hash, y._CMapData.name.Hash, y._CMapData.flags, all.Length > 0 && all.All(x => x?._CEntityDef.lodDist is > 0f and <= 10f));
             }
             catch { }
             int d = System.Threading.Interlocked.Increment(ref done);
             if (d % 300 == 0) progress?.Invoke($"Map objects {d:N0} / {ymaps.Count:N0}", d / (float)ymaps.Count);
         });
+        // what the game loads by itself: a map a script switches on (flag 1) only when it is one of the usual ones
+        // (rules in ScriptedMaps), and of two maps with one inner name the one whose file has that name
+        var keep = ScriptedMaps.Kept(names, perMap.Select(p => (p.Name, p.Parent, p.Flags, p.ShortLod, p.Ents != null)).ToArray());
+        for (int i = 0; i < ymaps.Count; i++) if (!keep[i]) perMap[i].Ents = null;
         // one array, then the parents: the parent .ymap (by name hash) + the parent's place in it
         var first = new int[ymaps.Count]; int total = 0;
         for (int i = 0; i < ymaps.Count; i++) { first[i] = total; total += perMap[i].Ents?.Length ?? 0; }
         var E = new WorldEnt[total];
         var mapByHash = new Dictionary<uint, int>();
-        for (int i = 0; i < names.Length; i++) mapByHash.TryAdd(Cw.JenkHash.GenHash(names[i]), i);
+        for (int i = 0; i < names.Length; i++) if (keep[i] && perMap[i].Name != 0) mapByHash.TryAdd(perMap[i].Name, i);
+        for (int i = 0; i < names.Length; i++) if (keep[i]) mapByHash.TryAdd(Cw.JenkHash.GenHash(names[i]), i);
         // a .ymap's entity place (file order, MLO children skipped) -> global index
         var placeMaps = new Dictionary<int, int>[ymaps.Count];
         for (int i = 0; i < ymaps.Count; i++)
