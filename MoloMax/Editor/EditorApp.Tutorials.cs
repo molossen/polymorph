@@ -3675,6 +3675,8 @@ room.Mesh.Faces.Count");
         terrainPaintLayer = 2; brush.Strength = 1; brush.Hardness = 0.6f;
         g = Scene.Find(g.Id);
         int Painted(SceneObject o) => o.Mesh.Faces.Sum(f => f.Col1?.Count(cc => cc.Y > 0.6f && cc.Z < 0.3f) ?? 0);
+        string Col1Sum(SceneObject o) { double sy = 0, sz = 0; int n = 0; foreach (var f in o.Mesh.Faces) if (f.Col1 != null) foreach (var cc in f.Col1) { sy += cc.Y; sz += cc.Z; n++; } return $"{n} corners, sum G {sy:0.0}, sum B {sz:0.0}"; }
+        Note($"colour 1 before: {Col1Sum(g)}; layer {terrainPaintLayer}, backface cull {brush.BackfaceCull}");
         int before = Painted(g);
         // a stroke across the middle of the model, with the real mouse
         // on the terrain itself: the centre of the terrain face nearest the middle of the view, then 4 m along
@@ -3690,7 +3692,14 @@ room.Mesh.Faces.Count");
         foreach (var x in DragTo(a, b, 40)) yield return x;
         yield return Frames(8); g = Scene.Find(g.Id);
         int after = Painted(g);
-        Note($"after the stroke: undo step '{Undo.UndoName}', texture-3 corners {before} -> {after}, version {g.Version}");
+        Note($"after the stroke: undo step '{Undo.UndoName}', texture-3 corners {before} -> {after}, version {g.Version}; colour 1 after: {Col1Sum(g)}; layer {terrainPaintLayer}, same mesh {ReferenceEquals(g.Mesh, Current?.Mesh)}");
+        {
+            // which way the faces under the brush face, against the hit normal
+            HitLocal(g, vp, (a + b) / 2, out var hp, out var hn, out int hf);
+            int near = 0, back = 0;
+            foreach (var f in g.Mesh.Faces) { var fc = f.V.Aggregate(Vector3.Zero, (acc, vi) => acc + g.Mesh.Verts[vi]) / f.V.Length; if (Vector3.Distance(fc, hp) < 3) { near++; if (Vector3.Dot(g.Mesh.FaceNormal(f), hn) < 0.05f) back++; } }
+            Note($"under the brush: hit face {hf}, normal {hn}, faces within 3 m {near}, of which facing away {back}; average edge {AverageEdgeLength(g):0.00} m");
+        }
         Expect(after > before, $"the stroke paints texture 3 on my map's terrain ({before} -> {after} corners)");
         yield return Shot("map_paint_stroke");
         // the copies of this model drawn by the level-of-detail world must show the paint too: the editable object is the one drawn
