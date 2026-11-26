@@ -82,6 +82,21 @@ public sealed class GameFiles
         return g;
     }
 
+    /// <summary>How much a file's place overrides the same name elsewhere: the title update over the DLCs over the base game
+    /// (a DLC or the update ships newer copies of base files; the base copy can lack models added later).</summary>
+    static int Rank(string path)
+    {
+        var p = (path ?? "").ToLowerInvariant();
+        if (p.StartsWith("update\\") || p.StartsWith("update/")) return 3;
+        if (p.Contains("dlcpacks")) return p.Contains("patch") ? 2 : 1;
+        return 0;
+    }
+
+    static void Put(Dictionary<uint, GameAsset> d, GameAsset a)
+    {
+        if (!d.TryGetValue(a.Hash, out var old) || Rank(a.Path) >= Rank(old.Path)) d[a.Hash] = a; // same rank: the later archive (DLCs load in order)
+    }
+
     void Index(IEnumerable<RpfFile> rpfs)
     {
         foreach (var rpf in rpfs)
@@ -92,12 +107,12 @@ public sealed class GameFiles
                 if (e is not RpfFileEntry fe) continue;
                 var ext = System.IO.Path.GetExtension(fe.NameLower ?? fe.Name ?? "");
                 var name = System.IO.Path.GetFileNameWithoutExtension(fe.NameLower ?? fe.Name ?? "");
-                if (ext == ".ytd") { ytdByHash.TryAdd(JenkHash.GenHash(name), new GameAsset { Name = name, Ext = ext, Path = fe.Path, Entry = fe, Hash = JenkHash.GenHash(name) }); continue; }
+                if (ext == ".ytd") { Put(ytdByHash, new GameAsset { Name = name, Ext = ext, Path = fe.Path, Entry = fe, Hash = JenkHash.GenHash(name) }); continue; }
                 if (!ModelExt.Contains(ext)) continue;
                 var a = new GameAsset { Name = name, Ext = ext, Path = fe.Path, Entry = fe, Hash = JenkHash.GenHash(name), Size = fe.GetFileSize() };
                 Models.Add(a);
-                if (ext is ".ydr" or ".yft") modelByHash.TryAdd(a.Hash, a);
-                else if (ext == ".ydd") yddByHash.TryAdd(a.Hash, a);
+                if (ext is ".ydr" or ".yft") Put(modelByHash, a);
+                else if (ext == ".ydd") Put(yddByHash, a);
             }
         }
         Models.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));

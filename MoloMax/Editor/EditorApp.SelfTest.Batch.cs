@@ -1312,7 +1312,7 @@ public sealed partial class EditorApp
                     info += $"; materials {string.Join(",", r.Materials.Select(m => m.Shader).Distinct().Take(6))}; warnings {string.Join(" | ", r.Warnings.Take(3))}";
                 }
                 catch (Exception ex) { info = "read failed: " + ex.Message; }
-                Note($"{dd.Name}.ydd, asked for {miss.Hash:X8} ({miss.Name}): {info}");
+                Note($"{dd.Path}, asked for {miss.Hash:X8} ({miss.Name}): {info}");
             }
         }
         { int failedInView = worldSel.Count(i => archSlots.TryGetValue(worldEnts.E[i].Arch, out var sl) && sl.State == 3 && Vector3.Distance(worldEnts.E[i].Pos, cam.Eye) < 600);
