@@ -273,7 +273,7 @@ public sealed partial class EditorApp : IDisposable
         if (section == "collect")
         {
             double t = profCur.Values.Sum(); LastFrameCpuMs = t - profCur.GetValueOrDefault("present");
-            if (t > WorstFrameMs) { WorstFrameMs = t; worstFrame = profCur.OrderByDescending(kv => kv.Value).Take(5).Select(kv => $"{kv.Key} {kv.Value:0.0}").ToList(); worstFrame.Add($"(of which mesh uploads {renderer.UploadMs - profUp0:0.0}, textures {renderer.Textures.LoadMs - profTex0:0.0}, map culling {profGatherMs:0.0}, GC pause {(GC.GetTotalPauseDuration() - profGc0).TotalMilliseconds:0.0})"); }
+            if (t > WorstFrameMs) { WorstFrameMs = t; worstFrame = profCur.OrderByDescending(kv => kv.Value).Take(5).Select(kv => $"{kv.Key} {kv.Value:0.0}").ToList(); worstFrame.Add($"(of which mesh uploads {renderer.UploadMs - profUp0:0.0}{(renderer.SlowestUpload != null ? " - slowest " + renderer.SlowestUpload : "")}, textures {renderer.Textures.LoadMs - profTex0:0.0}, map culling {profGatherMs:0.0}, GC pause {(GC.GetTotalPauseDuration() - profGc0).TotalMilliseconds:0.0})"); }
             profCur.Clear();
         }
     }
@@ -283,7 +283,7 @@ public sealed partial class EditorApp : IDisposable
     public double WorstFrameMs;
     /// <summary>Processor time of the last frame (all sections, without waiting for the screen).</summary>
     public double LastFrameCpuMs;
-    public void ResetWorstFrame() { WorstFrameMs = 0; worstFrame = new(); }
+    public void ResetWorstFrame() { WorstFrameMs = 0; worstFrame = new(); renderer.SlowestUploadMs = 0; renderer.SlowestUpload = null; }
     public string WorstFrameText() => $"slowest frame {WorstFrameMs:0} ms: " + string.Join(", ", worstFrame);
     public string ProfileText(int n = 6) => string.Join(", ", FrameProfile.OrderByDescending(kv => kv.Value).Take(n).Select(kv => $"{kv.Key} {kv.Value:0.0}")) + $"  [graphics card: views {GpuViewMs:0.0}]";
 

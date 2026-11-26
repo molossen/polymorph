@@ -111,6 +111,6 @@ public sealed partial class EditorApp
         libCategory = "Walls"; libResultsKey = null; yield return Frames(40);
         yield return Shot("library_gallery_walls");
         libraryOpen = false;
-        if (string.IsNullOrEmpty(libBuildResult)) { Settings.LibraryFolder = keepLibrary; library = null; }
+        if (libBuildResult == null) { Settings.LibraryFolder = keepLibrary; library = null; }
     }
 }

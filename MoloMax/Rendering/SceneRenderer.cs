@@ -322,7 +322,8 @@ public sealed class SceneRenderer : IDisposable
         gm.Version = o.Version; gm.Edit = edit;
         var src = o.Evaluated(edit);
         List<RenderGroup> groups;
-        if (!edit && Prebuilt.TryGetValue(src, out var pre)) { groups = pre; Prebuilt.Remove(src); }
+        bool prebuilt = false;
+        if (!edit && Prebuilt.TryGetValue(src, out var pre)) { groups = pre; Prebuilt.Remove(src); prebuilt = true; }
         else groups = RenderMeshBuilder.Build(src);
         bool keepCpu = edit && ReferenceEquals(src, o.Mesh) && groups.All(g => g.CornerVert != null && g.CornerFace != null && g.VertexArray != null);
         if (keepCpu) gm.Cpu = new();
@@ -335,9 +336,13 @@ public sealed class SceneRenderer : IDisposable
             gm.Groups.Add((vb, ib, idx.Length, g.MaterialId));
             if (keepCpu) gm.Cpu.Add((verts, g.CornerVert, g.CornerFace));
         }
-        UploadMs += upSw.Elapsed.TotalMilliseconds;
+        double ms = upSw.Elapsed.TotalMilliseconds;
+        UploadMs += ms;
+        if (ms > SlowestUploadMs) { SlowestUploadMs = ms; SlowestUpload = $"{o.Name} ({src.Faces.Count:N0} faces, {(prebuilt ? "built ahead" : edit ? "edit mesh" : "built here")}, {ms:0.0} ms)"; }
         return gm;
     }
+    /// <summary>The slowest single mesh upload since the last reset (profiling of hitches).</summary>
+    public double SlowestUploadMs; public string SlowestUpload;
 
     // ---- points moved without changing the faces (gizmo drags in edit mode): only their positions are rewritten
     int hintObj = -1, hintFrom, hintTo; int[] hintVerts, hintUvFaces;
