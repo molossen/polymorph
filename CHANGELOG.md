@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [2.0.0](#200) | Play mode (walk on the map), the game's sea with waves, smooth streaming, import a whole map folder |
 | [1.9.0](#190) | New MAP mode: the whole game map with its levels of detail, new lighting, water, clouds |
 | [1.8.9](#189) | My own shortcuts (any command, export / import), Ctrl+X cut |
 | [1.8.8](#188) | Ctrl+C / Ctrl+V of objects, also from MAP to MODEL mode |
@@ -47,6 +48,30 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 2.0.0
+
+**Polymorph 2.0: walk on your map, the real sea, a smooth map view.**
+
+- **Play mode** (toolbar **Play**, MAP mode): walk on the map at eye height to see it the way a player will. ZQSD / WASD
+  to walk, Shift to run, Ctrl to walk slowly, Space to jump, right button to look around, Esc to leave. The ground,
+  steps (up to 45 cm) and walls are the map's own models; leaves, glass and decals let you through; in deep water you
+  swim.
+- **The game's sea**: the open sea with its swell, waves rolling in along the shore, foam, sun glints and the colour of
+  each place, the bottom seen through shallow water. Pools, fountains and rivers of the map get the same water look.
+  The untextured foam strips of the beaches (white bands) are gone.
+- **Smooth streaming like the game**: a level-of-detail model stays drawn until all of its detailed children are read,
+  so no more holes or floating buildings while the city comes in. Textures and model buffers are made in the
+  background, and only the textures a model really uses are extracted (they come in much faster).
+- **New default look of the map view**: shadows up to 1 km (4096), haze up to 12 km, view distance x2, sharper textures
+  at grazing angles (anisotropic x16). View distance and shadow distance sliders in the World panel. The far shadows
+  follow the arriving models every 2 s instead of 4 times a second (big frame-time gain in the city).
+- **File > Import map folder**: open a whole FiveM map resource (or its stream folder) in MAP mode, at its place on
+  the GTA map, to edit and save in place. You can also drop the folder on the window.
+- **Terrain layers on your own maps**: painting the 4 layers now works on grounds with big triangles (the brush
+  reaches the nearest corners) and only changes the terrain faces of the model.
+- **Night**: the map's lamps light the ground and the walls around them (reach, cone and hours of the game's lights).
+- Texture folders shown as a short scrolling list; faster texture name lookups across hundreds of folders.
 
 ## 1.9.0
 
