@@ -149,7 +149,7 @@ public sealed class SceneRenderer : IDisposable
         return (id, depth);
     }
     readonly InputLayout layout, layoutInst;
-    Buffer instBuf; int instCap;
+    Buffer instBuf; int instCap, instOff;
     VertexBufferBinding[] instBindings = new VertexBufferBinding[2];
     readonly Buffer sceneCB, objectCB, materialCB, lightCB, clipCB, fogCB;
     readonly Vector4[] fogData = new Vector4[4];
@@ -714,14 +714,19 @@ public sealed class SceneRenderer : IDisposable
         if (UploadBudgetMs > 0 && UploadMs - frameUpload0 > UploadBudgetMs && NeedsUpload(template)) return;
         var gm = Upload(template);
         if (gm.Groups.Count == 0) return;
+        // one big buffer filled one after the other (no-overwrite), emptied only when full: thousands of map draws a frame
+        // otherwise each ask the driver for a fresh buffer
         if (instBuf == null || instCap < count)
         {
             instBuf?.Dispose();
-            instCap = Math.Max(256, count * 3 / 2);
+            instCap = Math.Max(1 << 16, count * 2);
             instBuf = new Buffer(device, instCap * 64, ResourceUsage.Dynamic, BindFlags.VertexBuffer, CpuAccessFlags.Write, ResourceOptionFlags.None, 0);
+            instOff = instCap;
         }
-        var box = ctx.MapSubresource(instBuf, 0, MapMode.WriteDiscard, SharpDX.Direct3D11.MapFlags.None);
-        unsafe { fixed (Matrix4x4* src = worlds) System.Buffer.MemoryCopy(src, (void*)box.DataPointer, (long)instCap * 64, (long)count * 64); }
+        bool wrap = instOff + count > instCap;
+        if (wrap) instOff = 0;
+        var box = ctx.MapSubresource(instBuf, 0, wrap ? MapMode.WriteDiscard : MapMode.WriteNoOverwrite, SharpDX.Direct3D11.MapFlags.None);
+        unsafe { fixed (Matrix4x4* src = worlds) System.Buffer.MemoryCopy(src, (byte*)box.DataPointer + (long)instOff * 64, (long)(instCap - instOff) * 64, (long)count * 64); }
         ctx.UnmapSubresource(instBuf, 0);
         var ov = new ObjectVarsCB { World = Matrix4x4.Identity, NormalMatrix = Matrix4x4.Identity, WireColour = new Vector4(template.WireColour, 1), Highlight = Vector4.Zero };
         ctx.UpdateSubresource(ref ov, objectCB);
@@ -734,12 +739,13 @@ public sealed class SceneRenderer : IDisposable
             if (mat.Preset.AlphaBlended != alphaPass || HideNeverDrawn && mat.NeverDrawn && !depthOnly) continue;
             if (!depthOnly) SetMaterial(mat);
             instBindings[0] = new VertexBufferBinding(g.Vb, RenderVertex.SizeInBytes, 0);
-            instBindings[1] = new VertexBufferBinding(instBuf, 64, 0);
+            instBindings[1] = new VertexBufferBinding(instBuf, 64, instOff * 64);
             ctx.InputAssembler.SetVertexBuffers(0, instBindings);
             ctx.InputAssembler.SetIndexBuffer(g.Ib, Format.R32_UInt, 0);
             ctx.DrawIndexedInstanced(g.Count, count, 0, 0, 0);
             StatDraws++; StatTris += (long)g.Count / 3 * count;
         }
+        instOff += count;
         ctx.InputAssembler.InputLayout = layout;
         ctx.VertexShader.Set(vs);
     }
