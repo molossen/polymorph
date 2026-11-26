@@ -1271,6 +1271,11 @@ public sealed partial class EditorApp
         }
         { var tf = DateTime.Now; for (int k = 0; k < 600 && (archLoading > 0 || renderer.Textures.Pending > 0); k++) yield return Frames(15);
           Note($"every chosen model read {(DateTime.Now - tf).TotalSeconds:0} s later ({archLoading} still reading); memory {Environment.WorkingSet / 1048576:N0} MB"); }
+        yield return Frames(150); // trimming runs every 2 s
+        {
+            long before = GC.GetTotalMemory(false); GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); long after = GC.GetTotalMemory(true);
+            Note($"after a full collection: managed {before / 1048576:N0} -> {after / 1048576:N0} MB, process {Environment.WorkingSet / 1048576:N0} MB; models: {archSlots.Values.Count(x => x.State == 2 && x.Mesh != null):N0} with CPU mesh ({archSlots.Values.Where(x => x.Mesh != null).Sum(x => (long)x.Mesh.Faces.Count):N0} faces), {archSlots.Values.Count(x => x.GpuOnly):N0} GPU only, {archSlots.Values.Count(x => x.State == 3):N0} failed, {archSlots.Count:N0} known; world templates {worldTpl.Count:N0}");
+        }
         yield return Frames(10); yield return Shot("look_tataviam_13h_full");
         Hour = 19.5f; yield return Frames(10); yield return Shot("look_tataviam_19h30");
         Hour = 0; yield return Frames(10); yield return Shot("look_tataviam_0h");
