@@ -1394,6 +1394,9 @@ public sealed partial class EditorApp
             bool rp = renderer.Parallax; renderer.Parallax = false; foreach (var x in Measure("no relief", rows)) yield return x; renderer.Parallax = rp;
             bool hd = Settings.MapHdr; Settings.MapHdr = false; foreach (var x in Measure("no HDR (plain image)", rows)) yield return x; Settings.MapHdr = hd;
             bool nrl = Settings.MapNrLook; Settings.MapNrLook = false; foreach (var x in Measure("old lighting", rows)) yield return x; Settings.MapNrLook = nrl;
+            float vd = Settings.MapViewDistance; Settings.MapViewDistance = 1; foreach (var x in Measure("view distance x1", rows)) yield return x; Settings.MapViewDistance = vd;
+            float sd = Settings.MapShadowDistance; Settings.MapShadowDistance = 500; foreach (var x in Measure("shadows 500 m", rows)) yield return x; Settings.MapShadowDistance = sd;
+            Settings.MapViewDistance = 1.5f; Settings.MapShadowDistance = 600; foreach (var x in Measure("view x1.5, shadows 600 m", rows)) yield return x; Settings.MapViewDistance = vd; Settings.MapShadowDistance = sd;
             Note("frame time matrix: " + string.Join("; ", rows));
         }
         foreach (var grp in archSlots.Values.Where(a => a.State == 3).GroupBy(a => (a.Error ?? "?").Split(':')[0]).OrderByDescending(gq => gq.Count()).Take(5))
