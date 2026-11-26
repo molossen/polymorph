@@ -47,6 +47,11 @@ public sealed partial class EditorApp
             lightsR = new DistantLightsRenderer(gpu.Device);
             if (!lightsTask.IsFaulted) lightsR.SetLights(gpu.Device, lightsTask.Result.Positions, lightsTask.Result.Colours);
         }
+        if (lampsR == null && !lampsFailed && gpu.FeatureLevel11 && lightsTask is { IsCompletedSuccessfully: true } lt)
+        {
+            try { lampsR = new LampLightRenderer(gpu.Device); lampsR.SetLamps(lt.Result.Positions, lt.Result.Colours, lt.Result.Lamps); }
+            catch (Exception e) { lampsFailed = true; lampsR?.Dispose(); lampsR = null; SetStatus("Night lamps off: " + e.Message); }
+        }
         var cam = vp.Camera;
         var v = new DistantLightsRenderer.Vars
         {
@@ -54,6 +59,26 @@ public sealed partial class EditorApp
             Right = new Vector4(cam.Right, MapNrLookOn && mapLight.IsHdr ? 1 : 0), Up = new Vector4(Vector3.Normalize(Vector3.Cross(cam.Right, cam.Forward)), night),
         };
         lightsR.Draw(v);
+        renderer.RebindScene();
+    }
+
+    LampLightRenderer lampsR; bool lampsFailed;
+    /// <summary>Night, HDR: the map's lamps light the surfaces around them (after the opaque map, before water and glows).</summary>
+    void DrawMapLamps(Viewport vp, Matrix4x4 viewProj)
+    {
+        if (lampsR == null || !Settings.MapNightLights || !MapNrLookOn || !mapLight.IsHdr || hdrImage == null) return;
+        float night = mapLight.NightLights;
+        if (night <= 0.01f) return;
+        var depth = hdrImage.CopyDepth(gpu);
+        if (depth == null) return;
+        // the colour already drawn is the surface under the night's sky light: lamp / sky light gives surface x lamp
+        var sky = (mapLight.SkyAmbient + mapLight.GroundAmbient) * 0.5f;
+        float skyLum = MathF.Max(0.03f, Vector3.Dot(sky, new Vector3(0.2126f, 0.7152f, 0.0722f)));
+        float strength = night * Settings.MapLampLight / skyLum * 0.12f;
+        var cam = vp.Camera;
+        hdrImage.BindColorOnly();
+        lampsR.Draw(viewProj, cam.Eye, cam.Right, Vector3.Normalize(Vector3.Cross(cam.Right, cam.Forward)), (int)MathF.Floor(Hour) % 24, strength, depth, vp.X, vp.Y, vp.W, vp.H);
+        hdrImage.Rebind(gpu);
         renderer.RebindScene();
     }
 
@@ -209,6 +234,14 @@ public sealed partial class EditorApp
             float ex = Settings.MapExposure; ImGui.SetNextItemWidth(120);
             if (ImGui.SliderFloat("Exposure##maplook", ref ex, 0.3f, 3f, "%.2f")) Settings.MapExposure = ex;
             if (ImGui.IsItemDeactivatedAfterEdit()) Settings.Save();
+            if (Settings.MapNightLights)
+            {
+                float ll = Settings.MapLampLight; ImGui.SetNextItemWidth(160);
+                if (ImGui.SliderFloat("Lamp light##maplook", ref ll, 0f, 3f, "%.2f")) Settings.MapLampLight = ll;
+                if (ImGui.IsItemDeactivatedAfterEdit()) Settings.Save();
+                Theme.Tip("At night, how much the street lamps, windows and signs light the ground and the walls around them.");
+                if (lampsR != null) { ImGui.SameLine(); Ui.TextDisabled($"{lampsR.Count:N0} lamps"); }
+            }
         }
         else
         {

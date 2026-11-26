@@ -408,6 +408,7 @@ public sealed partial class EditorApp : IDisposable
             var hl = o.Frozen ? new Vector4(0.55f, 0.55f, 0.6f, 0.6f) : Vector4.Zero;
             renderer.DrawObject(Scene, o, false, hl, BackfaceCull);
         }
+        if (skyView && hdrView) DrawMapLamps(vp, viewProj);
         ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1);
         ctx.OutputMerger.SetDepthStencilState(renderer.DepthRead);
         if (skyView) { ctx.Rasterizer.State = renderer.CullNone; DrawMapWater(vp, viewProj); }

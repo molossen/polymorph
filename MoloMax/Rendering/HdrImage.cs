@@ -190,7 +190,13 @@ public sealed class HdrImage : IDisposable
     public (ShaderResourceView Color, ShaderResourceView Depth) Snapshot(GpuDevice gpu)
     {
         ctx.ResolveSubresource(ms, 0, resolved, 0, Format.R16G16B16A16_Float);
-        if (gpu.SampleCount < 2) return (resolvedSrv, null);
+        return (resolvedSrv, CopyDepth(gpu));
+    }
+
+    /// <summary>A copy of the window's (multisampled) depth so far, to read while the depth buffer stays bound; null without multisampling.</summary>
+    public ShaderResourceView CopyDepth(GpuDevice gpu)
+    {
+        if (gpu.SampleCount < 2) return null;
         var dd = gpu.DepthTexture.Description;
         if (depthCopy == null || depthCopy.Description.Width != dd.Width || depthCopy.Description.Height != dd.Height || depthCopy.Description.SampleDescription.Count != dd.SampleDescription.Count)
         {
@@ -203,8 +209,11 @@ public sealed class HdrImage : IDisposable
             depthCopySrv = new ShaderResourceView(device, depthCopy, new ShaderResourceViewDescription { Format = Format.R24_UNorm_X8_Typeless, Dimension = ShaderResourceViewDimension.Texture2DMultisampled });
         }
         ctx.CopyResource(gpu.DepthTexture, depthCopy);
-        return (resolvedSrv, depthCopySrv);
+        return depthCopySrv;
     }
+
+    /// <summary>Binds the HDR image alone (no depth), for a pass that reads the depth copy.</summary>
+    public void BindColorOnly() => ctx.OutputMerger.SetRenderTargets((DepthStencilView)null, msRtv);
 
     /// <summary>Binds the HDR image again (after another pass drew into its own image).</summary>
     public void Rebind(GpuDevice gpu) => ctx.OutputMerger.SetRenderTargets(gpu.DepthView, msRtv);

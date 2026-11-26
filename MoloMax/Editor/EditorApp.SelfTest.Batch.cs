@@ -1416,6 +1416,20 @@ public sealed partial class EditorApp
             for (int k = 0; k < 120 && archLoading > 0; k++) yield return Frames(15);
             yield return Frames(10);
             yield return Shot("look_city_night");
+            // a street at night: the lamps light the ground and the walls around them
+            if (MapNrLookOn && mapLight.IsHdr)
+            {
+                cam.Target = new Vector3(200, -870, 31); cam.Distance = 28; cam.Pitch = 0.22f; cam.Yaw = 2.4f;
+                yield return Frames(30);
+                for (int k = 0; k < 160 && (archLoading > 0 || renderer.Textures.Pending > 0); k++) yield return Frames(15);
+                yield return Frames(20);
+                var dl = lightsTask is { IsCompletedSuccessfully: true } ltk ? ltk.Result : null;
+                Expect(lampsR != null && lampsR.Count > 1000, $"night lamps: {lampsR?.Count ?? 0:N0} lamps light the surfaces ({dl?.Detailed ?? 0:N0} with their reach, cone and hours from the lodlights)");
+                yield return Shot("look_street_night_lamps");
+                float kl = Settings.MapLampLight; Settings.MapLampLight = 0; yield return Frames(5);
+                yield return Shot("look_street_night_nolamps");
+                Settings.MapLampLight = kl;
+            }
             cam.Target = kt; cam.Distance = kd; cam.Pitch = kp; cam.Yaw = ky;
         }
         Hour = 13;

@@ -109,6 +109,8 @@ public sealed class AppSettings
     public string MapWeather { get; set; } = "Clear";
     /// <summary>MAP: at night, the game's distant lights.</summary>
     public bool MapNightLights { get; set; } = true;
+    /// <summary>MAP, HDR, at night: how much the map's lamps light the surfaces around them (0 = only their glow).</summary>
+    public float MapLampLight { get; set; } = 1f;
     /// <summary>Distance (m) where the haze hides everything.</summary>
     public float MapFogDistance { get; set; } = 8000;
     /// <summary>MAP mode: only what is within this distance of the camera is drawn and picked (big custom maps).</summary>
