@@ -93,12 +93,14 @@ public sealed class GtaMaterial
     public string TintTexture;
     /// <summary>Terrain blend mask (lookupSampler), read with the second texture coordinates.</summary>
     public string LookupTexture;
+    /// <summary>A plain shape inside a tree (cpv_only next to the tree's leaves): the game only uses it for the shadow.</summary>
+    public bool ShadowOnly;
     /// <summary>How a terrain blends its 4 layers: 0 vertex colour only (_lod), 1 mask only (_cm), 2 mask and vertex colour mixed by the
     /// vertex alpha, -1 not a terrain or no mask.</summary>
     public int TerrainBlend => !IsTerrain ? -1 : Shader.Contains("_lod", StringComparison.OrdinalIgnoreCase) || LookupTexture == null ? 0
         : Shader.Contains("_cm", StringComparison.OrdinalIgnoreCase) ? 1 : 2;
     /// <summary>Shapes the game never shows (only their shadow, or a live reflection): trees' shadow balls, mirrors, normal-only decals, fur grass.</summary>
-    public bool NeverDrawn => Shader is { } s && (s.Equals("trees_shadow_proxy", StringComparison.OrdinalIgnoreCase) || s.StartsWith("mirror_", StringComparison.OrdinalIgnoreCase)
+    public bool NeverDrawn => ShadowOnly || Shader is { } s && (s.Equals("trees_shadow_proxy", StringComparison.OrdinalIgnoreCase) || s.StartsWith("mirror_", StringComparison.OrdinalIgnoreCase)
         || s.Equals("decal_normal_only", StringComparison.OrdinalIgnoreCase) || s.StartsWith("grass_fur", StringComparison.OrdinalIgnoreCase));
     /// <summary>A terrain_cb_w_4lyr shader: 4 textures blended by vertex colour 1.</summary>
     public bool IsTerrain => Shader != null && Shader.StartsWith("terrain_cb_w_4lyr", StringComparison.OrdinalIgnoreCase);

@@ -94,6 +94,9 @@ public static class GtaImporter
 
     static ImportResult Finish(Ctx c)
     {
+        // trees: their plain vertex-coloured shapes are the game's shadow casters, never seen
+        if (c.Res.Materials.Any(m => m.Shader != null && m.Shader.StartsWith("trees", StringComparison.OrdinalIgnoreCase)))
+            foreach (var m in c.Res.Materials) if (string.Equals(m.Shader, "cpv_only", StringComparison.OrdinalIgnoreCase)) m.ShadowOnly = true;
         foreach (var m in c.Res.Meshes) { m.Mesh.CleanFaces(); m.Mesh.RemoveUnusedVertices(); }
         c.Res.Meshes.RemoveAll(m => m.Mesh.Faces.Count == 0);
         if (c.Res.Materials.Count == 0) c.Res.Materials.Add(GtaMaterial.CreateDefault(0, "imported", new Vector3(0.75f)));
