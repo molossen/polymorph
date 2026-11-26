@@ -103,6 +103,7 @@ public sealed class AppSettings
     public bool MapPhysicalSky { get; set; } = true;
     public float MapExposure { get; set; } = 1f;
     public bool MapOcclusion { get; set; } = true;
+    public bool MapBloom { get; set; } = true;
     /// <summary>MAP: at night, the game's distant lights.</summary>
     public bool MapNightLights { get; set; } = true;
     /// <summary>Distance (m) where the haze hides everything.</summary>

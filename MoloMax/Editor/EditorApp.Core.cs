@@ -427,7 +427,7 @@ public sealed partial class EditorApp : IDisposable
             static float Lum(Vector3 c) => 0.2126f * c.X + 0.7152f * c.Y + 0.0722f * c.Z;
             float amb = Lum(mapLight.SkyAmbient), sunL = Lum(mapLight.SunColor) * MathF.Max(mapLight.SunDirection.Z, 0.1f);
             float share = Settings.MapOcclusion ? amb / MathF.Max(amb + sunL * 0.5f, 1e-4f) : 0;
-            hdrImage.End(gpu, Settings.MapExposure * MathF.Max(mapLight.Adaptation, 1), vp.X, vp.Y, vp.W, vp.H, cam.Projection(vp.Aspect), cam.Near, cam.Far, share);
+            hdrImage.End(gpu, Settings.MapExposure * MathF.Max(mapLight.Adaptation, 1), vp.X, vp.Y, vp.W, vp.H, cam.Projection(vp.Aspect), cam.Near, cam.Far, share, Settings.MapBloom ? 0.5f * 0.2f / 6f : 0);
             ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1);
         }
         DrawSplats(vp);

@@ -68,6 +68,7 @@
     <EmbeddedResource Include="Shaders\hdr.hlsl"><LogicalName>hdr.hlsl</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="Shaders\ao.hlsl"><LogicalName>ao.hlsl</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="Shaders\nrwater.hlsl"><LogicalName>nrwater.hlsl</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="Shaders\bloom.hlsl"><LogicalName>bloom.hlsl</LogicalName></EmbeddedResource>
   </ItemGroup>
 
 </Project>

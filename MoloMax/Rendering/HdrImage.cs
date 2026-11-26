@@ -28,7 +28,7 @@ public sealed class HdrImage : IDisposable
         this.device = device; ctx = device.ImmediateContext;
         using (var b = ShaderLoader.Compile("hdr.hlsl", "VSFull", "vs_4_0")) vs = new VertexShader(device, b);
         using (var b = ShaderLoader.Compile("hdr.hlsl", "PSComposite", "ps_4_0")) ps = new PixelShader(device, b);
-        cb = new Buffer(device, 32, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+        cb = new Buffer(device, 48, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
         clamp = new SamplerState(device, new SamplerStateDescription { Filter = Filter.MinMagMipLinear, AddressU = TextureAddressMode.Clamp, AddressV = TextureAddressMode.Clamp, AddressW = TextureAddressMode.Clamp, MaximumLod = float.MaxValue });
         try
         {
@@ -117,6 +117,73 @@ public sealed class HdrImage : IDisposable
         ctx.ClearRenderTargetView(msRtv, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 1));
     }
 
+    // glow: 6 steps, each half the size of the one before
+    const int BloomSteps = 6;
+    readonly Texture2D[] bloom = new Texture2D[BloomSteps]; readonly RenderTargetView[] bloomRtv = new RenderTargetView[BloomSteps];
+    readonly ShaderResourceView[] bloomSrv = new ShaderResourceView[BloomSteps]; readonly (int W, int H)[] bloomSize = new (int, int)[BloomSteps];
+    PixelShader downPs, upPs; VertexShader bloomVs; Buffer bloomCb; BlendState add; bool bloomFailed;
+
+    bool Glow()
+    {
+        if (bloomFailed || w < 64 || h < 64) return false;
+        if (downPs == null)
+        {
+            try
+            {
+                using (var b = ShaderLoader.Compile("bloom.hlsl", "VSFull", "vs_4_0")) bloomVs = new VertexShader(device, b);
+                using (var b = ShaderLoader.Compile("bloom.hlsl", "PSDown", "ps_4_0")) downPs = new PixelShader(device, b);
+                using (var b = ShaderLoader.Compile("bloom.hlsl", "PSUp", "ps_4_0")) upPs = new PixelShader(device, b);
+                bloomCb = new Buffer(device, 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+                var bd = new BlendStateDescription();
+                bd.RenderTarget[0] = new RenderTargetBlendDescription { IsBlendEnabled = true, SourceBlend = BlendOption.One, DestinationBlend = BlendOption.One, BlendOperation = BlendOperation.Add, SourceAlphaBlend = BlendOption.One, DestinationAlphaBlend = BlendOption.One, AlphaBlendOperation = BlendOperation.Add, RenderTargetWriteMask = ColorWriteMaskFlags.All };
+                add = new BlendState(device, bd);
+            }
+            catch { bloomFailed = true; return false; }
+        }
+        int bw = w, bh = h;
+        for (int i = 0; i < BloomSteps; i++)
+        {
+            bw = Math.Max(1, bw / 2); bh = Math.Max(1, bh / 2);
+            if (bloom[i] == null || bloomSize[i] != (bw, bh))
+            {
+                bloomRtv[i]?.Dispose(); bloomSrv[i]?.Dispose(); bloom[i]?.Dispose();
+                bloom[i] = new Texture2D(device, new Texture2DDescription { Width = bw, Height = bh, MipLevels = 1, ArraySize = 1, Format = Format.R11G11B10_Float, SampleDescription = new SampleDescription(1, 0), Usage = ResourceUsage.Default, BindFlags = BindFlags.RenderTarget | BindFlags.ShaderResource });
+                bloomRtv[i] = new RenderTargetView(device, bloom[i]); bloomSrv[i] = new ShaderResourceView(device, bloom[i]); bloomSize[i] = (bw, bh);
+            }
+        }
+        ctx.InputAssembler.InputLayout = null; ctx.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
+        ctx.VertexShader.Set(bloomVs); ctx.GeometryShader.Set(null);
+        ctx.PixelShader.SetSampler(0, clamp);
+        ctx.PixelShader.SetConstantBuffer(0, bloomCb);
+        ctx.PixelShader.Set(downPs);
+        var from = resolvedSrv; int fw = w, fh = h;
+        for (int i = 0; i < BloomSteps; i++)
+        {
+            var t = new System.Numerics.Vector4(1f / fw, 1f / fh, i == 0 ? 1 : 0, 0); ctx.UpdateSubresource(ref t, bloomCb);
+            ctx.OutputMerger.SetRenderTargets((DepthStencilView)null, bloomRtv[i]);
+            ctx.Rasterizer.SetViewport(0, 0, bloomSize[i].W, bloomSize[i].H);
+            ctx.Rasterizer.SetScissorRectangle(0, 0, bloomSize[i].W, bloomSize[i].H);
+            ctx.PixelShader.SetShaderResource(0, from);
+            ctx.Draw(3, 0);
+            ctx.PixelShader.SetShaderResource(0, null);
+            from = bloomSrv[i]; (fw, fh) = bloomSize[i];
+        }
+        ctx.PixelShader.Set(upPs);
+        ctx.OutputMerger.SetBlendState(add, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0), -1);
+        for (int i = BloomSteps - 2; i >= 0; i--)
+        {
+            var t = new System.Numerics.Vector4(1f / bloomSize[i + 1].W, 1f / bloomSize[i + 1].H, 0, 0); ctx.UpdateSubresource(ref t, bloomCb);
+            ctx.OutputMerger.SetRenderTargets((DepthStencilView)null, bloomRtv[i]);
+            ctx.Rasterizer.SetViewport(0, 0, bloomSize[i].W, bloomSize[i].H);
+            ctx.Rasterizer.SetScissorRectangle(0, 0, bloomSize[i].W, bloomSize[i].H);
+            ctx.PixelShader.SetShaderResource(0, bloomSrv[i + 1]);
+            ctx.Draw(3, 0);
+            ctx.PixelShader.SetShaderResource(0, null);
+        }
+        ctx.OutputMerger.SetBlendState(null, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0), -1);
+        return true;
+    }
+
     Texture2D depthCopy; ShaderResourceView depthCopySrv;
     /// <summary>The scene so far (colours resolved, depth copied), for the water drawn over it: what it mirrors and
     /// what shows through it.</summary>
@@ -140,23 +207,27 @@ public sealed class HdrImage : IDisposable
     }
 
     /// <summary>Brings the image to the window (the current viewport only), the window's image bound again after.</summary>
-    public void End(GpuDevice gpu, float exposure, float x, float y, float w, float h, System.Numerics.Matrix4x4 proj, float near, float far, float aoShare, float saturation = 1.05f)
+    public void End(GpuDevice gpu, float exposure, float x, float y, float w, float h, System.Numerics.Matrix4x4 proj, float near, float far, float aoShare, float bloomShare, float saturation = 1.12f)
     {
         ctx.ResolveSubresource(ms, 0, resolved, 0, Format.R16G16B16A16_Float);
         bool hasAo = aoShare > 0 && Occlusion(gpu, x, y, w, h, proj, near, far);
+        bool glow = bloomShare > 0 && Glow();
+        ctx.Rasterizer.SetViewport(x, y, w, h);
+        ctx.Rasterizer.SetScissorRectangle((int)x, (int)y, (int)(x + w), (int)(y + h));
         gpu.BindBackBuffer();
-        var s = new[] { new System.Numerics.Vector4(exposure, hasAo ? aoShare : 0, 0, saturation), new System.Numerics.Vector4(x, y, w, h) };
+        var s = new[] { new System.Numerics.Vector4(exposure, hasAo ? aoShare : 0, glow ? bloomShare : 0, saturation), new System.Numerics.Vector4(x, y, w, h), new System.Numerics.Vector4(1f / this.w, 1f / this.h, 0, 0) };
         ctx.UpdateSubresource(s, cb);
         ctx.PixelShader.SetSampler(0, clamp);
         ctx.PixelShader.SetShaderResource(1, hasAo ? aoSrv : null);
+        ctx.PixelShader.SetShaderResource(2, glow ? bloomSrv[0] : null);
         ctx.InputAssembler.InputLayout = null;
         ctx.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
         ctx.VertexShader.Set(vs);
         ctx.PixelShader.Set(ps); ctx.PixelShader.SetConstantBuffer(0, cb); ctx.PixelShader.SetShaderResource(0, resolvedSrv);
         ctx.GeometryShader.Set(null);
         ctx.Draw(3, 0);
-        ctx.PixelShader.SetShaderResource(0, null); ctx.PixelShader.SetShaderResource(1, null);
+        ctx.PixelShader.SetShaderResource(0, null); ctx.PixelShader.SetShaderResource(1, null); ctx.PixelShader.SetShaderResource(2, null);
     }
 
-    public void Dispose() { msRtv?.Dispose(); ms?.Dispose(); resolvedSrv?.Dispose(); resolved?.Dispose(); vs.Dispose(); ps.Dispose(); cb.Dispose(); clamp.Dispose(); aoVs?.Dispose(); aoPs?.Dispose(); blurPs?.Dispose(); aoCb?.Dispose(); aoRtv?.Dispose(); aoSrv?.Dispose(); ao?.Dispose(); aoBRtv?.Dispose(); aoBSrv?.Dispose(); aoB?.Dispose(); depthCopySrv?.Dispose(); depthCopy?.Dispose(); }
+    public void Dispose() { msRtv?.Dispose(); ms?.Dispose(); resolvedSrv?.Dispose(); resolved?.Dispose(); vs.Dispose(); ps.Dispose(); cb.Dispose(); clamp.Dispose(); aoVs?.Dispose(); aoPs?.Dispose(); blurPs?.Dispose(); aoCb?.Dispose(); aoRtv?.Dispose(); aoSrv?.Dispose(); ao?.Dispose(); aoBRtv?.Dispose(); aoBSrv?.Dispose(); aoB?.Dispose(); depthCopySrv?.Dispose(); depthCopy?.Dispose(); for (int i = 0; i < BloomSteps; i++) { bloomRtv[i]?.Dispose(); bloomSrv[i]?.Dispose(); bloom[i]?.Dispose(); } downPs?.Dispose(); upPs?.Dispose(); bloomVs?.Dispose(); bloomCb?.Dispose(); add?.Dispose(); }
 }

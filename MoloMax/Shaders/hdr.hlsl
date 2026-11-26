@@ -2,11 +2,13 @@
 // (fit of the ACES reference rendering), saturation, display colours, a little noise against bands.
 cbuffer HdrVars : register(b0)
 {
-    float4 Settings; // x exposure, y share of the light the occlusion darkens (0: none), w saturation
+    float4 Settings; // x exposure, y share of the light the occlusion darkens (0: none), z share of the glow, w saturation
     float4 View;     // xy top-left of the view (pixels), zw its size
+    float4 Window;   // xy 1 / size of the window's images
 };
 Texture2D SceneColor : register(t0);
 Texture2D<float> Occlusion : register(t1);
+Texture2D Glow : register(t2);
 SamplerState LinearClamp : register(s0);
 
 float4 VSFull(uint id : SV_VertexID) : SV_POSITION
@@ -31,6 +33,7 @@ float4 PSComposite(float4 pos : SV_POSITION) : SV_TARGET
 {
     float3 c = max(SceneColor.Load(int3(pos.xy, 0)).rgb, 0);
     if (Settings.y > 0) { float ao = Occlusion.SampleLevel(LinearClamp, (pos.xy - View.xy) / View.zw, 0); c *= saturate(1 - (1 - ao) * Settings.y); }
+    if (Settings.z > 0) c = lerp(c, Glow.SampleLevel(LinearClamp, pos.xy * Window.xy, 0).rgb, Settings.z);
     c = ToneMap(c * Settings.x);
     c = max(lerp(dot(c, float3(0.2126, 0.7152, 0.0722)), c, Settings.w), 0);
     c = ToDisplay(c);
