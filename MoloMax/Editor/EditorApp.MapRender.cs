@@ -9,7 +9,7 @@ namespace MoloMax.Editor;
 /// </summary>
 public sealed partial class EditorApp
 {
-    sealed class InstGroup { public SceneObject Template; public Matrix4x4[] Worlds = new Matrix4x4[64]; public int Count; }
+    sealed class InstGroup { public SceneObject Template; public Matrix4x4[] Worlds = new Matrix4x4[64]; public SceneObject[] Objs = new SceneObject[64]; public int[] Ents = new int[64]; public int Count; }
     readonly Dictionary<string, InstGroup> instGroups = new();
     readonly List<SceneObject> mapSingles = new();
     public int MapDrawCalls, MapVisible;
@@ -45,11 +45,13 @@ public sealed partial class EditorApp
         UpdateHiddenClip(eye);
         var live = MapLive();
         float vr2 = Settings.MapViewRadiusOn ? MathF.Max(20, Settings.MapViewRadius) * MathF.Max(20, Settings.MapViewRadius) : 0;
-        for (int i = 0, n = live.Count + backdrop.Count; i < n; i++)
+        GatherWorld(planes, eye, pix, vr2);
+        for (int i = 0, n = live.Count + (LodTreeOn ? 0 : backdrop.Count); i < n; i++)
         {
             var o = i < live.Count ? live[i] : backdrop[i - live.Count];
             if (o.Hidden || o.Mesh == null || o.Mesh.Faces.Count == 0) continue;
             if (o.Id < 0 && (FarSteppedAside(o, eye) || !FarLodVisible(o, eye))) continue; // far model: area loaded for editing, or another LOD level shows here
+            if (i < live.Count && WorldHidesEditable(o)) continue; // level-of-detail world: another level of it shows here
             var (mn, mx) = o.FastWorldBounds();
             // view radius: the game's far models (LOD / SLOD) go too, not only the editable entities
             if (vr2 > 0 && i >= live.Count && Vector3.DistanceSquared(Vector3.Clamp(eye, mn, mx), eye) > vr2) continue;
@@ -65,7 +67,8 @@ public sealed partial class EditorApp
             if (!instGroups.TryGetValue(o.InstanceKey, out var grp)) instGroups[o.InstanceKey] = grp = new InstGroup();
             if (grp.Template == null) grp.Template = o;
             else if (!ReferenceEquals(grp.Template.Mesh, o.Mesh)) { mapSingles.Add(o); continue; } // not synced yet this frame
-            if (grp.Count == grp.Worlds.Length) Array.Resize(ref grp.Worlds, grp.Worlds.Length * 2);
+            if (grp.Count == grp.Worlds.Length) { Array.Resize(ref grp.Worlds, grp.Worlds.Length * 2); Array.Resize(ref grp.Objs, grp.Worlds.Length); Array.Resize(ref grp.Ents, grp.Worlds.Length); }
+            grp.Objs[grp.Count] = o; grp.Ents[grp.Count] = -1;
             grp.Worlds[grp.Count++] = o.World;
         }
     }
@@ -78,9 +81,9 @@ public sealed partial class EditorApp
         {
             if (g.Count == 0) continue;
             renderer.SetClip(g.Template.Id < 0 ? hiddenClip : null);
-            if (g.Count == 1) { renderer.DrawObject(Scene, g.Template, alphaPass, Vector4.Zero, BackfaceCull); MapDrawCalls++; continue; }
+            if (g.Count == 1 && g.Ents[0] < 0) { renderer.DrawObject(Scene, g.Template, alphaPass, Vector4.Zero, BackfaceCull); MapDrawCalls++; continue; }
             renderer.DrawInstanced(Scene, g.Template, g.Worlds, g.Count, alphaPass, BackfaceCull);
-            MapDrawCalls++;
+            if (!alphaPass) MapDrawCalls++;
         }
         foreach (var o in mapSingles)
         {

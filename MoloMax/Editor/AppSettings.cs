@@ -87,6 +87,30 @@ public sealed class AppSettings
     public float AssetsDockHeight { get; set; } = 300;
     /// <summary>Panels dragged out of the main window become windows of their own (other monitors). Read at start.</summary>
     public bool PanelsOutside { get; set; } = true;
+    /// <summary>MAP mode, realistic perspective views: sky of the hour behind the map, distance haze.</summary>
+    public bool MapSky { get; set; } = true;
+    /// <summary>MAP mode: the whole map read as light records and drawn along the game's level-of-detail tree.</summary>
+    public bool MapLodTree { get; set; } = true;
+    public bool MapFog { get; set; } = true;
+    /// <summary>MAP: the game's water (sea, lakes, rivers) drawn.</summary>
+    public bool MapWater { get; set; } = true;
+    /// <summary>MAP: the new lighting (its light of the hour, sky, haze).</summary>
+    public bool MapNrLook { get; set; } = true;
+    /// <summary>MAP look: sun shadows up to this distance (m).</summary>
+    public float MapShadowDistance { get; set; } = 800;
+    /// <summary>MAP look: HDR image (light beyond white, filmic curve), the sky worked out from the air, exposure.</summary>
+    public bool MapHdr { get; set; } = true;
+    public bool MapPhysicalSky { get; set; } = true;
+    public float MapExposure { get; set; } = 1f;
+    public bool MapOcclusion { get; set; } = true;
+    public bool MapBloom { get; set; } = true;
+    /// <summary>MAP: clouds in volume and the weather they come from (ExtraSunny, Clear, Clouds, Overcast, Rain...).</summary>
+    public bool MapClouds { get; set; } = true;
+    public string MapWeather { get; set; } = "Clear";
+    /// <summary>MAP: at night, the game's distant lights.</summary>
+    public bool MapNightLights { get; set; } = true;
+    /// <summary>Distance (m) where the haze hides everything.</summary>
+    public float MapFogDistance { get; set; } = 8000;
     /// <summary>MAP mode: only what is within this distance of the camera is drawn and picked (big custom maps).</summary>
     public bool MapViewRadiusOn { get; set; }
     public float MapViewRadius { get; set; } = 400;

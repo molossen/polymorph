@@ -16,7 +16,8 @@ public struct RenderVertex
     public Vector2 UV;
     public Vector4 Tangent;
     public uint Colour1;
-    public const int SizeInBytes = 68;
+    public Vector2 UV1;
+    public const int SizeInBytes = 76;
     public static uint Pack(Vector4 c) => (uint)(B(c.X) | B(c.Y) << 8 | B(c.Z) << 16 | B(c.W) << 24);
     public static Vector4 Unpack(uint c) => new((c & 255) / 255f, (c >> 8 & 255) / 255f, (c >> 16 & 255) / 255f, (c >> 24) / 255f);
     static int B(float f) => (int)Math.Clamp(f * 255f + 0.5f, 0, 255);
@@ -171,7 +172,7 @@ public static class RenderMeshBuilder
                 t = Vector3.Normalize(t);
                 float w = Vector3.Dot(Vector3.Cross(nr, t), bit) < 0 ? -1f : 1f;
                 g.CornerVert[baseIndex + c] = f.V[c]; g.CornerFace[baseIndex + c] = fi;
-                vArr[baseIndex + c] = new RenderVertex { Position = m.Verts[f.V[c]], Normal = nr, Colour = f.Col[c], UV = f.UV[c], Tangent = new Vector4(t, w), Colour1 = f.Col1 != null && c < f.Col1.Length ? RenderVertex.Pack(f.Col1[c]) : 0u };
+                vArr[baseIndex + c] = new RenderVertex { Position = m.Verts[f.V[c]], Normal = nr, Colour = f.Col[c], UV = f.UV[c], Tangent = new Vector4(t, w), Colour1 = f.Col1 != null && c < f.Col1.Length ? RenderVertex.Pack(f.Col1[c]) : 0u, UV1 = f.UV1 != null && c < f.UV1.Length ? f.UV1[c] : f.UV[c] };
             }
             int ti = tOff[fi];
             for (int q = 0; q < n - 2; q++)

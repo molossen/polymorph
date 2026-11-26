@@ -74,6 +74,29 @@ public static class GtaLighting
         };
     }
 
+    /// <summary>Sky of the hour (display colours): overhead, at the horizon (also the far haze colour), the true sun direction
+    /// (below the horizon at night) and how much of the sun disc shows. Same sun path as <see cref="TimeOfDay"/>.</summary>
+    public static (Vector3 Zenith, Vector3 Horizon, Vector3 Sun, float Disc) SkyOf(float hour)
+    {
+        hour = ((hour % 24) + 24) % 24;
+        var day = (Zenith: new Vector3(0.22f, 0.42f, 0.76f), Horizon: new Vector3(0.70f, 0.80f, 0.90f));
+        var golden = (Zenith: new Vector3(0.26f, 0.32f, 0.55f), Horizon: new Vector3(0.95f, 0.62f, 0.38f));
+        var night = (Zenith: new Vector3(0.015f, 0.025f, 0.06f), Horizon: new Vector3(0.06f, 0.08f, 0.14f));
+        bool isDay = hour >= 6f && hour <= 20.5f;
+        float dayT = isDay ? (hour - 6f) / 14.5f : 0;
+        float height = isDay ? MathF.Sin(MathF.PI * dayT) : -0.4f;
+        // sunrise / sunset glow around the horizon, night below
+        if (hour > 5.2f && hour < 6.4f) height = (hour - 6f) * 0.25f;
+        if (hour > 20.1f && hour < 21.3f) height = (20.5f - hour) * 0.25f;
+        static float Smooth(float a, float b, float x) { float t = Math.Clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
+        Vector3 z, h;
+        if (height < 0.05f) { float t = Smooth(-0.15f, 0.05f, height); z = Vector3.Lerp(night.Zenith, golden.Zenith, t); h = Vector3.Lerp(night.Horizon, golden.Horizon, t); }
+        else { float t = Smooth(0.05f, 0.35f, height); z = Vector3.Lerp(golden.Zenith, day.Zenith, t); h = Vector3.Lerp(golden.Horizon, day.Horizon, t); }
+        float az = MathF.PI * (isDay ? dayT : 0);
+        var sun = Vector3.Normalize(new Vector3(MathF.Cos(az), -0.35f, height * 1.15f));
+        return (z, h, sun, Smooth(-0.05f, 0.05f, height));
+    }
+
     /// <summary>Interior check: no sun, artificial ambient only (what green vertex colour sees).</summary>
     public static GtaGlobalLights Interior(float level = 0.5f)
     {

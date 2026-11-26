@@ -94,6 +94,9 @@ public static class GtaImporter
 
     static ImportResult Finish(Ctx c)
     {
+        // trees: their plain vertex-coloured shapes are the game's shadow casters, never seen
+        if (c.Res.Materials.Any(m => m.Shader != null && m.Shader.StartsWith("trees", StringComparison.OrdinalIgnoreCase)))
+            foreach (var m in c.Res.Materials) if (string.Equals(m.Shader, "cpv_only", StringComparison.OrdinalIgnoreCase)) m.ShadowOnly = true;
         foreach (var m in c.Res.Meshes) { m.Mesh.CleanFaces(); m.Mesh.RemoveUnusedVertices(); }
         c.Res.Meshes.RemoveAll(m => m.Mesh.Faces.Count == 0);
         if (c.Res.Materials.Count == 0) c.Res.Materials.Add(GtaMaterial.CreateDefault(0, "imported", new Vector3(0.75f)));
@@ -233,9 +236,13 @@ public static class GtaImporter
     }
 
     static readonly uint HDiffuse = MetaXml.Jenkins("DiffuseSampler"), HBump = MetaXml.Jenkins("BumpSampler"),
-        HSpec = MetaXml.Jenkins("SpecSampler"), HDetail = MetaXml.Jenkins("DetailSampler"), HTexture = MetaXml.Jenkins("TextureSampler");
+        HSpec = MetaXml.Jenkins("SpecSampler"), HDetail = MetaXml.Jenkins("DetailSampler"), HTexture = MetaXml.Jenkins("TextureSampler"), HTint = MetaXml.Jenkins("TintPaletteSampler"), HLookup = MetaXml.Jenkins("lookupSampler");
     static readonly uint[] HLayer = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("TextureSampler_layer" + i)).ToArray();
     static readonly uint[] HLayerBump = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("BumpSampler_layer" + i)).ToArray();
+    static readonly uint[] HLayerHeight = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("heightMapSamplerLayer" + i)).ToArray();
+    static readonly uint[] HLayerHScale = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("heightScale" + i)).ToArray();
+    static readonly uint[] HLayerHBias = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("heightBias" + i)).ToArray();
+    static readonly uint HHeight = MetaXml.Jenkins("heightSampler"), HHeightScale = MetaXml.Jenkins("heightScale"), HHeightBias = MetaXml.Jenkins("heightBias");
 
     /// <summary>One GtaMaterial per shader of the drawable; returns the material index (into the import result).</summary>
     static int MaterialFor(Ctx c, Cw.ShaderFX s, string drawableName, int shaderIndex)
@@ -264,10 +271,15 @@ public static class GtaImporter
                         if (li >= 0) mat.Layers[li] = tex; else mat.LayerBumps[lb] = tex;
                         continue;
                     }
+                    int lh = Array.IndexOf(HLayerHeight, h);
+                    if (lh >= 0) { mat.LayerHeights ??= new string[4]; mat.LayerHeights[lh] = tex; continue; }
+                    if (h == HHeight) { mat.HeightTexture = tex; continue; }
                     if (h == HDiffuse || h == HTexture) mat.DiffuseTexture = tex;
                     else if (h == HBump) mat.BumpTexture = tex;
                     else if (h == HSpec) mat.SpecTexture = tex;
                     else if (h == HDetail) mat.DetailTexture = tex;
+                    else if (h == HTint) mat.TintTexture = tex;
+                    else if (h == HLookup) mat.LookupTexture = tex;
                 }
                 else if (par.Data is SDX.Vector4 v)
                 {
@@ -276,6 +288,10 @@ public static class GtaImporter
                     else if (h == MetaXml.Jenkins("specularFalloffMult")) mat.SpecularFalloff = v.X;
                     else if (h == MetaXml.Jenkins("specularFresnel")) mat.SpecularFresnel = v.X;
                     else if (h == MetaXml.Jenkins("emissiveMultiplier")) mat.EmissiveMultiplier = v.X;
+                    else if (h == HHeightScale) mat.HeightScale = v.X;
+                    else if (h == HHeightBias) mat.HeightBias = v.X;
+                    else if (Array.IndexOf(HLayerHScale, h) is int si and >= 0) { var q = mat.LayerHeightScale; if (si == 0) q.X = v.X; else if (si == 1) q.Y = v.X; else if (si == 2) q.Z = v.X; else q.W = v.X; mat.LayerHeightScale = q; }
+                    else if (Array.IndexOf(HLayerHBias, h) is int bi and >= 0) { var q = mat.LayerHeightBias; if (bi == 0) q.X = v.X; else if (bi == 1) q.Y = v.X; else if (bi == 2) q.Z = v.X; else q.W = v.X; mat.LayerHeightBias = q; }
                 }
             }
         }
@@ -323,11 +339,20 @@ public static class GtaImporter
                 // terrain_cb_w_4lyr: the layer weights come from colour 1 (blue: layer 0/1 and 2/3, green: pair 0-1 / 2-3), like the game
                 bool terrain = c.Res.Materials[mat].Layers != null && Has(Cw.VertexSemantics.Colour1);
                 var col1 = terrain ? new Vector4[vd.VertexCount] : null;
+                // terrain with a blend mask: its second texture coordinates say where the mask is read
+                var uv1 = terrain && c.Res.Materials[mat].LookupTexture != null && Has(Cw.VertexSemantics.TexCoord1) ? new Vector2[vd.VertexCount] : null;
                 // GTA cables: each point is there twice on the line, the game's shader opens them into a strip facing the
                 // camera (normal = cable direction, texcoord.x = half width). Here: two crossed strips, seen from every side.
                 if (string.Equals(c.Res.Materials[mat].Shader, "cable", StringComparison.OrdinalIgnoreCase) && Has(Cw.VertexSemantics.Normal) && Has(Cw.VertexSemantics.TexCoord0))
                 {
                     AddCable(mesh, vd, idx, mat, place);
+                    continue;
+                }
+                // far tree cards (trees_lod2): the 4 corners of each card sit on one point, the game's shader opens them
+                // facing the camera (size from treeLod2Params x texcoord 2). Here: two crossed cards, seen from every side.
+                if (string.Equals(c.Res.Materials[mat].Shader, "trees_lod2", StringComparison.OrdinalIgnoreCase) && Has(Cw.VertexSemantics.TexCoord0))
+                {
+                    AddTreeCards(mesh, vd, idx, mat, place, ShaderVec(shader, "treeLod2Params"), Has(Cw.VertexSemantics.TexCoord2), Has(Cw.VertexSemantics.Colour0), Has(Cw.VertexSemantics.TexCoord1));
                     continue;
                 }
                 for (int i = 0; i < vd.VertexCount; i++)
@@ -337,6 +362,7 @@ public static class GtaImporter
                     if (Has(Cw.VertexSemantics.Colour0)) { var cc = vd.GetColour(i, (int)Cw.VertexSemantics.Colour0); col[i] = new Vector4(cc.R, cc.G, cc.B, cc.A) / 255f; }
                     else col[i] = PolyMesh.DefaultColour;
                     if (terrain) { var c1 = vd.GetColour(i, (int)Cw.VertexSemantics.Colour1); col1[i] = new Vector4(c1.R, c1.G, c1.B, c1.A) / 255f; }
+                    if (uv1 != null) uv1[i] = ReadUv(vd, i, (int)Cw.VertexSemantics.TexCoord1);
                 }
                 for (int t = 0; t + 2 < idx.Length; t += 3)
                 {
@@ -344,6 +370,7 @@ public static class GtaImporter
                     if (a >= vd.VertexCount || b >= vd.VertexCount || cI >= vd.VertexCount || a == b || b == cI || a == cI) continue;
                     var f = mesh.AddFace(new[] { baseV + a, baseV + b, baseV + cI }, mat);
                     if (terrain) f.Col1 = new[] { col1[a], col1[b], col1[cI] };
+                    if (uv1 != null) f.UV1 = new[] { uv1[a], uv1[b], uv1[cI] };
                     f.UV = new[] { uv[a], uv[b], uv[cI] };
                     f.Col = new[] { col[a], col[b], col[cI] };
                 }
@@ -357,6 +384,50 @@ public static class GtaImporter
             MeshOps.AutoSmooth(mesh, null, 40f);
         }
         c.Res.Meshes.Add(new ImportedMesh { Name = name, Mesh = mesh, GtaType = GtaObjectType.Drawable });
+    }
+
+    static Vector4 ShaderVec(Cw.ShaderFX s, string name)
+    {
+        var prm = s?.ParametersList; uint want = Cw.JenkHash.GenHash(name.ToLowerInvariant());
+        if (prm?.Parameters == null || prm.Hashes == null) return Vector4.Zero;
+        for (int i = 0; i < prm.Parameters.Length && i < prm.Hashes.Length; i++)
+            if ((uint)prm.Hashes[i] == want && prm.Parameters[i].Data is SDX.Vector4 v) return new Vector4(v.X, v.Y, v.Z, v.W);
+        return Vector4.Zero;
+    }
+
+    static void AddTreeCards(PolyMesh mesh, Cw.VertexData vd, ushort[] idx, int mat, Matrix4x4 place, Vector4 prm, bool hasTc2, bool hasCol, bool hasTc1)
+    {
+        int n = vd.VertexCount;
+        var pos = new Vector3[n]; var tc = new Vector2[n]; var sz = new Vector2[n]; var col = new Vector4[n]; var at = new Vector2[n]; // at: place in the texture atlas
+        var size = new Vector2(prm.X == 0 ? 10 : prm.X, prm.Y == 0 ? 10 : prm.Y);
+        for (int i = 0; i < n; i++)
+        {
+            pos[i] = V(vd.GetVector3(i, (int)Cw.VertexSemantics.Position));
+            tc[i] = ReadUv(vd, i, (int)Cw.VertexSemantics.TexCoord0);
+            sz[i] = hasTc2 ? ReadUv(vd, i, (int)Cw.VertexSemantics.TexCoord2) : Vector2.One;
+            at[i] = hasTc1 ? ReadUv(vd, i, (int)Cw.VertexSemantics.TexCoord1) : tc[i];
+            if (hasCol) { var cc = vd.GetColour(i, (int)Cw.VertexSemantics.Colour0); col[i] = new Vector4(cc.R, cc.G, cc.B, cc.A) / 255f; } else col[i] = PolyMesh.DefaultColour;
+        }
+        foreach (var side in new[] { Vector3.UnitX, Vector3.UnitY })
+        {
+            int baseV = mesh.Verts.Count;
+            for (int i = 0; i < n; i++)
+            {
+                var o = size * (new Vector2(0.5f) - tc[i]) * sz[i];
+                mesh.AddVertex(Vector3.Transform(pos[i] + side * o.X + Vector3.UnitZ * o.Y, place));
+            }
+            for (int t = 0; t + 2 < idx.Length; t += 3)
+            {
+                int a = idx[t], b = idx[t + 1], cI = idx[t + 2];
+                if (a >= n || b >= n || cI >= n || a == b || b == cI || a == cI) continue;
+                foreach (var (x, y, z) in new[] { (a, b, cI), (a, cI, b) })
+                {
+                    var f = mesh.AddFace(new[] { baseV + x, baseV + y, baseV + z }, mat);
+                    f.UV = new[] { at[x], at[y], at[z] };
+                    f.Col = new[] { col[x], col[y], col[z] };
+                }
+            }
+        }
     }
 
     static void AddCable(PolyMesh mesh, Cw.VertexData vd, ushort[] idx, int mat, Matrix4x4 place)

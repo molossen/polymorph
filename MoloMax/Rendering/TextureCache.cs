@@ -189,6 +189,16 @@ public sealed class TextureCache : IDisposable
         catch { thumbFailed.Add(path); return null; }
     }
 
+    /// <summary>Size and mip count of a loaded texture (diagnostics).</summary>
+    public string Describe(string nameOrPath)
+    {
+        var p = Resolve(nameOrPath);
+        if (p == null) return "(not found)";
+        if (!cache.TryGetValue(p, out var s) || s == null) return "(not loaded)";
+        using var r = s.Resource; using var t = r.QueryInterface<Texture2D>();
+        var d = t.Description; return $"{d.Width}x{d.Height} {d.MipLevels} mips {d.Format}";
+    }
+
     /// <summary>Is this texture on the GPU already?</summary>
     public bool IsLoaded(string nameOrPath) { var p = Resolve(nameOrPath); return p != null && cache.ContainsKey(p); }
 

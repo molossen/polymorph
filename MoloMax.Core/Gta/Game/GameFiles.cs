@@ -39,6 +39,49 @@ public sealed class GameFiles
     /// <summary>Archetypes whose model sits in a drawable dictionary (.ydd): most far LOD / SLOD models of the map.</summary>
     readonly Dictionary<uint, uint> yddOfArchetype = new();
     readonly Dictionary<uint, GameAsset> yddByHash = new();
+    /// <summary>Diagnostics: every archetype whose name or model name is one of these hashes (slow: reads every .ytyp).</summary>
+    public List<string> DescribeArchetypes(HashSet<uint> hashes, int max = 12)
+    {
+        var res = new List<string>();
+        foreach (var rpf in Rpf.AllRpfs)
+        {
+            if (rpf.AllEntries == null) continue;
+            foreach (var e in rpf.AllEntries)
+            {
+                if (e is not RpfFileEntry fe || !(fe.NameLower ?? "").EndsWith(".ytyp")) continue;
+                try
+                {
+                    var y = RpfFile.GetFile<YtypFile>(fe);
+                    if (y?.AllArchetypes == null) continue;
+                    foreach (var a in y.AllArchetypes)
+                        if (a != null && (hashes.Contains(a._BaseArchetypeDef.name.Hash) || hashes.Contains(a._BaseArchetypeDef.assetName.Hash)))
+                        {
+                            res.Add($"{fe.Name}: name {a._BaseArchetypeDef.name.Hash:X8} ({a.Name}) asset {a._BaseArchetypeDef.assetName.Hash:X8} ({a.AssetName}) type {a._BaseArchetypeDef.assetType} ydd {a.DrawableDict.Hash:X8} txd {a.TextureDict.Hash:X8}");
+                            if (res.Count >= max) return res;
+                        }
+                }
+                catch { }
+            }
+        }
+        return res;
+    }
+
+    /// <summary>Diagnostics: what CodeWalker finds in a drawable dictionary.</summary>
+    public string DescribeYdd(GameAsset a)
+    {
+        try
+        {
+            var yf = RpfFile.GetFile<YddFile>(a.Entry);
+            return $"CodeWalker reads {a.Name}.ydd: {yf?.Drawables?.Length} drawables, keys {string.Join(",", (yf?.Dict?.Keys ?? Enumerable.Empty<uint>()).Select(k => k.ToString("X8")))}; "
+                + string.Join(" | ", (yf?.Drawables ?? Array.Empty<Drawable>()).Select(dw => $"{dw?.Name}: {dw?.DrawableModels?.High?.Length ?? 0} high models, {dw?.DrawableModels?.High?.Sum(m => m.Geometries?.Length ?? 0) ?? 0} geoms, shaders {string.Join("/", dw?.ShaderGroup?.Shaders?.data_items?.Select(sh => sh.Name.ToString()) ?? Enumerable.Empty<string>())}"));
+        }
+        catch (Exception ex) { return "CodeWalker ydd read failed: " + ex.Message; }
+    }
+
+    /// <summary>Archetype name -> the model (asset) it draws, when they differ.</summary>
+    readonly Dictionary<uint, uint> assetOfArchetype = new();
+    /// <summary>The model an archetype draws (its own name when it has no separate asset name).</summary>
+    public uint AssetOf(uint archetype) { BuildTypeIndex(); return assetOfArchetype.TryGetValue(archetype, out var a) ? a : archetype; }
     /// <summary>Interiors (MLO archetypes): the .ytyp holding each one.</summary>
     readonly Dictionary<uint, RpfFileEntry> ytypOfMlo = new();
     /// <summary>Texture dictionary parents (gtxd): a model's textures can live in its dictionary's parent, grand-parent...</summary>
@@ -82,6 +125,21 @@ public sealed class GameFiles
         return g;
     }
 
+    /// <summary>How much a file's place overrides the same name elsewhere: the title update over the DLCs over the base game
+    /// (a DLC or the update ships newer copies of base files; the base copy can lack models added later).</summary>
+    static int Rank(string path)
+    {
+        var p = (path ?? "").ToLowerInvariant();
+        if (p.StartsWith("update\\") || p.StartsWith("update/")) return 3;
+        if (p.Contains("dlcpacks")) return p.Contains("patch") ? 2 : 1;
+        return 0;
+    }
+
+    static void Put(Dictionary<uint, GameAsset> d, GameAsset a)
+    {
+        if (!d.TryGetValue(a.Hash, out var old) || Rank(a.Path) >= Rank(old.Path)) d[a.Hash] = a; // same rank: the later archive (DLCs load in order)
+    }
+
     void Index(IEnumerable<RpfFile> rpfs)
     {
         foreach (var rpf in rpfs)
@@ -92,12 +150,12 @@ public sealed class GameFiles
                 if (e is not RpfFileEntry fe) continue;
                 var ext = System.IO.Path.GetExtension(fe.NameLower ?? fe.Name ?? "");
                 var name = System.IO.Path.GetFileNameWithoutExtension(fe.NameLower ?? fe.Name ?? "");
-                if (ext == ".ytd") { ytdByHash.TryAdd(JenkHash.GenHash(name), new GameAsset { Name = name, Ext = ext, Path = fe.Path, Entry = fe, Hash = JenkHash.GenHash(name) }); continue; }
+                if (ext == ".ytd") { Put(ytdByHash, new GameAsset { Name = name, Ext = ext, Path = fe.Path, Entry = fe, Hash = JenkHash.GenHash(name) }); continue; }
                 if (!ModelExt.Contains(ext)) continue;
                 var a = new GameAsset { Name = name, Ext = ext, Path = fe.Path, Entry = fe, Hash = JenkHash.GenHash(name), Size = fe.GetFileSize() };
                 Models.Add(a);
-                if (ext is ".ydr" or ".yft") modelByHash.TryAdd(a.Hash, a);
-                else if (ext == ".ydd") yddByHash.TryAdd(a.Hash, a);
+                if (ext is ".ydr" or ".yft") Put(modelByHash, a);
+                else if (ext == ".ydd") Put(yddByHash, a);
             }
         }
         Models.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
@@ -182,11 +240,19 @@ public sealed class GameFiles
                         foreach (var a in y.AllArchetypes)
                             if (a != null)
                             {
-                                txdOfArchetype.TryAdd(a.Hash.Hash, a.TextureDict.Hash);
-                                var bb = a.BBMax - a.BBMin;
-                                sizeOfArchetype.TryAdd(a.Hash.Hash, Math.Max(bb.X, Math.Max(bb.Y, bb.Z)));
-                                if (a.DrawableDict.Hash != 0) yddOfArchetype.TryAdd(a.Hash.Hash, a.DrawableDict.Hash);
-                                if (a is MloArchetype) ytypOfMlo.TryAdd(a.Hash.Hash, fe);
+                                // CodeWalker keys an archetype by its asset (model) name; map objects name the archetype itself:
+                                // both are indexed (they differ for models shared by several archetypes, e.g. tree LOD cards)
+                                uint an = a._BaseArchetypeDef.name.Hash, asset = a.Hash.Hash;
+                                foreach (var k in an != 0 && an != asset ? new[] { asset, an } : new[] { asset })
+                                {
+                                    txdOfArchetype.TryAdd(k, a.TextureDict.Hash);
+                                    var bb = a.BBMax - a.BBMin;
+                                    sizeOfArchetype.TryAdd(k, Math.Max(bb.X, Math.Max(bb.Y, bb.Z)));
+                                    lodDistOfArchetype.TryAdd(k, a.LodDist);
+                                    if (a.DrawableDict.Hash != 0) yddOfArchetype.TryAdd(k, a.DrawableDict.Hash);
+                                    if (a is MloArchetype) ytypOfMlo.TryAdd(k, fe);
+                                }
+                                if (an != 0 && an != asset) assetOfArchetype.TryAdd(an, asset);
                             }
                 }
                 catch { }
@@ -265,7 +331,7 @@ public sealed class GameFiles
     }
 
     /// <summary>The .ydr / .yft of an archetype hash (interior entities name their model by hash).</summary>
-    public GameAsset FindModel(uint hash) => modelByHash.TryGetValue(hash, out var a) ? a : null;
+    public GameAsset FindModel(uint hash) => modelByHash.TryGetValue(hash, out var a) ? a : TypesIndexed && assetOfArchetype.TryGetValue(hash, out var asset) && modelByHash.TryGetValue(asset, out a) ? a : null;
 
     public IReadOnlyList<GamePlacement> PlacementsOf(GameAsset a) => placements.TryGetValue(a.Hash, out var l) ? l : Array.Empty<GamePlacement>();
 
@@ -305,6 +371,9 @@ public sealed class GameFiles
     }
 
     /// <summary>Largest side of an archetype's bounding box in metres (-1 when unknown).</summary>
+    /// <summary>Draw distance the archetype gives its entities when they don't set one (0 = unknown).</summary>
+    public float ArchetypeLodDist(uint hash) { BuildTypeIndex(); return lodDistOfArchetype.TryGetValue(hash, out var d) && float.IsFinite(d) ? d : 0; }
+    readonly System.Collections.Concurrent.ConcurrentDictionary<uint, float> lodDistOfArchetype = new();
     public float ArchetypeSize(uint hash) { BuildTypeIndex(); return sizeOfArchetype.TryGetValue(hash, out var s) && float.IsFinite(s) ? s : -1; }
 
     /// <summary>A texture dictionary read straight from the archive.</summary>
@@ -338,6 +407,8 @@ public sealed class GameFiles
 
     /// <summary>Raw bytes of a model file (resource header included), ready for CodeWalker's loaders.</summary>
     public byte[] ModelBytes(GameAsset a) => FileBytes(a.Entry);
+    /// <summary>A file of the game by its archive path (e.g. common.rpf\\data\\...), null when not found.</summary>
+    public byte[] ReadPath(string path) { try { return Rpf.GetFileData(path); } catch { return null; } }
 
     static byte[] FileBytes(RpfFileEntry e)
     {

@@ -233,19 +233,21 @@ public sealed partial class EditorApp
     /// <summary>Map mode click: on the far world it loads that area; on an editable entity the normal selection goes on.</summary>
     bool MapClick(Viewport hv)
     {
-        if (world == null || backdrop.Count == 0) return false;
-        var ray = RayAt(hv, Input.Mouse);
-        var near = Picking.PickNearest(Scene.Objects, ray, o => o.Frozen || mapCulled.Contains(o.Id));
-        var eye = hv.Camera.Eye;
-        var far = Picking.PickNearest(backdrop, ray, o => FarSteppedAside(o, eye) || !FarLodVisible(o, eye));
-        if (!far.HasValue || near.HasValue && near.Value.Distance <= far.Value.Distance + 0.5f) return false;
-        LoadAreaAt(far.Value.Point);
+        if (world == null || backdrop.Count == 0 && !LodTreeOn) return false;
+        // what is seen under the mouse (GPU): a far model loads its area, an editable one goes on to the selection
+        var hit = GpuPickMap(hv, Input.Mouse, o => o.Frozen);
+        if (!hit.HasValue || hit.Value.Object.Id >= 0) return false;
+        if (lastPickEnt >= 0) return OpenWorldEntity(lastPickEnt); // a game object of the level-of-detail world: open its map, select it
+        LoadAreaAt(hit.Value.Point);
         return true;
     }
 
     void FarWorldPanel()
     {
         if (world == null) return;
+        MapLookControls();
+        if (Settings.MapLodTree && worldEnts == null && worldEntsTask != null) Ui.TextDisabled(worldEntsStatus.Length > 0 ? worldEntsStatus : "Reading the map objects...");
+        else if (LodTreeOn) Ui.TextDisabled($"{worldEnts.E.Length:N0} map objects, {worldSel.Count:N0} drawn from here (game LOD tree)");
         if (ImGui.Checkbox("Show the whole map (far models)", ref ShowFarWorld)) { }
         Theme.Tip("The full GTA map with its light far models. Click on it to load that area for editing.");
         if (ShowFarWorld)

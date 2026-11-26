@@ -436,6 +436,22 @@ public sealed partial class EditorApp
                 float top = Vector3.Transform(lb.Max, w).Z - plan.OriginZ;
                 planFoot.Add((P(lb.Min.X, lb.Min.Y), P(lb.Max.X, lb.Min.Y), P(lb.Max.X, lb.Max.Y), P(lb.Min.X, lb.Max.Y), top, o.Gta.MapArchetype));
             }
+            if (LodTreeOn)
+            {
+                // the level-of-detail world: the objects chosen around (read only, not scene objects)
+                foreach (var i in worldSel)
+                {
+                    var e = worldEnts.E[i];
+                    if (e.Mlo || worldOpenMaps.Contains(e.Ymap) || MathF.Abs(e.Pos.X - org.X) > R + 60 || MathF.Abs(e.Pos.Y - org.Y) > R + 60) continue;
+                    if (!archSlots.TryGetValue(e.Arch, out var sl) || !(sl.State == 2 && sl.Mesh != null || sl.GpuOnly)) continue;
+                    var sz = sl.Max - sl.Min;
+                    if (MathF.Max(sz.X, sz.Y) < 1.2f || MathF.Max(sz.X, sz.Y) > 160 || sz.Z < 0.6f) continue;
+                    var w = e.World; var lb = (Min: sl.Min, Max: sl.Max);
+                    Vector2 P(float x, float y) { var v = Vector3.Transform(new Vector3(x, y, lb.Min.Z), w); return new Vector2(v.X, v.Y) - org; }
+                    float top = Vector3.Transform(lb.Max, w).Z - plan.OriginZ;
+                    planFoot.Add((P(lb.Min.X, lb.Min.Y), P(lb.Max.X, lb.Min.Y), P(lb.Max.X, lb.Max.Y), P(lb.Min.X, lb.Max.Y), top, sl.Name ?? e.Arch.ToString("X8")));
+                }
+            }
             planFoot.Sort((a, b) => a.Top.CompareTo(b.Top)); // tall last, on top
         }
         string hoverName = null;

@@ -15,7 +15,7 @@
     <Product>Polymorph</Product>
     <Company>Molo Modding</Company>
     <ApplicationIcon>Assets\polymorph.ico</ApplicationIcon>
-    <Version>1.8.9</Version>
+    <Version>1.9.0</Version>
     <InformationalVersion>1.7.7</InformationalVersion>
     <NoWarn>$(NoWarn);CS0618;CA1416</NoWarn>
   </PropertyGroup>
@@ -62,6 +62,14 @@
     <EmbeddedResource Include="Shaders\lines.hlsl"><LogicalName>lines.hlsl</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="Shaders\outline.hlsl"><LogicalName>outline.hlsl</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="Shaders\splat.hlsl"><LogicalName>splat.hlsl</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="Shaders\sky.hlsl"><LogicalName>sky.hlsl</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="Shaders\water.hlsl"><LogicalName>water.hlsl</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="Shaders\lights.hlsl"><LogicalName>lights.hlsl</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="Shaders\hdr.hlsl"><LogicalName>hdr.hlsl</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="Shaders\ao.hlsl"><LogicalName>ao.hlsl</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="Shaders\nrwater.hlsl"><LogicalName>nrwater.hlsl</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="Shaders\bloom.hlsl"><LogicalName>bloom.hlsl</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="Shaders\clouds.hlsl"><LogicalName>clouds.hlsl</LogicalName></EmbeddedResource>
   </ItemGroup>
 
 </Project>

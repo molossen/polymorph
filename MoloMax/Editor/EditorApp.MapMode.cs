@@ -61,6 +61,8 @@ public sealed partial class EditorApp
         public System.Threading.Tasks.Task<ArchLoad> Task;
         public string Error; public float Priority = float.MaxValue;
         public bool Seen; // went through a priority scan (until then nobody knows if it is wanted)
+        public int Ver;   // GPU mesh version shared by every object of this model
+        public bool GpuOnly; public double LastUsed; // level-of-detail world: only on the graphics card (the CPU copy let go), last frame drawn
     }
     /// <summary>A model read in the background: merged mesh (materials still numbered as in the file) and its GPU triangles.</summary>
     sealed class ArchLoad { public string Why; public MoloMax.Core.IO.ImportResult R; public PolyMesh Mesh; public List<MoloMax.Core.Mesh.RenderGroup> Groups; public Vector3 Min, Max; }
@@ -174,9 +176,14 @@ public sealed partial class EditorApp
             });
         }
         PumpMapLoad(); Prof("map load");
-        PumpBackdrop(); Prof("map far");
+        PumpWorldEntities(); TrimWorldModels();
+        // the level-of-detail world replaces the far models (they are not even read while the world is being read)
+        if (!Settings.MapLodTree) PumpBackdrop();
+        else if (LodTreeOn && backdrop.Count > 0) { backdropCancel?.Cancel(); ClearBackdrop(); }
+        Prof("map far");
         PumpArchetypes(); Prof("map models");
         if (MapStream && world != null && ImGui.GetTime() - mapLastStream > 0.5) { mapLastStream = ImGui.GetTime(); StreamWorld(HdStreamingNow); }
+        WorldSelectAfterLoad();
         PinPickedMaps();
         AutoInteriors();
         Prof("map stream");
@@ -218,7 +225,8 @@ public sealed partial class EditorApp
             mapStreamQueue.Clear(); foreach (var y in keep) mapStreamQueue.Enqueue(y);
         }
         if (near)
-            foreach (var y in world.Near(p, MapStreamRadius).Where(y => !mapDocs.ContainsKey(y.Name) && !mapStreamQueue.Contains(y) && !mapLoadQueue.Contains(y))
+            // with the level-of-detail world the game's objects are drawn already: only the maps holding interiors open by themselves
+            foreach (var y in world.Near(p, MapStreamRadius).Where(y => (!Settings.MapLodTree || y.Interior) && !mapDocs.ContainsKey(y.Name) && !mapStreamQueue.Contains(y) && !mapLoadQueue.Contains(y))
                                     .OrderBy(y => Vector3.DistanceSquared(Vector3.Clamp(p, y.Min, y.Max), p)))
                 mapStreamQueue.Enqueue(y);
         // unload far maps that have no change (the ones opened by hand stay); zoomed out: every streamed one goes
@@ -407,7 +415,12 @@ public sealed partial class EditorApp
 
     ArchSlot Slot(uint hash, string name)
     {
-        if (archSlots.TryGetValue(hash, out var s)) return s;
+        if (archSlots.TryGetValue(hash, out var s))
+        {
+            // a scene object needs the mesh itself: a model kept only on the graphics card is read again (from the cache, quick)
+            if (s.GpuOnly) { s.GpuOnly = false; s.Mesh = null; s.State = 0; s.Ver = 0; }
+            return s;
+        }
         s = new ArchSlot { Hash = hash, Name = name };
         // a model of the project (MODEL mode) with that name: use its mesh at once
         var proj = ProjectModel(name);
@@ -516,7 +529,7 @@ public sealed partial class EditorApp
             foreach (var f in mesh.Faces) f.MatId = ids[f.MatId];
             foreach (var g in ld.Groups) g.MaterialId = ids[Math.Clamp(g.MaterialId, 0, ids.Length - 1)];
             renderer.Prebuilt.AddOrUpdate(mesh, ld.Groups);
-            s.Mesh = mesh; s.Min = ld.Min; s.Max = ld.Max; s.State = 2;
+            s.Mesh = mesh; s.Min = ld.Min; s.Max = ld.Max; s.State = 2; archReady++;
             string key = "map:" + s.Hash.ToString("X8");
             if (byKey == null)
             {
@@ -532,6 +545,8 @@ public sealed partial class EditorApp
             int ver = lead?.Version ?? 0;
             if (mapDocs.Count > 0) backdropHiddenDirty = true; // its real size now decides whether it steps aside
             if (mine.Far != null) foreach (var o in mine.Far) { o.Mesh = mesh; if (lead == null) { o.Touch(); lead = o; ver = o.Version; } else o.Version = ver; }
+            if (worldTpl.TryGetValue(s.Hash, out var wt)) { wt.Mesh = mesh; if (lead == null) { wt.Touch(); lead = wt; ver = wt.Version; } else wt.Version = ver; }
+            s.Ver = lead != null ? ver : 0;
         }
         // reads still running (finished ones wait for the next batch without holding a reader)
         int running = 0; foreach (var x in archInFlight) if (x.Task != null && !x.Task.IsCompleted) running++;
@@ -548,6 +563,7 @@ public sealed partial class EditorApp
                 if (o.Id < 0 && (FarSteppedAside(o, eye) || !FarLodVisible(o, eye))) continue; // far model not shown at this distance
                 s.Priority = MathF.Min(s.Priority, Vector3.DistanceSquared(o.Position, eye));
             }
+            WorldPriorities(eye);
             archQueue.Clear(); archQueue.AddRange(archSlots.Values.Where(s => s.State == 0 && s.Priority < float.MaxValue).OrderBy(s => s.Priority));
             archQueuePos = 0;
         }
@@ -587,7 +603,8 @@ public sealed partial class EditorApp
             if (g == null) { lld.Why = "no geometry in " + Path.GetFileName(local); return lld; }
             a ??= g.FindModel(hash);
         }
-        var ld = FromCache(hash) ?? new ArchLoad();
+        uint asset = g?.AssetOf(hash) ?? hash; // several archetypes can draw one model (named differently)
+        var ld = FromCache(hash) ?? (asset != hash ? FromCache(asset) : null) ?? new ArchLoad();
         if (ld.Mesh == null)
         {
             var opt = new MoloMax.Core.IO.ImportOptions { Scale = 1, AutoSmoothAngle = 0 };
@@ -605,7 +622,7 @@ public sealed partial class EditorApp
                 if (dd == null) { ld.Why = g.WhyNoModel(hash); return ld; }
                 lock (yddLocks.GetOrAdd(dd.Hash, _ => new object()))
                 {
-                    if (FromCache(hash) is { } again) ld = again;
+                    if ((FromCache(hash) ?? (asset != hash ? FromCache(asset) : null)) is { } again) ld = again;
                     else if (yddDone.ContainsKey(dd.Hash)) ld.Why = $"not in {dd.Name}.ydd";
                     else
                     {
@@ -616,7 +633,7 @@ public sealed partial class EditorApp
                             var one = Merge(r, grp.ToList());
                             if (one.Mesh.Faces.Count == 0) continue;
                             try { MapMeshCache.Save(MeshCachePath(grp.Key), one.Mesh, one.R.Materials); } catch { }
-                            if (grp.Key == hash) ld = one;
+                            if (grp.Key == hash || grp.Key == asset) ld = one;
                         }
                         if (ld.Mesh == null) ld.Why = $"{dd.Name}.ydd read: {r.Meshes.Count} parts, hashes {string.Join(",", r.Meshes.Select(m => m.DrawableHash.ToString("X8")).Distinct().Take(4))}";
                     }
@@ -861,7 +878,8 @@ public sealed partial class EditorApp
     {
         point = default; normal = Vector3.UnitZ;
         var ray = RayAt(vp, mouse);
-        var best = Picking.PickNearest(Scene.Objects, ray, o => o.Id == skip || mapCulled.Contains(o.Id));
+        var best = GpuPickMap(vp, mouse, o => o.Id == skip);
+        if (best.HasValue && best.Value.Face < 0) { point = best.Value.Point; return true; } // a far model: its point, the ground's up
         if (best.HasValue)
         {
             var b = best.Value; point = b.Point;

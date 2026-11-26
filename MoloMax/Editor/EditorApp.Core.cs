@@ -230,6 +230,7 @@ public sealed partial class EditorApp : IDisposable
             RenderViewport(Viewports[i], i == ActiveViewport);
         }
         gpuTimer.End(ctx);
+        renderer.FogOff(); // previews and thumbnails drawn next frame have no haze
         Prof("viewports");
         ctx.Rasterizer.SetScissorRectangle(0, 0, gpu.Width, gpu.Height);
         try { DrawOverlays(); } catch (Exception e) { SetStatus("Error: " + e.Message); frameError = e; }
@@ -352,13 +353,20 @@ public sealed partial class EditorApp : IDisposable
         ctx.OutputMerger.SetDepthStencilState(renderer.DepthOff);
         ctx.OutputMerger.SetBlendState(renderer.Opaque, blendCol, -1);
         ctx.Rasterizer.State = renderer.CullNone;
-        var (top, bot) = Theme.ViewportBackground(cam.Ortho);
-        lines.Tris.Add(new LineVertex(new(-1, 1, 0.5f), top)); lines.Tris.Add(new LineVertex(new(1, 1, 0.5f), top)); lines.Tris.Add(new LineVertex(new(1, -1, 0.5f), bot));
-        lines.Tris.Add(new LineVertex(new(-1, 1, 0.5f), top)); lines.Tris.Add(new LineVertex(new(1, -1, 0.5f), bot)); lines.Tris.Add(new LineVertex(new(-1, -1, 0.5f), bot));
-        lines.Flush(Matrix4x4.Identity);
+        bool skyView = MapSkyOn(vp);
+        bool hdrView = skyView && MapNrLookOn && Settings.MapHdr;
+        if (hdrView) { hdrImage ??= new HdrImage(gpu.Device); hdrImage.Begin(gpu); }
+        if (skyView) DrawMapSky(viewProj);
+        else
+        {
+            var (top, bot) = Theme.ViewportBackground(cam.Ortho);
+            lines.Tris.Add(new LineVertex(new(-1, 1, 0.5f), top)); lines.Tris.Add(new LineVertex(new(1, 1, 0.5f), top)); lines.Tris.Add(new LineVertex(new(1, -1, 0.5f), bot));
+            lines.Tris.Add(new LineVertex(new(-1, 1, 0.5f), top)); lines.Tris.Add(new LineVertex(new(1, -1, 0.5f), bot)); lines.Tris.Add(new LineVertex(new(-1, -1, 0.5f), bot));
+            lines.Flush(Matrix4x4.Identity);
+        }
 
-        // home grid
-        if (ShowGrid)
+        // home grid (not over the sky of the map)
+        if (ShowGrid && !skyView)
         {
             ctx.OutputMerger.SetDepthStencilState(renderer.DepthRead);
             ctx.Rasterizer.State = renderer.LinesState;
@@ -370,6 +378,7 @@ public sealed partial class EditorApp : IDisposable
         var l = ScaledLights(Lights);
         var cur = Current;
         renderer.EditObjectId = Level != SubObject.Object && cur != null ? cur.Id : -1;
+        if (skyView && (Settings.MapFog || MapNrLookOn)) SetMapFog(cam); else renderer.FogOff();
         renderer.BeginScene(viewProj, cam.Eye, l, vp.Shading, Exposure, AmbientBoost);
         ctx.OutputMerger.SetDepthStencilState(renderer.DepthDefault);
         ctx.OutputMerger.SetBlendState(renderer.Opaque, blendCol, -1);
@@ -401,10 +410,25 @@ public sealed partial class EditorApp : IDisposable
         }
         ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1);
         ctx.OutputMerger.SetDepthStencilState(renderer.DepthRead);
+        if (skyView) { ctx.Rasterizer.State = renderer.CullNone; DrawMapWater(vp, viewProj); }
         if (MapMode && !wireOnly(vp)) MapDraw(true);
         else foreach (var o in drawList)
         {
             renderer.DrawObject(Scene, o, true, Vector4.Zero, BackfaceCull);
+        }
+        if (skyView) { ctx.Rasterizer.State = renderer.CullNone; DrawMapLights(vp, viewProj); ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1); }
+        if (hdrView)
+        {
+            // the HDR image brought to the window (exposure, filmic curve), then the wires and gizmos over it
+            ctx.OutputMerger.SetDepthStencilState(renderer.DepthOff);
+            ctx.OutputMerger.SetBlendState(renderer.Opaque, blendCol, -1);
+            ctx.Rasterizer.State = renderer.CullNone;
+            // share of the light coming from the surroundings (what the occlusion darkens): more at night and in the shade
+            static float Lum(Vector3 c) => 0.2126f * c.X + 0.7152f * c.Y + 0.0722f * c.Z;
+            float amb = Lum(mapLight.SkyAmbient), sunL = Lum(mapLight.SunColor) * MathF.Max(mapLight.SunDirection.Z, 0.1f);
+            float share = Settings.MapOcclusion ? amb / MathF.Max(amb + sunL * 0.5f, 1e-4f) : 0;
+            hdrImage.End(gpu, Settings.MapExposure * MathF.Max(mapLight.Adaptation, 1), vp.X, vp.Y, vp.W, vp.H, cam.Projection(vp.Aspect), cam.Near, cam.Far, share, Settings.MapBloom ? 0.5f * 0.2f / 6f : 0);
+            ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1);
         }
         DrawSplats(vp);
 

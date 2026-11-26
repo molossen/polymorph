@@ -43,7 +43,9 @@ struct MaterialVarsCB
     public Vector3 SpecMapIntMask; public float EmissiveMult;
     public Vector4 DetailSettings;
     public Vector4 ViewportColour;
-    public uint IsTerrain, TerrainPad0, TerrainPad1, TerrainPad2;
+    public uint IsTerrain, IsTint, TerrainMode, VertexColoured;
+    public uint Parallax; public float HeightScale, HeightBias; public uint EmissiveNight;
+    public Vector4 LayerHeightScale, LayerHeightBias;
 }
 
 /// <summary>One scene light as the shader sees it.</summary>
@@ -54,7 +56,7 @@ public struct ViewLight
     public int Kind; // 0 point, 1 spot, 2 capsule
 }
 
-[Flags] public enum RenderFlags : uint { None = 0, Filmic = 1, SunShadows = 2, SceneLights = 4, FaceOrientation = 8 }
+[Flags] public enum RenderFlags : uint { None = 0, Filmic = 1, SunShadows = 2, SceneLights = 4, FaceOrientation = 8, MapLook = 16 }
 
 /// <summary>Uploaded triangles of one SceneObject, split by material.</summary>
 sealed class GpuMesh : IDisposable
@@ -77,11 +79,89 @@ public sealed class SceneRenderer : IDisposable
     readonly Device device;
     readonly DeviceContext ctx;
     readonly VertexShader vs, vsInst;
-    readonly PixelShader ps;
+    readonly PixelShader ps, psPick;
+    readonly Buffer pickCB;
+
+    // ---- GPU picking: objects drawn with their number (and depth) into two small-format targets, read back under one pixel
+    Texture2D pickTex, pickZTex, pickDepth, pickStage, pickZStage;
+    RenderTargetView pickRtv, pickZRtv; DepthStencilView pickDsv;
+    int pickW, pickH, pickX, pickY;
+    /// <summary>A pick pass is drawing: DrawObject / DrawInstanced write numbers, the blended pass is skipped.</summary>
+    public bool Picking { get; private set; }
+
+    /// <summary>Starts a pick pass over a view of the given size; only the pixel (x, y) of the view is drawn (scissor).
+    /// Call BeginScene after it (with the view's matrix), then draw with <see cref="SetPickBase"/>.</summary>
+    public void BeginPick(int viewW, int viewH, int x, int y)
+    {
+        viewW = Math.Max(1, viewW); viewH = Math.Max(1, viewH);
+        if (pickTex == null || pickW != viewW || pickH != viewH)
+        {
+            pickRtv?.Dispose(); pickTex?.Dispose(); pickZRtv?.Dispose(); pickZTex?.Dispose(); pickDsv?.Dispose(); pickDepth?.Dispose();
+            pickW = viewW; pickH = viewH;
+            Texture2D T(Format f, BindFlags b) => new(device, new Texture2DDescription { Width = pickW, Height = pickH, MipLevels = 1, ArraySize = 1, Format = f, SampleDescription = new SampleDescription(1, 0), Usage = ResourceUsage.Default, BindFlags = b });
+            pickTex = T(Format.R32_UInt, BindFlags.RenderTarget); pickRtv = new RenderTargetView(device, pickTex);
+            pickZTex = T(Format.R32_Float, BindFlags.RenderTarget); pickZRtv = new RenderTargetView(device, pickZTex);
+            pickDepth = T(Format.D32_Float, BindFlags.DepthStencil); pickDsv = new DepthStencilView(device, pickDepth);
+        }
+        Texture2D S(Format f) => new(device, new Texture2DDescription { Width = 1, Height = 1, MipLevels = 1, ArraySize = 1, Format = f, SampleDescription = new SampleDescription(1, 0), Usage = ResourceUsage.Staging, CpuAccessFlags = CpuAccessFlags.Read });
+        pickStage ??= S(Format.R32_UInt); pickZStage ??= S(Format.R32_Float);
+        pickX = Math.Clamp(x, 0, pickW - 1); pickY = Math.Clamp(y, 0, pickH - 1);
+        ctx.OutputMerger.SetRenderTargets(pickDsv, pickRtv, pickZRtv);
+        ctx.ClearRenderTargetView(pickRtv, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0));
+        ctx.ClearRenderTargetView(pickZRtv, new SharpDX.Mathematics.Interop.RawColor4(1, 1, 1, 1));
+        ctx.ClearDepthStencilView(pickDsv, DepthStencilClearFlags.Depth, 1f, 0);
+        ctx.Rasterizer.SetViewport(0, 0, pickW, pickH);
+        ctx.Rasterizer.SetScissorRectangle(pickX, pickY, pickX + 1, pickY + 1);
+        Picking = true;
+    }
+
+    /// <summary>Pick pass: the next draws are numbered from this base (+ instance + 1).</summary>
+    public void SetPickBase(uint b)
+    {
+        var d = new[] { b, 0u, 0u, 0u };
+        ctx.UpdateSubresource(d, pickCB);
+    }
+
+    /// <summary>After BeginScene in a pick pass: the number shader instead of the colour one.</summary>
+    void PickShaders()
+    {
+        ctx.PixelShader.Set(psPick);
+        ctx.PixelShader.SetConstantBuffer(7, pickCB);
+        ctx.OutputMerger.SetDepthStencilState(DepthDefault);
+        ctx.OutputMerger.SetBlendState(Opaque, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0), -1);
+    }
+
+    /// <summary>Ends the pick pass: the number under the pixel (0 = nothing) and its depth (0..1, 1 = nothing).
+    /// Leaves no render target bound.</summary>
+    public (uint Id, float Depth) EndPick()
+    {
+        Picking = false;
+        ctx.OutputMerger.SetRenderTargets((DepthStencilView)null, (RenderTargetView)null);
+        var box = new ResourceRegion(pickX, pickY, 0, pickX + 1, pickY + 1, 1);
+        ctx.CopySubresourceRegion(pickTex, 0, box, pickStage, 0);
+        ctx.CopySubresourceRegion(pickZTex, 0, box, pickZStage, 0);
+        uint id; float depth;
+        var m = ctx.MapSubresource(pickStage, 0, MapMode.Read, SharpDX.Direct3D11.MapFlags.None);
+        unsafe { id = *(uint*)m.DataPointer; }
+        ctx.UnmapSubresource(pickStage, 0);
+        m = ctx.MapSubresource(pickZStage, 0, MapMode.Read, SharpDX.Direct3D11.MapFlags.None);
+        unsafe { depth = *(float*)m.DataPointer; }
+        ctx.UnmapSubresource(pickZStage, 0);
+        ctx.PixelShader.Set(ps);
+        return (id, depth);
+    }
     readonly InputLayout layout, layoutInst;
-    Buffer instBuf; int instCap;
+    Buffer instBuf; int instCap, instOff;
     VertexBufferBinding[] instBindings = new VertexBufferBinding[2];
-    readonly Buffer sceneCB, objectCB, materialCB, lightCB, clipCB;
+    readonly Buffer sceneCB, objectCB, materialCB, lightCB, clipCB, fogCB;
+    readonly Vector4[] fogData = new Vector4[4];
+    /// <summary>MAP: distance haze (strength 0: off). Colours in display space.</summary>
+    public void SetFog(Vector3 colour, float strength, float start, float full, Vector3 sunAdd, Vector3 sunDir)
+    {
+        fogData[0] = new(colour, strength); fogData[1] = new(start, full, 0.004f, 0); fogData[2] = new(sunAdd, 0); fogData[3] = new(sunDir, 0);
+        ctx.UpdateSubresource(fogData, fogCB);
+    }
+    public void FogOff() { if (fogData[0].W == 0) return; fogData[0].W = 0; ctx.UpdateSubresource(fogData, fogCB); }
     readonly Vector4[] clipData = new Vector4[ClipMax * 2 + 1];
     public const int ClipMax = 16;
     bool clipOn;
@@ -101,6 +181,14 @@ public sealed class SceneRenderer : IDisposable
     readonly Vector4[] lightData = new Vector4[LightVec4s];
     Texture2D shadowTex;
     DepthStencilView shadowDsv;
+    readonly DepthStencilView[] shadowSlices = new DepthStencilView[3];
+    readonly Texture2D[] shadowTexs = new Texture2D[3];
+    readonly ShaderResourceView[] shadowSrvs = new ShaderResourceView[3];
+    Buffer cascadeCB, mapLookCB, nrShadowCB;
+    RasterizerState shadowRasClamp;
+    readonly Vector4[] nrShadowData = new Vector4[15];
+    readonly Vector4[] mapLookData = new Vector4[10];
+    readonly Vector4[] cascadeData = new Vector4[9];
     ShaderResourceView shadowSrv;
     readonly SamplerState shadowSampler;
     readonly RasterizerState shadowRas;
@@ -126,6 +214,7 @@ public sealed class SceneRenderer : IDisposable
                 new InputElement("TEXCOORD", 0, Format.R32G32_Float, 40, 0),
                 new InputElement("TANGENT", 0, Format.R32G32B32A32_Float, 48, 0),
                 new InputElement("COLOR", 1, Format.R8G8B8A8_UNorm, 64, 0),
+                new InputElement("TEXCOORD", 1, Format.R32G32_Float, 68, 0),
             });
         }
         using (var vsi = ShaderLoader.Compile("gta_basic.hlsl", "VSInstanced", "vs_4_0"))
@@ -139,6 +228,7 @@ public sealed class SceneRenderer : IDisposable
                 new InputElement("TEXCOORD", 0, Format.R32G32_Float, 40, 0),
                 new InputElement("TANGENT", 0, Format.R32G32B32A32_Float, 48, 0),
                 new InputElement("COLOR", 1, Format.R8G8B8A8_UNorm, 64, 0),
+                new InputElement("TEXCOORD", 1, Format.R32G32_Float, 68, 0),
                 new InputElement("TEXCOORD", 4, Format.R32G32B32A32_Float, 0, 1, InputClassification.PerInstanceData, 1),
                 new InputElement("TEXCOORD", 5, Format.R32G32B32A32_Float, 16, 1, InputClassification.PerInstanceData, 1),
                 new InputElement("TEXCOORD", 6, Format.R32G32B32A32_Float, 32, 1, InputClassification.PerInstanceData, 1),
@@ -146,11 +236,19 @@ public sealed class SceneRenderer : IDisposable
             });
         }
         using (var psb = ShaderLoader.Compile("gta_basic.hlsl", "PSMain", "ps_4_0")) ps = new PixelShader(device, psb);
+        using (var psp = ShaderLoader.Compile("gta_basic.hlsl", "PSPick", "ps_4_0")) psPick = new PixelShader(device, psp);
+        pickCB = new Buffer(device, 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+        cascadeCB = new Buffer(device, cascadeData.Length * 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+        nrShadowCB = new Buffer(device, nrShadowData.Length * 16 + 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+        mapLookCB = new Buffer(device, mapLookData.Length * 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+        ctx.UpdateSubresource(cascadeData, cascadeCB);
 
         sceneCB = CB<SceneVarsCB>(); objectCB = CB<ObjectVarsCB>(); materialCB = CB<MaterialVarsCB>();
         lightCB = new Buffer(device, LightVec4s * 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
         ctx.UpdateSubresource(lightData, lightCB);
         clipCB = new Buffer(device, clipData.Length * 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+        fogCB = new Buffer(device, fogData.Length * 16, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+        ctx.UpdateSubresource(fogData, fogCB);
         ctx.UpdateSubresource(clipData, clipCB);
         shadowSampler = new SamplerState(device, new SamplerStateDescription
         {
@@ -160,6 +258,10 @@ public sealed class SceneRenderer : IDisposable
         shadowRas = new RasterizerState(device, new RasterizerStateDescription
         {
             FillMode = FillMode.Solid, CullMode = CullMode.None, IsDepthClipEnabled = true, DepthBias = 0, SlopeScaledDepthBias = 2.5f, DepthBiasClamp = 0.01f,
+        });
+        shadowRasClamp = new RasterizerState(device, new RasterizerStateDescription
+        {
+            FillMode = FillMode.Solid, CullMode = CullMode.None, IsDepthClipEnabled = false, DepthBias = 0, SlopeScaledDepthBias = 2.5f, DepthBiasClamp = 0.01f,
         });
         sampler = new SamplerState(device, new SamplerStateDescription
         {
@@ -368,6 +470,29 @@ public sealed class SceneRenderer : IDisposable
     /// <summary>Forces every mesh to re-upload (after an undo replaced the scene).</summary>
     public void Invalidate() { foreach (var m in meshes.Values) m.Dispose(); meshes.Clear(); foreach (var m in instMeshes.Values) m.Dispose(); instMeshes.Clear(); }
 
+    /// <summary>Binds the scene shaders and buffers again after another renderer (water) used the pipeline.</summary>
+    public void RebindScene()
+    {
+        lastMat = null;
+        ctx.InputAssembler.InputLayout = layout;
+        ctx.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
+        ctx.VertexShader.Set(vs);
+        ctx.VertexShader.SetConstantBuffer(0, sceneCB); ctx.VertexShader.SetConstantBuffer(1, objectCB); ctx.VertexShader.SetConstantBuffer(2, materialCB);
+        ctx.PixelShader.Set(ps);
+        ctx.PixelShader.SetConstantBuffer(0, sceneCB); ctx.PixelShader.SetConstantBuffer(1, objectCB); ctx.PixelShader.SetConstantBuffer(2, materialCB);
+        ctx.PixelShader.SetSampler(0, sampler);
+        ctx.PixelShader.SetConstantBuffer(3, lightCB);
+        ctx.PixelShader.SetConstantBuffer(4, clipCB);
+        ctx.PixelShader.SetConstantBuffer(6, fogCB);
+        ctx.PixelShader.SetSampler(1, shadowSampler);
+        ctx.PixelShader.SetShaderResource(5, shadowSrv);
+        ctx.PixelShader.SetShaderResource(21, shadowSrvs[1]); ctx.PixelShader.SetShaderResource(22, shadowSrvs[2]);
+        ctx.PixelShader.SetConstantBuffer(8, cascadeCB); ctx.PixelShader.SetConstantBuffer(9, mapLookCB); ctx.PixelShader.SetConstantBuffer(10, nrShadowCB);
+    }
+
+    /// <summary>Last haze sent (for the water, drawn with the same).</summary>
+    public (Vector4 Colour, Vector4 Range) Fog => (fogData[0], fogData[1]);
+
     public void BeginScene(Matrix4x4 viewProj, Vector3 eye, in GtaGlobalLights l, ShadingMode mode, float exposure, float ambientBoost)
     {
         lastMat = null;
@@ -390,9 +515,13 @@ public sealed class SceneRenderer : IDisposable
         ctx.PixelShader.SetSampler(0, sampler);
         ctx.PixelShader.SetConstantBuffer(3, lightCB);
         ctx.PixelShader.SetConstantBuffer(4, clipCB);
+        ctx.PixelShader.SetConstantBuffer(6, fogCB);
         ctx.PixelShader.SetSampler(1, shadowSampler);
         ctx.PixelShader.SetShaderResource(5, shadowSrv);
+        ctx.PixelShader.SetShaderResource(21, shadowSrvs[1]); ctx.PixelShader.SetShaderResource(22, shadowSrvs[2]);
+        ctx.PixelShader.SetConstantBuffer(8, cascadeCB); ctx.PixelShader.SetConstantBuffer(9, mapLookCB); ctx.PixelShader.SetConstantBuffer(10, nrShadowCB);
         ctx.GeometryShader.Set(null);
+        if (Picking) PickShaders();
     }
 
     static float Bits(uint u) => BitConverter.UInt32BitsToSingle(u);
@@ -424,13 +553,49 @@ public sealed class SceneRenderer : IDisposable
     void EnsureShadowMap()
     {
         if (shadowTex != null) return;
-        shadowTex = new Texture2D(device, new Texture2DDescription
+        // 0: the near map (MODEL mode, and around the camera target in MAP mode); 1 and 2: wider maps in MAP mode
+        // (three textures, not an array: comparison sampling of arrays needs a newer shader model)
+        for (int i = 0; i < 3; i++)
         {
-            Width = ShadowSize, Height = ShadowSize, MipLevels = 1, ArraySize = 1, Format = Format.R32_Typeless, SampleDescription = new SampleDescription(1, 0),
-            Usage = ResourceUsage.Default, BindFlags = BindFlags.DepthStencil | BindFlags.ShaderResource,
-        });
-        shadowDsv = new DepthStencilView(device, shadowTex, new DepthStencilViewDescription { Format = Format.D32_Float, Dimension = DepthStencilViewDimension.Texture2D });
-        shadowSrv = new ShaderResourceView(device, shadowTex, new ShaderResourceViewDescription { Format = Format.R32_Float, Dimension = ShaderResourceViewDimension.Texture2D, Texture2D = new ShaderResourceViewDescription.Texture2DResource { MipLevels = 1 } });
+            shadowTexs[i] = new Texture2D(device, new Texture2DDescription
+            {
+                Width = ShadowSize, Height = ShadowSize, MipLevels = 1, ArraySize = 1, Format = Format.R32_Typeless, SampleDescription = new SampleDescription(1, 0),
+                Usage = ResourceUsage.Default, BindFlags = BindFlags.DepthStencil | BindFlags.ShaderResource,
+            });
+            shadowSlices[i] = new DepthStencilView(device, shadowTexs[i], new DepthStencilViewDescription { Format = Format.D32_Float, Dimension = DepthStencilViewDimension.Texture2D });
+            shadowSrvs[i] = new ShaderResourceView(device, shadowTexs[i], new ShaderResourceViewDescription { Format = Format.R32_Float, Dimension = ShaderResourceViewDimension.Texture2D, Texture2D = new ShaderResourceViewDescription.Texture2DResource { MipLevels = 1 } });
+            ctx.ClearDepthStencilView(shadowSlices[i], DepthStencilClearFlags.Depth, 1f, 0);
+        }
+        shadowTex = shadowTexs[0]; shadowDsv = shadowSlices[0]; shadowSrv = shadowSrvs[0];
+    }
+
+    /// <summary>MAP look: the sun shadow slices (matrices, far end of each slice along the view, texel sizes, on / off).</summary>
+    public void SetMapShadows(MapShadowSlices sl, bool on)
+    {
+        var d = nrShadowData;
+        for (int i = 0; i < 3; i++) { var m = sl.Cascades[i]; d[i * 4] = new(m.M11, m.M12, m.M13, m.M14); d[i * 4 + 1] = new(m.M21, m.M22, m.M23, m.M24); d[i * 4 + 2] = new(m.M31, m.M32, m.M33, m.M34); d[i * 4 + 3] = new(m.M41, m.M42, m.M43, m.M44); }
+        d[12] = new(sl.Splits[0], sl.Splits[1], sl.Splits[2], on ? 1 : 0);
+        d[13] = new(sl.TexelSizes[0], sl.TexelSizes[1], sl.TexelSizes[2], 1f / sl.Size);
+        d[14] = new(sl.CameraForward, 0);
+        ctx.UpdateSubresource(d, nrShadowCB);
+    }
+
+    /// <summary>MAP look (lighting): the light of the hour, for the RenderFlags.MapLook pass.</summary>
+    public void SetMapLook(in MoloMax.Core.Gta.Look.MapLighting l, Vector3 camera, bool haze)
+    {
+        mapLookData[0] = new(l.SunDirection, 0); mapLookData[1] = new(l.SunColor, 0); mapLookData[2] = new(l.SkyAmbient, 0);
+        mapLookData[3] = new(l.GroundAmbient, 0); mapLookData[4] = new(l.Horizon, haze && l.FogDistance > 0 ? 1 : 0);
+        mapLookData[5] = new(camera, MathF.Max(l.FogDistance, 1)); mapLookData[6] = new(l.Zenith, 0); mapLookData[7] = new(l.NightLights, l.IsHdr ? 1 : 0, MoloMax.Core.Gta.Look.MapLighting.HdrEmission, 0);
+        mapLookData[8] = new(l.FogSun, 0); mapLookData[9] = new(l.Sun, 0);
+        ctx.UpdateSubresource(mapLookData, mapLookCB);
+    }
+
+    /// <summary>MAP: the wider shadow maps (slices 1 and 2) and how many are in use (0 = only the near one).</summary>
+    public void SetCascades(Matrix4x4 vp1, float texel1, Matrix4x4 vp2, float texel2, int count)
+    {
+        void M(int at, Matrix4x4 m) { cascadeData[at] = new(m.M11, m.M12, m.M13, m.M14); cascadeData[at + 1] = new(m.M21, m.M22, m.M23, m.M24); cascadeData[at + 2] = new(m.M31, m.M32, m.M33, m.M34); cascadeData[at + 3] = new(m.M41, m.M42, m.M43, m.M44); }
+        M(0, vp1); M(4, vp2); cascadeData[8] = new(texel1, texel2, count, 0);
+        ctx.UpdateSubresource(cascadeData, cascadeCB);
     }
 
     /// <summary>
@@ -454,19 +619,22 @@ public sealed class SceneRenderer : IDisposable
     }
 
     /// <summary>Returns false when it stopped sending new meshes to stay smooth (some casters left out: call again soon).</summary>
-    public bool RenderShadows(Scene scene, IEnumerable<SceneObject> casters, Matrix4x4 lightViewProj, in GtaGlobalLights l, double uploadBudgetMs = double.MaxValue)
+    public bool RenderShadows(Scene scene, IEnumerable<SceneObject> casters, Matrix4x4 lightViewProj, in GtaGlobalLights l, double uploadBudgetMs = double.MaxValue,
+        IReadOnlyList<(SceneObject Template, Matrix4x4[] Worlds, int Count)> instanced = null, int slice = 0, bool noDepthClip = false)
     {
         double up0 = UploadMs; bool complete = true;
         EnsureShadowMap();
         ctx.PixelShader.SetShaderResource(5, null);
-        ctx.OutputMerger.SetRenderTargets(shadowDsv, (RenderTargetView)null);
-        ctx.ClearDepthStencilView(shadowDsv, DepthStencilClearFlags.Depth, 1f, 0);
+        ctx.PixelShader.SetShaderResource(5, null); ctx.PixelShader.SetShaderResource(21, null); ctx.PixelShader.SetShaderResource(22, null); // read by the scene, written here
+        var dsv = shadowSlices[Math.Clamp(slice, 0, 2)];
+        ctx.OutputMerger.SetRenderTargets(dsv, (RenderTargetView)null);
+        ctx.ClearDepthStencilView(dsv, DepthStencilClearFlags.Depth, 1f, 0);
         ctx.Rasterizer.SetViewport(0, 0, ShadowSize, ShadowSize);
         ctx.Rasterizer.SetScissorRectangle(0, 0, ShadowSize, ShadowSize);
         BeginScene(lightViewProj, Vector3.Zero, l, ShadingMode.Realistic, 1, 0);
         ctx.PixelShader.SetShaderResource(5, null);
         ctx.PixelShader.Set(null);
-        ctx.Rasterizer.State = shadowRas;
+        ctx.Rasterizer.State = noDepthClip ? shadowRasClamp : shadowRas;
         ctx.OutputMerger.SetDepthStencilState(DepthDefault);
         foreach (var o in casters)
         {
@@ -483,6 +651,12 @@ public sealed class SceneRenderer : IDisposable
                 ctx.DrawIndexed(g.Count, 0, 0);
             }
         }
+        if (instanced != null)
+            foreach (var (t, w, n) in instanced)
+            {
+                if (UploadMs - up0 > uploadBudgetMs && NeedsUpload(t)) { complete = false; continue; }
+                DrawInstanced(scene, t, w, n, false, false, depthOnly: true);
+            }
         ctx.OutputMerger.SetRenderTargets((DepthStencilView)null, (RenderTargetView)null);
         ctx.PixelShader.Set(ps);
         return complete;
@@ -491,8 +665,8 @@ public sealed class SceneRenderer : IDisposable
     /// <summary>Textures of a material as last looked up: thousands of map draws skip four path lookups each.</summary>
     sealed class MatTex
     {
-        public int Epoch = -1; public bool Pending; public string D, B, S, T; public GtaShaderPreset P; public ShaderResourceView Diff, Bump, Spec, Det;
-        public string LayerKey; public ShaderResourceView[] Lay = new ShaderResourceView[4], LayB = new ShaderResourceView[4];
+        public int Epoch = -1; public bool Pending; public string D, B, S, T, Tn, Lk; public GtaShaderPreset P; public ShaderResourceView Diff, Bump, Spec, Det, Tint, Look;
+        public string LayerKey, Hk; public ShaderResourceView[] Lay = new ShaderResourceView[4], LayB = new ShaderResourceView[4], LayH = new ShaderResourceView[4]; public ShaderResourceView Hgt;
     }
     readonly System.Runtime.CompilerServices.ConditionalWeakTable<GtaMaterial, MatTex> matTex = new();
 
@@ -514,22 +688,27 @@ public sealed class SceneRenderer : IDisposable
         lastMat = m;
         bool terrain = m.IsTerrain;
         string lk = terrain ? string.Join("|", Enumerable.Range(0, 4).Select(i => m.Layer(i) + ">" + m.LayerBump(i))) : null;
+        string hk = m.HasParallax ? m.HeightTexture + "|" + string.Join("|", Enumerable.Range(0, 4).Select(m.LayerHeight)) : null;
         if (mt.Pending || mt.Epoch != Textures.Epoch || !ReferenceEquals(mt.P, p) || !ReferenceEquals(mt.D, m.DiffuseTexture) || !ReferenceEquals(mt.B, m.BumpTexture)
-            || !ReferenceEquals(mt.S, m.SpecTexture) || !ReferenceEquals(mt.T, m.DetailTexture) || mt.LayerKey != lk)
+            || !ReferenceEquals(mt.S, m.SpecTexture) || !ReferenceEquals(mt.T, m.DetailTexture) || !ReferenceEquals(mt.Tn, m.TintTexture) || !ReferenceEquals(mt.Lk, m.LookupTexture) || mt.LayerKey != lk || mt.Hk != hk)
         {
             bool pending = false;
             mt.Diff = Tex(m.DiffuseTexture, ref pending);
             mt.Bump = p.Bump ? Tex(m.BumpTexture, ref pending) : null;
             mt.Spec = p.Spec ? Tex(m.SpecTexture, ref pending) : null;
             mt.Det = p.Detail ? Tex(m.DetailTexture, ref pending) : null;
-            mt.LayerKey = lk;
+            mt.Tint = m.TintTexture != null ? Tex(m.TintTexture, ref pending) : null;
+            mt.Look = terrain && m.LookupTexture != null ? Tex(m.LookupTexture, ref pending) : null;
+            mt.LayerKey = lk; mt.Hk = hk;
+            mt.Hgt = m.HeightTexture != null ? Tex(m.HeightTexture, ref pending) : null;
+            for (int i = 0; i < 4; i++) mt.LayH[i] = terrain && m.LayerHeight(i) != null ? Tex(m.LayerHeight(i), ref pending) : null;
             for (int i = 0; i < 4; i++)
             {
                 mt.Lay[i] = terrain ? Tex(m.Layer(i) ?? m.DiffuseTexture, ref pending) : null;
                 mt.LayB[i] = terrain ? Tex(m.LayerBump(i) ?? m.BumpTexture, ref pending) : null;
             }
             mt.Pending = pending; mt.Epoch = Textures.Epoch; mt.P = p;
-            mt.D = m.DiffuseTexture; mt.B = m.BumpTexture; mt.S = m.SpecTexture; mt.T = m.DetailTexture;
+            mt.D = m.DiffuseTexture; mt.B = m.BumpTexture; mt.S = m.SpecTexture; mt.T = m.DetailTexture; mt.Tn = m.TintTexture; mt.Lk = m.LookupTexture;
         }
         var diff = mt.Diff; var bump = mt.Bump; var spec = mt.Spec; var det = mt.Det;
         var mv = new MaterialVarsCB
@@ -546,8 +725,23 @@ public sealed class SceneRenderer : IDisposable
             DetailSettings = m.DetailSettings,
             ViewportColour = new Vector4(m.ViewportColour, 1),
             IsTerrain = terrain ? 1u : 0u,
+            IsTint = mt.Tint != null && TintPalettes ? 1u : 0u,
+            TerrainMode = terrain ? (uint)(mt.Look != null ? m.TerrainBlend + 1 : 1) : 0u,
+            VertexColoured = diff == null && string.Equals(m.Shader, "cpv_only", StringComparison.OrdinalIgnoreCase) ? 1u : 0u,
+            EmissiveNight = m.Shader != null && m.Shader.Contains("night", StringComparison.OrdinalIgnoreCase) ? 1u : 0u,
         };
         if (terrain) { mv.EnableTexture = 1; mv.EnableNormalMap = 1; mv.EnableDetailMap = 0; }
+        // parallax (PXM): the game's tessellation values are far bigger than what a parallax wants: brought to its range
+        if (Parallax && bump != null && (terrain ? mt.LayH.Any(t => t != null) : mt.Hgt != null))
+        {
+            float hs = m.HeightScale, hb = m.HeightBias;
+            if (MathF.Abs(hs) > 0.1f || hb < 0) { hs = MathF.Abs(hs) * 0.075f; hb = hs * 0.5f; }
+            static Vector4 Fix(Vector4 v) => new(Fx(v.X), Fx(v.Y), Fx(v.Z), Fx(v.W));
+            static float Fx(float x) => MathF.Abs(x) > 0.1f ? MathF.Abs(x) * 0.075f : x;
+            mv.Parallax = terrain ? 2u : 1u; mv.HeightScale = hs; mv.HeightBias = hb;
+            mv.LayerHeightScale = Fix(m.LayerHeightScale);
+            var lb = m.LayerHeightBias; mv.LayerHeightBias = new Vector4(lb.X < 0 ? mv.LayerHeightScale.X * 0.5f : lb.X, lb.Y < 0 ? mv.LayerHeightScale.Y * 0.5f : lb.Y, lb.Z < 0 ? mv.LayerHeightScale.Z * 0.5f : lb.Z, lb.W < 0 ? mv.LayerHeightScale.W * 0.5f : lb.W);
+        }
         ctx.UpdateSubresource(ref mv, materialCB);
         for (int i = 0; i < 4; i++)
         {
@@ -558,7 +752,18 @@ public sealed class SceneRenderer : IDisposable
         ctx.PixelShader.SetShaderResource(2, bump ?? Textures.FlatNormal);
         ctx.PixelShader.SetShaderResource(3, spec ?? Textures.DefaultSpec);
         ctx.PixelShader.SetShaderResource(4, det ?? Textures.FlatNormal);
+        ctx.PixelShader.SetShaderResource(14, mt.Tint ?? Textures.White);
+        ctx.PixelShader.SetShaderResource(15, mt.Look ?? Textures.White);
+        ctx.PixelShader.SetShaderResource(16, mt.Hgt ?? Textures.White);
+        for (int i = 0; i < 4; i++) ctx.PixelShader.SetShaderResource(17 + i, mt.LayH[i] ?? Textures.White);
     }
+
+    /// <summary>Tint shaders take their colour from the palette (MAP mode: the game's buildings in their real colours).</summary>
+    public bool TintPalettes = true;
+    /// <summary>Shapes the game never shows (trees' shadow balls, mirrors' placeholders...) are not drawn.</summary>
+    /// <summary>Parallax (PXM) on the materials that have a height map (realistic shading).</summary>
+    public bool Parallax = true;
+    public bool HideNeverDrawn = true;
 
     /// <summary>
     /// Draws one object. <paramref name="alphaPass"/> selects the blended materials (decals, glass);
@@ -566,6 +771,7 @@ public sealed class SceneRenderer : IDisposable
     /// </summary>
     public void DrawObject(Scene scene, SceneObject o, bool alphaPass, Vector4 highlight, bool backfaceCull)
     {
+        if (Picking && (alphaPass || o.GtaType is GtaObjectType.Collision or GtaObjectType.Portal)) return;
         if (UploadBudgetMs > 0 && o.Id != EditObjectId && UploadMs - frameUpload0 > UploadBudgetMs && NeedsUpload(o)) return; // map: shown next frame
         var gm = Upload(o);
         var world = o.World;
@@ -581,6 +787,7 @@ public sealed class SceneRenderer : IDisposable
         foreach (var g in gm.Groups)
         {
             var mat = scene.Material(g.MatId);
+            if (HideNeverDrawn && mat.NeverDrawn) continue;
             bool blended = mat.Preset.AlphaBlended || o.GtaType == GtaObjectType.Collision || o.GtaType == GtaObjectType.Portal;
             if (blended != alphaPass) continue;
             SetMaterial(mat);
@@ -609,40 +816,54 @@ public sealed class SceneRenderer : IDisposable
     /// </summary>
     public void DrawInstanced(Scene scene, SceneObject template, Matrix4x4[] worlds, int count, bool alphaPass, bool backfaceCull, bool depthOnly = false)
     {
-        if (count <= 0) return;
+        if (count <= 0 || Picking && alphaPass) return;
         // map mode: new meshes sent at most ~UploadBudgetMs per frame, the others show a frame or two later (no hitch)
         if (UploadBudgetMs > 0 && UploadMs - frameUpload0 > UploadBudgetMs && NeedsUpload(template)) return;
         var gm = Upload(template);
         if (gm.Groups.Count == 0) return;
+        bool any = false; // nothing of this model in this pass: no instance copy at all (most models have no blended part)
+        foreach (var g in gm.Groups) if (scene.Material(g.MatId).Preset.AlphaBlended == alphaPass) { any = true; break; }
+        if (!any) return;
+        // one big buffer filled one after the other (no-overwrite), emptied only when full: thousands of map draws a frame
+        // otherwise each ask the driver for a fresh buffer
         if (instBuf == null || instCap < count)
         {
             instBuf?.Dispose();
-            instCap = Math.Max(256, count * 3 / 2);
+            instCap = Math.Max(1 << 16, count * 2);
             instBuf = new Buffer(device, instCap * 64, ResourceUsage.Dynamic, BindFlags.VertexBuffer, CpuAccessFlags.Write, ResourceOptionFlags.None, 0);
+            instOff = instCap;
         }
-        var box = ctx.MapSubresource(instBuf, 0, MapMode.WriteDiscard, SharpDX.Direct3D11.MapFlags.None);
-        unsafe { fixed (Matrix4x4* src = worlds) System.Buffer.MemoryCopy(src, (void*)box.DataPointer, (long)instCap * 64, (long)count * 64); }
+        bool wrap = instOff + count > instCap;
+        if (wrap) instOff = 0;
+        var box = ctx.MapSubresource(instBuf, 0, wrap ? MapMode.WriteDiscard : MapMode.WriteNoOverwrite, SharpDX.Direct3D11.MapFlags.None);
+        unsafe { fixed (Matrix4x4* src = worlds) System.Buffer.MemoryCopy(src, (byte*)box.DataPointer + (long)instOff * 64, (long)(instCap - instOff) * 64, (long)count * 64); }
         ctx.UnmapSubresource(instBuf, 0);
         var ov = new ObjectVarsCB { World = Matrix4x4.Identity, NormalMatrix = Matrix4x4.Identity, WireColour = new Vector4(template.WireColour, 1), Highlight = Vector4.Zero };
         ctx.UpdateSubresource(ref ov, objectCB);
         ctx.InputAssembler.InputLayout = layoutInst;
         ctx.VertexShader.Set(vsInst);
-        if (!depthOnly) ctx.Rasterizer.State = NoCull ? CullNone : backfaceCull ? CullBack : CullNone;
+        if (!depthOnly) ctx.Rasterizer.State = Picking ? CullNone : NoCull ? CullNone : backfaceCull ? CullBack : CullNone;
+        // shadow of a tree: its shadow shapes stand in for the leaves (cut-out cards would cast solid squares without a pixel shader)
+        bool proxy = depthOnly && gm.Groups.Any(g => ShadowProxy(scene.Material(g.MatId)));
         foreach (var g in gm.Groups)
         {
             var mat = scene.Material(g.MatId);
-            if (mat.Preset.AlphaBlended != alphaPass) continue;
+            if (depthOnly && (mat.NeverDrawn && !ShadowProxy(mat) || proxy && mat.Preset.Cutout && !ShadowProxy(mat))) continue;
+            if (mat.Preset.AlphaBlended != alphaPass || HideNeverDrawn && mat.NeverDrawn && !depthOnly) continue;
             if (!depthOnly) SetMaterial(mat);
             instBindings[0] = new VertexBufferBinding(g.Vb, RenderVertex.SizeInBytes, 0);
-            instBindings[1] = new VertexBufferBinding(instBuf, 64, 0);
+            instBindings[1] = new VertexBufferBinding(instBuf, 64, instOff * 64);
             ctx.InputAssembler.SetVertexBuffers(0, instBindings);
             ctx.InputAssembler.SetIndexBuffer(g.Ib, Format.R32_UInt, 0);
             ctx.DrawIndexedInstanced(g.Count, count, 0, 0, 0);
             StatDraws++; StatTris += (long)g.Count / 3 * count;
         }
+        instOff += count;
         ctx.InputAssembler.InputLayout = layout;
         ctx.VertexShader.Set(vs);
     }
+
+    static bool ShadowProxy(GtaMaterial m) => m.ShadowOnly || string.Equals(m.Shader, "trees_shadow_proxy", StringComparison.OrdinalIgnoreCase);
 
     public void Dispose()
     {
@@ -651,7 +872,7 @@ public sealed class SceneRenderer : IDisposable
         Textures.Dispose();
         CullBack.Dispose(); CullNone.Dispose(); LinesState.Dispose();
         DepthDefault.Dispose(); DepthRead.Dispose(); DepthOff.Dispose(); Opaque.Dispose(); Alpha.Dispose();
-        shadowSrv?.Dispose(); shadowDsv?.Dispose(); shadowTex?.Dispose(); shadowSampler.Dispose(); shadowRas.Dispose(); lightCB.Dispose(); clipCB.Dispose();
+        foreach (var d in shadowSrvs) d?.Dispose(); foreach (var d in shadowSlices) d?.Dispose(); foreach (var d in shadowTexs) d?.Dispose(); cascadeCB?.Dispose(); mapLookCB?.Dispose(); nrShadowCB?.Dispose(); shadowRasClamp?.Dispose(); shadowSampler.Dispose(); shadowRas.Dispose(); lightCB.Dispose(); clipCB.Dispose(); fogCB.Dispose(); pickCB.Dispose(); psPick.Dispose(); pickRtv?.Dispose(); pickTex?.Dispose(); pickZRtv?.Dispose(); pickZTex?.Dispose(); pickDsv?.Dispose(); pickDepth?.Dispose(); pickStage?.Dispose(); pickZStage?.Dispose();
         sampler.Dispose(); sceneCB.Dispose(); objectCB.Dispose(); materialCB.Dispose();
         layout.Dispose(); ps.Dispose(); vs.Dispose();
     }

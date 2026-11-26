@@ -92,10 +92,25 @@ public sealed partial class EditorApp
 
         // sun shadows: an orthographic depth map from the sun over the visible scene, re-rendered when something moved
         var gl = ScaledLights(Lights);
+        // MAP look (light): its sun / moon direction casts the shadows too
+        if (MapNrLookOn)
+        {
+            if (mapLightHour != Hour || mapLightHdr != (Settings.MapHdr, Settings.MapPhysicalSky))
+            {
+                var ml = MoloMax.Core.Gta.Look.MapLighting.ForHour(Hour, Settings.MapFogDistance);
+                if (Settings.MapHdr) { ml = ml.ForHdr(); if (Settings.MapPhysicalSky) ml = ml.WithPhysicalSky(); }
+                mapLightBase = ml; mapLightHour = Hour; mapLightHdr = (Settings.MapHdr, Settings.MapPhysicalSky);
+            }
+            mapLight = mapLightBase;
+            gl.LightDir = mapLight.SunDirection;
+            flags |= RenderFlags.MapLook;
+        }
         ShadowsRendered = false;
         if (Settings.SunShadows && realistic && !InteriorLight && gl.LightDir.Z > 0.05f && ShadowStrength > 0)
         {
-            if (MapMode) { MapShadows(gl); flags |= RenderFlags.SunShadows; ShadowsRendered = true; renderer.SetLights(viewLights, flags, shadowVP, shadowTexel, ShadowStrength); return; }
+            if (MapNrLookOn) { NrShadows(gl); flags |= RenderFlags.SunShadows; ShadowsRendered = true; renderer.SetLights(viewLights, flags, shadowVP, shadowTexel, ShadowStrength); return; }
+            if (MapMode) { MapShadows(gl); MapCascades(gl); flags |= RenderFlags.SunShadows; ShadowsRendered = true; renderer.SetLights(viewLights, flags, shadowVP, shadowTexel, ShadowStrength); return; }
+            CascadesOff();
             var casters = Scene.Objects.Where(CastsShadow).ToList();
             if (casters.Count > 0)
             {
@@ -121,7 +136,7 @@ public sealed partial class EditorApp
                 ShadowsRendered = true;
             }
         }
-        else shadowHash = 0;
+        else { shadowHash = 0; if (MapNrLookOn && nrSlices != null) renderer.SetMapShadows(nrSlices, false); }
         renderer.SetLights(viewLights, flags, shadowVP, shadowTexel, ShadowStrength);
     }
 
@@ -361,6 +376,88 @@ public sealed partial class EditorApp
 
     double mapShadowTime;
     /// <summary>Map mode: shadows of what is around the camera only (120 m), refreshed at most every 0.75 s.</summary>
+    // MAP: two wider sun shadow maps around the near one (600 m and 2.5 km), refreshed when the focus moved far enough
+    readonly int[] cascHash = new int[3];
+    readonly Matrix4x4[] cascVP = new Matrix4x4[3];
+    readonly float[] cascTexel = new float[3];
+    int cascCount = -1; double cascCheck;
+    static readonly float[] CascRadius = { 0, 600, 2500 };
+    static readonly float[] CascSnap = { 0, 60, 250 };
+
+    void CascadesOff()
+    {
+        if (cascCount == 0) return;
+        cascCount = 0; Array.Clear(cascHash); renderer.SetCascades(Matrix4x4.Identity, 0, Matrix4x4.Identity, 0, 0);
+    }
+
+    void MapCascades(GtaGlobalLights gl)
+    {
+        if (!LodTreeOn) { CascadesOff(); return; }
+        var c = MapFocus();
+        double now = ImGui.GetTime();
+        if (now - cascCheck < 0.4 && cascCount == 2) return;
+        cascCheck = now;
+        // one wide map refreshed per frame at most (each is a full pass over the casters around)
+        for (int k = 1; k <= 2; k++)
+        {
+            float r = CascRadius[k], sn = CascSnap[k];
+            var snapped = new Vector3(MathF.Round(c.X / sn) * sn, MathF.Round(c.Y / sn) * sn, MathF.Round(c.Z / sn) * sn);
+            long ver = 0;
+            var wl = WorldShadowCasters(snapped, r, ref ver, r / 400);
+            int hash = HashCode.Combine(gl.LightDir, snapped, wl.Count, ver);
+            if (hash == cascHash[k]) continue;
+            var up = MathF.Abs(gl.LightDir.Z) > 0.98f ? Vector3.UnitY : Vector3.UnitZ;
+            var view = Matrix4x4.CreateLookAt(snapped + gl.LightDir * r * 2, snapped, up);
+            var proj = Matrix4x4.CreateOrthographicOffCenter(-r, r, -r, r, 0.05f, r * 4);
+            cascVP[k] = view * proj; cascTexel[k] = 2 * r / SceneRenderer.ShadowSize;
+            bool complete = renderer.RenderShadows(Scene, Array.Empty<SceneObject>(), cascVP[k], gl, 6, wl, k);
+            cascHash[k] = complete ? hash : 0;
+            break;
+        }
+        cascCount = 2;
+        renderer.SetCascades(cascVP[1], cascTexel[1], cascVP[2], cascTexel[2], cascVP[2] != default ? 2 : cascVP[1] != default ? 1 : 0);
+    }
+
+    // MAP look: sun shadows, three slices of the view
+    MapShadowSlices nrSlices;
+    MoloMax.Core.Gta.Look.MapLighting mapLightBase; float mapLightHour = float.NaN; (bool, bool) mapLightHdr;
+    int nrCasterHash; double nrCasterCheck;
+
+    void NrShadows(GtaGlobalLights gl)
+    {
+        nrSlices ??= new MapShadowSlices(SceneRenderer.ShadowSize);
+        var vp = Viewports[ActiveViewport]; var cam = vp.Camera;
+        // something casting a shadow changed: other objects chosen, models arrived, editable objects moved
+        bool changed = false;
+        if (ImGui.GetTime() - nrCasterCheck > 0.25)
+        {
+            nrCasterCheck = ImGui.GetTime();
+            var h = new HashCode(); h.Add(worldSel.Count); h.Add(worldSelGen); h.Add(archReady);
+            foreach (var o in MapLive()) { h.Add(o.Version); h.Add(o.Position); }
+            int hash = h.ToHashCode();
+            changed = hash != nrCasterHash; nrCasterHash = hash;
+        }
+        nrSlices.Update(cam.Eye, cam.Forward, cam.Right, cam.Fov, cam.Near, vp.Aspect, gl.LightDir, MathF.Max(50, Settings.MapShadowDistance), changed);
+        for (int i = 0; i < MapShadowSlices.Count; i++)
+        {
+            if (!nrSlices.MustDraw(i)) continue;
+            var c = nrSlices.Centres[i]; float r = nrSlices.Radii[i];
+            var live = new List<SceneObject>();
+            foreach (var o in MapLive())
+            {
+                if (!CastsShadow(o) || WorldHidesEditable(o)) continue;
+                var (mn, mx) = o.FastWorldBounds();
+                if (mx.X < c.X - r || mn.X > c.X + r || mx.Y < c.Y - r || mn.Y > c.Y + r) continue;
+                live.Add(o);
+            }
+            long ver = 0;
+            var wl = WorldShadowCasters(c, r, ref ver, r / 300);
+            bool complete = renderer.RenderShadows(Scene, live, nrSlices.Cascades[i], gl, 8, wl, i, noDepthClip: true);
+            if (!complete) nrSlices.Unfinished(i);
+        }
+        renderer.SetMapShadows(nrSlices, true);
+    }
+
     void MapShadows(GtaGlobalLights gl)
     {
         var c = MapFocus(); const float r = 120;
@@ -374,7 +471,9 @@ public sealed partial class EditorApp
             if (mx.X < snapped.X - r || mn.X > snapped.X + r || mx.Y < snapped.Y - r || mn.Y > snapped.Y + r) continue;
             casters.Add(o); ver += o.Version + (long)(o.Position.X * 7 + o.Position.Y * 13 + o.Position.Z * 17);
         }
-        int hash = HashCode.Combine(gl.LightDir, casters.Count, ver, snapped);
+        // the level-of-detail world: the chosen objects near the focus, grouped by model (one instanced draw each)
+        var wl = WorldShadowCasters(snapped, r, ref ver);
+        int hash = HashCode.Combine(gl.LightDir, casters.Count, ver, snapped, wl.Count);
         // while maps / models are still arriving the casters change all the time: refresh less often (each refresh is a heavy pass)
         bool streaming = mapStreamQueue.Count > 0 || mapLoadTask != null || mapLoadQueue.Count > 0 || archLoading > 0;
         if (hash == shadowHash || ImGui.GetTime() - mapShadowTime < (streaming ? 3.0 : 0.75)) return;
@@ -384,7 +483,7 @@ public sealed partial class EditorApp
         shadowVP = view * proj;
         shadowTexel = 2 * r / SceneRenderer.ShadowSize;
         // at most ~10 ms of new meshes per refresh: the rest of the casters arrive over the next refreshes (no 400 ms hitch)
-        bool complete = renderer.RenderShadows(Scene, casters, shadowVP, gl, 10);
+        bool complete = renderer.RenderShadows(Scene, casters, shadowVP, gl, 10, wl);
         shadowHash = complete ? hash : 0; mapShadowTime = complete ? ImGui.GetTime() : ImGui.GetTime() - 10;
     }
 }

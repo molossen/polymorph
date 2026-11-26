@@ -89,6 +89,26 @@ public sealed class GtaMaterial
 
     /// <summary>Terrain shaders: the 4 layer textures (TextureSampler_layer0..3) and their normal maps (BumpSampler_layer0..3).</summary>
     public string[] Layers, LayerBumps;
+    /// <summary>Tint shaders (*_tnt): the palette texture (TintPaletteSampler); the vertex colour's blue picks its column.</summary>
+    /// <summary>Parallax (PXM) shaders: the height map (heightSampler) and how deep it looks; terrains have one per layer.</summary>
+    public string HeightTexture;
+    public float HeightScale = 0.03f, HeightBias = 0.015f;
+    public string[] LayerHeights;
+    public Vector4 LayerHeightScale = new(0.03f), LayerHeightBias = new(0.015f);
+    public string LayerHeight(int i) => LayerHeights != null && i < LayerHeights.Length ? LayerHeights[i] : null;
+    public bool HasParallax => HeightTexture != null || LayerHeights != null && LayerHeights.Any(h => h != null);
+    public string TintTexture;
+    /// <summary>Terrain blend mask (lookupSampler), read with the second texture coordinates.</summary>
+    public string LookupTexture;
+    /// <summary>A plain shape inside a tree (cpv_only next to the tree's leaves): the game only uses it for the shadow.</summary>
+    public bool ShadowOnly;
+    /// <summary>How a terrain blends its 4 layers: 0 vertex colour only (_lod), 1 mask only (_cm), 2 mask and vertex colour mixed by the
+    /// vertex alpha, -1 not a terrain or no mask.</summary>
+    public int TerrainBlend => !IsTerrain ? -1 : Shader.Contains("_lod", StringComparison.OrdinalIgnoreCase) || LookupTexture == null ? 0
+        : Shader.Contains("_cm", StringComparison.OrdinalIgnoreCase) ? 1 : 2;
+    /// <summary>Shapes the game never shows (only their shadow, or a live reflection): trees' shadow balls, mirrors, normal-only decals, fur grass.</summary>
+    public bool NeverDrawn => ShadowOnly || Shader is { } s && (s.Equals("trees_shadow_proxy", StringComparison.OrdinalIgnoreCase) || s.StartsWith("mirror_", StringComparison.OrdinalIgnoreCase)
+        || s.Equals("decal_normal_only", StringComparison.OrdinalIgnoreCase) || s.StartsWith("grass_fur", StringComparison.OrdinalIgnoreCase));
     /// <summary>A terrain_cb_w_4lyr shader: 4 textures blended by vertex colour 1.</summary>
     public bool IsTerrain => Shader != null && Shader.StartsWith("terrain_cb_w_4lyr", StringComparison.OrdinalIgnoreCase);
     public string Layer(int i) => Layers != null && i < Layers.Length ? Layers[i] : null;
@@ -98,7 +118,7 @@ public sealed class GtaMaterial
     public GtaMaterial Clone()
     {
         var c = (GtaMaterial)MemberwiseClone();
-        c.Layers = (string[])Layers?.Clone(); c.LayerBumps = (string[])LayerBumps?.Clone();
+        c.Layers = (string[])Layers?.Clone(); c.LayerBumps = (string[])LayerBumps?.Clone(); c.LayerHeights = (string[])LayerHeights?.Clone();
         return c;
     }
 
