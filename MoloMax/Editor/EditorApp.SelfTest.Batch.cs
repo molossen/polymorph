@@ -1267,6 +1267,7 @@ public sealed partial class EditorApp
                 var dd = stDts.Skip(s0).Where(x => x > 0).OrderBy(x => x).ToList();
                 Note($"{name} +{sec} s: frame {(dd.Count > 0 ? dd[dd.Count / 2] * 1000 : 0):0.0} ms, models loading {archLoading}, textures waiting {renderer.Textures.Pending}, drawn {MapVisible:N0}");
                 yield return Shot($"cmp_{name}_{sec}s");
+                if (sec == 3) Note($"water: quads {gameWaterData?.Quads.Count}, drawn by the game water {gameWater != null}, failed {gameWaterFailed}, task {gameWaterTask?.Status}, look {MapNrLookOn}, HDR {mapLight.IsHdr}, image {hdrImage != null}, DX11 {gpu.FeatureLevel11}, water on {Settings.MapWater}; {status}");
             }
             // what is where on screen (holes, odd surfaces): a grid of picks
             var vpc = Viewports[ActiveViewport];

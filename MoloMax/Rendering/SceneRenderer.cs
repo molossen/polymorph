@@ -799,6 +799,8 @@ public sealed class SceneRenderer : IDisposable
     /// <summary>Parallax (PXM) on the materials that have a height map (realistic shading).</summary>
     public bool Parallax = true;
     public bool HideNeverDrawn = true;
+    /// <summary>MAP: the water_* shader meshes (sea foam, pools, rivers) are left to the water surface renderer.</summary>
+    public bool HideWaterShaders;
 
     /// <summary>
     /// Draws one object. <paramref name="alphaPass"/> selects the blended materials (decals, glass);
@@ -822,7 +824,7 @@ public sealed class SceneRenderer : IDisposable
         foreach (var g in gm.Groups)
         {
             var mat = scene.Material(g.MatId);
-            if (HideNeverDrawn && mat.NeverDrawn) continue;
+            if (HideNeverDrawn && mat.NeverDrawn || HideWaterShaders && mat.IsWaterShader) continue;
             bool blended = mat.Preset.AlphaBlended || o.GtaType == GtaObjectType.Collision || o.GtaType == GtaObjectType.Portal;
             if (blended != alphaPass) continue;
             SetMaterial(mat);
@@ -884,7 +886,7 @@ public sealed class SceneRenderer : IDisposable
         {
             var mat = scene.Material(g.MatId);
             if (depthOnly && (mat.NeverDrawn && !ShadowProxy(mat) || proxy && mat.Preset.Cutout && !ShadowProxy(mat))) continue;
-            if (mat.Preset.AlphaBlended != alphaPass || HideNeverDrawn && mat.NeverDrawn && !depthOnly) continue;
+            if (mat.Preset.AlphaBlended != alphaPass || HideNeverDrawn && mat.NeverDrawn && !depthOnly || HideWaterShaders && mat.IsWaterShader) continue;
             if (!depthOnly) SetMaterial(mat);
             instBindings[0] = new VertexBufferBinding(g.Vb, RenderVertex.SizeInBytes, 0);
             instBindings[1] = new VertexBufferBinding(instBuf, 64, instOff * 64);

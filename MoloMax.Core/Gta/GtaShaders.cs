@@ -109,6 +109,8 @@ public sealed class GtaMaterial
     /// <summary>Shapes the game never shows (only their shadow, or a live reflection): trees' shadow balls, mirrors, normal-only decals, fur grass.</summary>
     public bool NeverDrawn => ShadowOnly || Shader is { } s && (s.Equals("trees_shadow_proxy", StringComparison.OrdinalIgnoreCase) || s.StartsWith("mirror_", StringComparison.OrdinalIgnoreCase)
         || s.Equals("decal_normal_only", StringComparison.OrdinalIgnoreCase) || s.StartsWith("grass_fur", StringComparison.OrdinalIgnoreCase));
+    /// <summary>A water_* shader (sea foam on sand, fountains, rivers, shallow water).</summary>
+    public bool IsWaterShader => Shader != null && Shader.StartsWith("water_", StringComparison.OrdinalIgnoreCase);
     /// <summary>A terrain_cb_w_4lyr shader: 4 textures blended by vertex colour 1.</summary>
     public bool IsTerrain => Shader != null && Shader.StartsWith("terrain_cb_w_4lyr", StringComparison.OrdinalIgnoreCase);
     public string Layer(int i) => Layers != null && i < Layers.Length ? Layers[i] : null;
