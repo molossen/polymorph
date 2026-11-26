@@ -18,6 +18,7 @@ public sealed partial class EditorApp
     bool MapNrLookOn => MapMode && Settings.MapNrLook;
     MoloMax.Core.Gta.Look.MapLighting mapLight = MoloMax.Core.Gta.Look.MapLighting.Neutral;
     WaterRenderer waterR;
+    NrWaterRenderer nrWater; bool nrWaterFailed;
     MoloMax.Core.Gta.Water.WaterMap waterMap;
     System.Threading.Tasks.Task<MoloMax.Core.Gta.Water.WaterMap> waterTask;
     /// <summary>Water surfaces read from the game (for the tests).</summary>
@@ -69,6 +70,29 @@ public sealed partial class EditorApp
             waterR.SetSurfaces(gpu.Device, waterMap.Triangles());
         }
         if (waterR == null || !waterR.HasSurfaces) return;
+        if (MapNrLookOn && mapLight.IsHdr && hdrImage != null && gpu.FeatureLevel11)
+        {
+            // NodeRunner's water: what it mirrors and what shows through it from the scene drawn so far
+            try { nrWater ??= new NrWaterRenderer(gpu.Device); } catch { nrWaterFailed = true; }
+            if (nrWater != null && !nrWaterFailed)
+            {
+                if (!nrWater.HasSurfaces) nrWater.SetSurfaces(gpu.Device, waterMap.Triangles());
+                var (col, dep) = hdrImage.Snapshot(gpu);
+                var ml = mapLight; var c = vp.Camera;
+                var nv = new NrWaterRenderer.Vars
+                {
+                    ViewProjection = viewProj, CameraTime = new Vector4(c.Eye, (float)(ImGui.GetTime() % 3600)),
+                    SunDirection = new Vector4(ml.SunDirection, c.Near), SunColor = new Vector4(ml.SunColor, ml.SunDisc), SkyAmbient = new Vector4(ml.SkyAmbient, c.Far),
+                    Zenith = new Vector4(ml.Zenith, 0), Horizon = new Vector4(ml.Horizon, 0),
+                    Settings = new Vector4(Settings.MapFog ? 1 : 0, MathF.Max(ml.FogDistance, 1), dep != null ? 1 : 0, 0),
+                    Viewport = new Vector4(vp.X, vp.Y, vp.W, vp.H), Options = new Vector4(1, 0, 0, 0),
+                };
+                nrWater.Draw(nv, col, dep);
+                gpu.Context.OutputMerger.SetBlendState(renderer.Alpha, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0), -1);
+                renderer.RebindScene();
+                return;
+            }
+        }
         var (z, h, sun, disc) = GtaLighting.SkyOf(Hour);
         if (MapNrLookOn)
         {

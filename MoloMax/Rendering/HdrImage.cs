@@ -117,6 +117,28 @@ public sealed class HdrImage : IDisposable
         ctx.ClearRenderTargetView(msRtv, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 1));
     }
 
+    Texture2D depthCopy; ShaderResourceView depthCopySrv;
+    /// <summary>The scene so far (colours resolved, depth copied), for the water drawn over it: what it mirrors and
+    /// what shows through it.</summary>
+    public (ShaderResourceView Color, ShaderResourceView Depth) Snapshot(GpuDevice gpu)
+    {
+        ctx.ResolveSubresource(ms, 0, resolved, 0, Format.R16G16B16A16_Float);
+        if (gpu.SampleCount < 2) return (resolvedSrv, null);
+        var dd = gpu.DepthTexture.Description;
+        if (depthCopy == null || depthCopy.Description.Width != dd.Width || depthCopy.Description.Height != dd.Height || depthCopy.Description.SampleDescription.Count != dd.SampleDescription.Count)
+        {
+            depthCopySrv?.Dispose(); depthCopy?.Dispose();
+            depthCopy = new Texture2D(device, new Texture2DDescription
+            {
+                Width = dd.Width, Height = dd.Height, MipLevels = 1, ArraySize = 1, Format = Format.R24G8_Typeless, SampleDescription = dd.SampleDescription,
+                Usage = ResourceUsage.Default, BindFlags = BindFlags.ShaderResource,
+            });
+            depthCopySrv = new ShaderResourceView(device, depthCopy, new ShaderResourceViewDescription { Format = Format.R24_UNorm_X8_Typeless, Dimension = ShaderResourceViewDimension.Texture2DMultisampled });
+        }
+        ctx.CopyResource(gpu.DepthTexture, depthCopy);
+        return (resolvedSrv, depthCopySrv);
+    }
+
     /// <summary>Brings the image to the window (the current viewport only), the window's image bound again after.</summary>
     public void End(GpuDevice gpu, float exposure, float x, float y, float w, float h, System.Numerics.Matrix4x4 proj, float near, float far, float aoShare, float saturation = 1.05f)
     {
@@ -136,5 +158,5 @@ public sealed class HdrImage : IDisposable
         ctx.PixelShader.SetShaderResource(0, null); ctx.PixelShader.SetShaderResource(1, null);
     }
 
-    public void Dispose() { msRtv?.Dispose(); ms?.Dispose(); resolvedSrv?.Dispose(); resolved?.Dispose(); vs.Dispose(); ps.Dispose(); cb.Dispose(); clamp.Dispose(); aoVs?.Dispose(); aoPs?.Dispose(); blurPs?.Dispose(); aoCb?.Dispose(); aoRtv?.Dispose(); aoSrv?.Dispose(); ao?.Dispose(); aoBRtv?.Dispose(); aoBSrv?.Dispose(); aoB?.Dispose(); }
+    public void Dispose() { msRtv?.Dispose(); ms?.Dispose(); resolvedSrv?.Dispose(); resolved?.Dispose(); vs.Dispose(); ps.Dispose(); cb.Dispose(); clamp.Dispose(); aoVs?.Dispose(); aoPs?.Dispose(); blurPs?.Dispose(); aoCb?.Dispose(); aoRtv?.Dispose(); aoSrv?.Dispose(); ao?.Dispose(); aoBRtv?.Dispose(); aoBSrv?.Dispose(); aoB?.Dispose(); depthCopySrv?.Dispose(); depthCopy?.Dispose(); }
 }

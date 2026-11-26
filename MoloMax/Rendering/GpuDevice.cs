@@ -14,6 +14,7 @@ public sealed class GpuDevice : IDisposable
     public RenderTargetView BackBufferView { get; private set; }
     public DepthStencilView DepthView { get; private set; }
     public ShaderResourceView DepthRead { get; private set; }
+    public Texture2D DepthTexture => depthTex;
     public bool FeatureLevel11 => Device.FeatureLevel >= FeatureLevel.Level_11_0;
     public int Width { get; private set; }
     public int Height { get; private set; }
