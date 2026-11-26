@@ -322,7 +322,7 @@ float ShadowIn(float4x4 vp, float slice, float texel, float3 wp, float3 n, out b
     if (!inside) return 1;
     float z = sp.z - (slice < 0.5 ? 0.0015 : 0.0006); // the wide maps: about one and a half texels of depth (range = 4 x radius)
     float sum = 0;
-    float t = 1.0 / 2048.0;
+    float t = 1.0 / 4096.0;
     [unroll] for (int y = -1; y <= 1; y++)
         [unroll] for (int x = -1; x <= 1; x++)
             sum += ShadowSample(slice, uv + float2(x, y) * t * 1.25, z);

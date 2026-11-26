@@ -175,7 +175,7 @@ public sealed class SceneRenderer : IDisposable
         ctx.UpdateSubresource(clipData, clipCB);
         clipOn = n > 0;
     }
-    public const int MaxLights = 32, ShadowSize = 2048;
+    public const int MaxLights = 32, ShadowSize = 4096; // the sun shadow images (4096 like the reference map view)
     const int LightVec4s = 7 + MaxLights * 5;
     public Vector3 FaceFront = new(0.19f, 0.36f, 1f), FaceBack = new(1f, 0.12f, 0.12f);
     readonly Vector4[] lightData = new Vector4[LightVec4s];
@@ -265,11 +265,12 @@ public sealed class SceneRenderer : IDisposable
         });
         sampler = new SamplerState(device, new SamplerStateDescription
         {
-            Filter = Filter.Anisotropic, MaximumAnisotropy = 8,
+            Filter = Filter.Anisotropic, MaximumAnisotropy = 16,
             AddressU = TextureAddressMode.Wrap, AddressV = TextureAddressMode.Wrap, AddressW = TextureAddressMode.Wrap,
             ComparisonFunction = Comparison.Always, MinimumLod = 0, MaximumLod = float.MaxValue,
         });
         Textures = new TextureCache(device);
+        SharedDevice = device;
 
         RasterizerState Ras(CullMode c, bool lines = false) => new(device, new RasterizerStateDescription
         {
@@ -304,6 +305,24 @@ public sealed class SceneRenderer : IDisposable
     readonly Dictionary<string, GpuMesh> instMeshes = new();
     /// <summary>Triangles already built in the background for a mesh (map models): used once, at its first upload.</summary>
     public readonly System.Runtime.CompilerServices.ConditionalWeakTable<PolyMesh, List<RenderGroup>> Prebuilt = new();
+    /// <summary>Their vertex and index buffers too, made by the reading thread (one per group, same order): the first
+    /// upload only takes them, nothing is copied to the graphics card on this thread.</summary>
+    public readonly System.Runtime.CompilerServices.ConditionalWeakTable<PolyMesh, List<(Buffer Vb, Buffer Ib, int Count)>> PrebuiltGpu = new();
+    /// <summary>The device, for the reading threads (creating buffers is allowed from any thread in Direct3D 11).</summary>
+    public static Device SharedDevice { get; private set; }
+    /// <summary>Background thread: the buffers of these groups on the graphics card (empty groups get none).</summary>
+    public static List<(Buffer Vb, Buffer Ib, int Count)> MakeBuffers(List<RenderGroup> groups)
+    {
+        var d = SharedDevice; if (d == null || groups == null) return null;
+        var res = new List<(Buffer, Buffer, int)>(groups.Count);
+        foreach (var g in groups)
+        {
+            if (g.IndexCount == 0) { res.Add((null, null, 0)); continue; }
+            var verts = g.VertexArray ?? g.Vertices.ToArray(); var idx = g.IndexArray ?? g.Indices.ToArray();
+            res.Add((Buffer.Create(d, BindFlags.VertexBuffer, verts), Buffer.Create(d, BindFlags.IndexBuffer, idx), idx.Length));
+        }
+        return res;
+    }
     /// <summary>Milliseconds spent sending meshes to the GPU (profiling).</summary>
     public double UploadMs;
     readonly System.Diagnostics.Stopwatch upSw = new();
@@ -325,6 +344,17 @@ public sealed class SceneRenderer : IDisposable
         bool prebuilt = false;
         if (!edit && Prebuilt.TryGetValue(src, out var pre)) { groups = pre; Prebuilt.Remove(src); prebuilt = true; }
         else groups = RenderMeshBuilder.Build(src);
+        if (prebuilt && PrebuiltGpu.TryGetValue(src, out var bufs))
+        {
+            PrebuiltGpu.Remove(src);
+            if (bufs.Count == groups.Count)
+            {
+                for (int i = 0; i < groups.Count; i++) if (bufs[i].Count > 0) gm.Groups.Add((bufs[i].Vb, bufs[i].Ib, bufs[i].Count, groups[i].MaterialId));
+                UploadMs += upSw.Elapsed.TotalMilliseconds;
+                return gm;
+            }
+            foreach (var b in bufs) { b.Vb?.Dispose(); b.Ib?.Dispose(); }
+        }
         bool keepCpu = edit && ReferenceEquals(src, o.Mesh) && groups.All(g => g.CornerVert != null && g.CornerFace != null && g.VertexArray != null);
         if (keepCpu) gm.Cpu = new();
         foreach (var g in groups)

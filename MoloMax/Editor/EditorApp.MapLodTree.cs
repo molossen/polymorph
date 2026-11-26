@@ -21,7 +21,7 @@ public sealed partial class EditorApp
     System.Threading.Tasks.Task worldSelTask;
     Vector3 worldSelCam = new(float.NaN); int worldSelMaps = -1; float worldSelMult = -1;
     /// <summary>Distance multiplier of the level-of-detail choice (1 = like the game).</summary>
-    public float MapLodMult = 1f;
+    public float MapLodMult => Math.Clamp(Settings.MapViewDistance, 0.25f, 4f);
     readonly Dictionary<uint, SceneObject> worldTpl = new();
     int worldTplNext = -2_000_000;
     (string Ymap, int Index)? pendingWorldSelect;

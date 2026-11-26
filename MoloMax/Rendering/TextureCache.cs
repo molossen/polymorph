@@ -288,7 +288,15 @@ public sealed class TextureCache : IDisposable
     /// <summary>Textures asked for last frame that were still on their way (background read or over the frame budget).</summary>
     public int Pending { get; private set; }
     int pendingNow;
-    readonly Dictionary<string, System.Threading.Tasks.Task<byte[]>> reads = new();
+    readonly Dictionary<string, System.Threading.Tasks.Task<ShaderResourceView>> reads = new();
+    /// <summary>Background texture loads at once (disk + graphics card), leaving cores for drawing and the models.</summary>
+    static readonly System.Threading.SemaphoreSlim loadGate = new(Math.Clamp(Environment.ProcessorCount / 3, 2, 4));
+    ShaderResourceView LoadInBackground(string path)
+    {
+        loadGate.Wait();
+        try { return LoadDds(File.ReadAllBytes(path)); }
+        finally { loadGate.Release(); }
+    }
     readonly System.Diagnostics.Stopwatch loadSw = new();
     public void BeginFrame() { frameLoadMs = 0; Pending = pendingNow; pendingNow = 0; }
 
@@ -309,11 +317,14 @@ public sealed class TextureCache : IDisposable
         byte[] bytes = null;
         if (FrameBudgetMs > 0 && dds)
         {
-            if (!reads.TryGetValue(path, out var t)) { var pth = path; reads[path] = System.Threading.Tasks.Task.Run(() => File.ReadAllBytes(pth)); pendingNow++; LastGetPending = true; return null; }
-            if (!t.IsCompleted || frameLoadMs >= FrameBudgetMs) { pendingNow++; LastGetPending = true; return null; }
+            // MAP mode: the file is read AND put on the graphics card by a background thread (creating a texture is
+            // allowed from any thread in Direct3D 11); this thread only takes the finished one, so nothing waits on it
+            if (!reads.TryGetValue(path, out var t)) { var pth = path; reads[path] = System.Threading.Tasks.Task.Run(() => LoadInBackground(pth)); pendingNow++; LastGetPending = true; return null; }
+            if (!t.IsCompleted) { pendingNow++; LastGetPending = true; return null; }
             reads.Remove(path);
             if (t.IsFaulted) { failed.Add(path); Epoch++; Errors.Add($"{Path.GetFileName(path)}: {t.Exception?.GetBaseException().Message}"); return null; }
-            bytes = t.Result;
+            cache[path] = t.Result; Epoch++;
+            return t.Result;
         }
         loadSw.Restart();
         try
@@ -337,7 +348,8 @@ public sealed class TextureCache : IDisposable
         var path = Resolve(nameOrPath);
         if (path == null) return;
         if (cache.Remove(path, out var old)) old.Dispose();
-        failed.Remove(path); reads.Remove(path);
+        failed.Remove(path);
+        if (reads.Remove(path, out var pend)) pend.ContinueWith(x => { if (x.IsCompletedSuccessfully) x.Result.Dispose(); });
     }
 
     ShaderResourceView LoadBitmap(string path)

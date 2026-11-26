@@ -255,8 +255,15 @@ public sealed partial class EditorApp
         {
             float d = Settings.MapFogDistance;
             ImGui.SetNextItemWidth(-1);
-            if (ImGui.SliderFloat("##fogdist", ref d, 500, 8000, "haze hides all at %.0f m")) { Settings.MapFogDistance = d; }
+            if (ImGui.SliderFloat("##fogdist", ref d, 500, 20000, "haze hides all at %.0f m")) { Settings.MapFogDistance = d; }
             if (ImGui.IsItemDeactivatedAfterEdit()) Settings.Save();
         }
+        float vd = Settings.MapViewDistance; ImGui.SetNextItemWidth(160);
+        if (ImGui.SliderFloat("View distance##maplook", ref vd, 0.25f, 4f, "x %.2f")) Settings.MapViewDistance = vd;
+        if (ImGui.IsItemDeactivatedAfterEdit()) Settings.Save();
+        Theme.Tip("How far the detailed models reach (x the game's distances). Higher: more detail far away, more to load.");
+        float sd = Settings.MapShadowDistance; ImGui.SetNextItemWidth(160);
+        if (ImGui.SliderFloat("Shadow distance##maplook", ref sd, 100, 2000, "%.0f m")) Settings.MapShadowDistance = sd;
+        if (ImGui.IsItemDeactivatedAfterEdit()) Settings.Save();
     }
 }

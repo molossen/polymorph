@@ -1233,6 +1233,46 @@ public sealed partial class EditorApp
     }
 
     /// <summary>The same view as a reference picture (at 2461, -706, 115 looking west at 13:00), for the look of the map.</summary>
+    /// <summary>The spots of the side-by-side comparison with the reference map view: eye, its yaw and pitch (reference camera convention).</summary>
+    static readonly (string Name, Vector3 Eye, float Yaw, float Pitch)[] CompareSpots =
+    {
+        ("tataviam", new Vector3(2461, -706, 115), 3.0416f, -0.2f),
+        ("delperro", new Vector3(-1480, -1250, 20), 2.168f, -0.08f),
+        ("legion", new Vector3(330, -1050, 90), 2.356f, -0.276f),
+        ("vespucci_shore", new Vector3(-1350, -1600, 12), -2.356f, -0.06f),
+    };
+
+    /// <summary>Same spots, same settings as the reference pictures: pictures 3, 10 and 30 s after arriving, what is still loading, frame time.</summary>
+    IEnumerable<object> CompareTest(string gtaFolder)
+    {
+        Fresh();
+        SetMapMode(true); ClearMapBuild();
+        if (game == null) { Settings.GtaFolder = gtaFolder; if (gameTask == null || gameTask.IsCompleted) StartGameLoad(gtaFolder); }
+        yield return Until(() => game != null || gameError != null, 400);
+        yield return Until(() => world != null, 600);
+        if (world == null) { Expect(false, "map index"); SetMapMode(false); yield break; }
+        yield return Until(() => !Settings.MapLodTree || worldEnts != null || worldEntsTask is { IsCompleted: true }, 300);
+        var cam = Viewports[ActiveViewport].Camera;
+        float fov0 = cam.Fov; cam.Fov = MathF.PI / 3; // 60 degrees, like the reference
+        Hour = 13; Settings.MapWeather = "Clear";
+        Note($"settings: shadows {Settings.MapShadowDistance:0} m ({SceneRenderer.ShadowSize}), haze {Settings.MapFogDistance:0} m, view distance x{Settings.MapViewDistance:0.##}, HDR {Settings.MapHdr}, occlusion {Settings.MapOcclusion}, glow {Settings.MapBloom}, clouds {Settings.MapClouds}");
+        foreach (var (name, eye, yaw, pitch) in CompareSpots)
+        {
+            cam.Yaw = yaw + MathF.PI; cam.Pitch = -pitch; cam.Distance = 20; cam.Target = eye + cam.Forward * 20;
+            var t0 = DateTime.Now;
+            foreach (int sec in new[] { 3, 10, 30 })
+            {
+                while ((DateTime.Now - t0).TotalSeconds < sec) yield return Frames(1);
+                int s0 = stDts.Count; yield return Frames(20);
+                var dd = stDts.Skip(s0).Where(x => x > 0).OrderBy(x => x).ToList();
+                Note($"{name} +{sec} s: frame {(dd.Count > 0 ? dd[dd.Count / 2] * 1000 : 0):0.0} ms, models loading {archLoading}, textures waiting {renderer.Textures.Pending}, drawn {MapVisible:N0}");
+                yield return Shot($"cmp_{name}_{sec}s");
+            }
+        }
+        cam.Fov = fov0;
+        SetMapMode(false);
+    }
+
     IEnumerable<object> MapLookTest(string gtaFolder)
     {
         Fresh();

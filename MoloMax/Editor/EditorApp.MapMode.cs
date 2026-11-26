@@ -65,7 +65,7 @@ public sealed partial class EditorApp
         public bool GpuOnly; public double LastUsed; // level-of-detail world: only on the graphics card (the CPU copy let go), last frame drawn
     }
     /// <summary>A model read in the background: merged mesh (materials still numbered as in the file) and its GPU triangles.</summary>
-    sealed class ArchLoad { public string Why; public MoloMax.Core.IO.ImportResult R; public PolyMesh Mesh; public List<MoloMax.Core.Mesh.RenderGroup> Groups; public Vector3 Min, Max; }
+    sealed class ArchLoad { public string Why; public MoloMax.Core.IO.ImportResult R; public PolyMesh Mesh; public List<MoloMax.Core.Mesh.RenderGroup> Groups; public List<(SharpDX.Direct3D11.Buffer Vb, SharpDX.Direct3D11.Buffer Ib, int Count)> Gpu; public Vector3 Min, Max; }
     readonly Dictionary<uint, ArchSlot> archSlots = new();
     readonly List<ArchSlot> archQueue = new(); int archQueuePos;
     readonly List<ArchSlot> archInFlight = new();
@@ -529,6 +529,7 @@ public sealed partial class EditorApp
             foreach (var f in mesh.Faces) f.MatId = ids[f.MatId];
             foreach (var g in ld.Groups) g.MaterialId = ids[Math.Clamp(g.MaterialId, 0, ids.Length - 1)];
             renderer.Prebuilt.AddOrUpdate(mesh, ld.Groups);
+            if (ld.Gpu != null) renderer.PrebuiltGpu.AddOrUpdate(mesh, ld.Gpu);
             s.Mesh = mesh; s.Min = ld.Min; s.Max = ld.Max; s.State = 2; archReady++;
             string key = "map:" + s.Hash.ToString("X8");
             if (byKey == null)
@@ -641,7 +642,11 @@ public sealed partial class EditorApp
             }
         }
         // GPU triangles built here, not on the UI thread
-        if (ld.Mesh != null && ld.Mesh.Faces.Count > 0) { (ld.Min, ld.Max) = ld.Mesh.Bounds(); ld.Groups = MoloMax.Core.Mesh.RenderMeshBuilder.Build(ld.Mesh); }
+        if (ld.Mesh != null && ld.Mesh.Faces.Count > 0)
+        {
+            (ld.Min, ld.Max) = ld.Mesh.Bounds(); ld.Groups = MoloMax.Core.Mesh.RenderMeshBuilder.Build(ld.Mesh);
+            try { ld.Gpu = MoloMax.Rendering.SceneRenderer.MakeBuffers(ld.Groups); } catch { ld.Gpu = null; } // and on the graphics card, here too
+        }
         return ld;
     }
 

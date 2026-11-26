@@ -97,7 +97,7 @@ public sealed class AppSettings
     /// <summary>MAP: the new lighting (its light of the hour, sky, haze).</summary>
     public bool MapNrLook { get; set; } = true;
     /// <summary>MAP look: sun shadows up to this distance (m).</summary>
-    public float MapShadowDistance { get; set; } = 800;
+    public float MapShadowDistance { get; set; } = 1000;
     /// <summary>MAP look: HDR image (light beyond white, filmic curve), the sky worked out from the air, exposure.</summary>
     public bool MapHdr { get; set; } = true;
     public bool MapPhysicalSky { get; set; } = true;
@@ -112,7 +112,13 @@ public sealed class AppSettings
     /// <summary>MAP, HDR, at night: how much the map's lamps light the surfaces around them (0 = only their glow).</summary>
     public float MapLampLight { get; set; } = 1f;
     /// <summary>Distance (m) where the haze hides everything.</summary>
-    public float MapFogDistance { get; set; } = 8000;
+    public float MapFogDistance { get; set; } = 12000;
+    /// <summary>MAP: how far the detailed models reach (x the game's distances, like the game's own view distance slider).</summary>
+    public float MapViewDistance { get; set; } = 2f;
+    /// <summary>Texture sharpness at grazing angles (anisotropic filtering, 1 to 16).</summary>
+    public int Anisotropy { get; set; } = 16;
+    /// <summary>The map look settings of this version were applied once (older settings files had other defaults).</summary>
+    public int MapLookVersion { get; set; }
     /// <summary>MAP mode: only what is within this distance of the camera is drawn and picked (big custom maps).</summary>
     public bool MapViewRadiusOn { get; set; }
     public float MapViewRadius { get; set; } = 400;
@@ -139,10 +145,19 @@ public sealed class AppSettings
     {
         try
         {
-            if (File.Exists(FilePath)) return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new AppSettings();
+            if (File.Exists(FilePath))
+            {
+                var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new AppSettings();
+                if (s.MapLookVersion < 2)
+                {
+                    // 2.0: the map look of the reference view (shadows 1000 m, haze 12 km, view distance x2, sharp textures)
+                    s.MapShadowDistance = 1000; s.MapFogDistance = 12000; s.MapViewDistance = 2; s.Anisotropy = 16; s.MapLookVersion = 2;
+                }
+                return s;
+            }
         }
         catch { }
-        return new AppSettings();
+        return new AppSettings { MapLookVersion = 2 };
     }
 
     public void Save()
