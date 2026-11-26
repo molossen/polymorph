@@ -255,7 +255,7 @@ float ShadowIn(float4x4 vp, float slice, float texel, float3 wp, float3 n, out b
     float2 uv = sp.xy * float2(0.5, -0.5) + 0.5;
     inside = !(any(uv < 0.02) || any(uv > 0.98) || sp.z > 1);
     if (!inside) return 1;
-    float z = sp.z - 0.0006; // about one and a half texels of depth whatever the map size (range = 4 x radius)
+    float z = sp.z - (slice < 0.5 ? 0.0015 : 0.0006); // the wide maps: about one and a half texels of depth (range = 4 x radius)
     float sum = 0;
     float t = 1.0 / 2048.0;
     [unroll] for (int y = -1; y <= 1; y++)
