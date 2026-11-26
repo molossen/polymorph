@@ -33,6 +33,7 @@ then export a FiveM resource that is ready to `ensure` — in one free program, 
 
 ## What's new
 
+- **1.9.0 — New MAP mode**: the whole game map at once with its levels of detail (about 800,000 objects, 60 FPS), a click opens any object's .ymap for editing; new lighting of the hour, HDR image (glow, ambient occlusion), sky worked out from the air, clouds in volume with weather presets, sun shadows up to 800 m, the game's water (waves, foam, reflections), city lights at night, PXM relief.
 - **1.8.9 — My own shortcuts**: give any command your own key (Preferences > Keymap, or right-click it in the search), replace or free the keymap's keys, export / import your keymap as a .json to share it. **Ctrl+X** cuts objects.
 - **1.8.8 — Copy / paste objects**: Ctrl+C / Ctrl+V, Ctrl+Shift+V at the 3D cursor; copy a game prop in MAP mode and paste it in MODEL mode as a plain editable model.
 - **1.8.7 — Terrain painting**: F frames the view on the object while painting the 4 terrain layers.
