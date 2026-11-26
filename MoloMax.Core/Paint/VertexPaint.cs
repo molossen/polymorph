@@ -45,28 +45,46 @@ public static class VertexPaint
     public static Vector4 LayerWeights(Vector4 c1) => new((1 - c1.Z) * (1 - c1.Y), c1.Z * (1 - c1.Y), (1 - c1.Z) * c1.Y, c1.Z * c1.Y);
 
     /// <summary>Terrain: paints one of the 4 layers (moves vertex colour 1 of the corners in the brush towards that layer).</summary>
-    public static int StampLayer(PolyMesh m, Vector3 center, Vector3 normal, float radius, int layer, float strength, float hardness, bool backfaceCull = true)
+    public static int StampLayer(PolyMesh m, Vector3 center, Vector3 normal, float radius, int layer, float strength, float hardness, bool backfaceCull = true, Func<int, bool> faceOk = null)
     {
         int changed = 0; float inner = radius * Math.Clamp(hardness, 0, 0.99f);
         var target = LayerColour(layer);
+        int nearV = -1; float nearD = float.MaxValue;
         for (int fi = 0; fi < m.Faces.Count; fi++)
         {
             var f = m.Faces[fi];
+            if (faceOk != null && !faceOk(f.MatId)) continue; // terrain layers: only the terrain faces (not the roads, walls, decals of the model)
             if (backfaceCull && Vector3.Dot(m.FaceNormal(f), normal) < 0.05f) continue;
             for (int i = 0; i < f.V.Length; i++)
             {
                 float d = Vector3.Distance(m.Verts[f.V[i]], center);
+                if (d < nearD) { nearD = d; nearV = f.V[i]; }
                 if (d > radius) continue;
                 float a = (d <= inner ? 1 : 1 - Smooth((d - inner) / MathF.Max(radius - inner, 1e-6f))) * strength;
                 if (a <= 0) continue;
-                f.Col1 ??= new Vector4[f.V.Length];
-                if (f.Col1[i].W == 0) f.Col1[i].W = 1;
-                var c = f.Col1[i];
-                f.Col1[i] = new Vector4(c.X, c.Y + (target.Y - c.Y) * a, c.Z + (target.Z - c.Z) * a, 1);
+                Blend(f, i, target, a);
                 changed++;
             }
         }
+        // big terrain triangles (a map's ground has corners metres apart): a brush smaller than them reaches no corner and
+        // nothing happened. Then the corner nearest the brush takes the colour (the blend spreads over its triangles, as in game).
+        if (changed == 0 && nearV >= 0 && nearD < MathF.Max(radius * 6, 12f))
+            for (int fi = 0; fi < m.Faces.Count; fi++)
+            {
+                var f = m.Faces[fi];
+                if (faceOk != null && !faceOk(f.MatId)) continue;
+                for (int i = 0; i < f.V.Length; i++)
+                    if (f.V[i] == nearV) { Blend(f, i, target, strength); changed++; }
+            }
         return changed;
+    }
+
+    static void Blend(Face f, int i, Vector4 target, float a)
+    {
+        f.Col1 ??= new Vector4[f.V.Length];
+        if (f.Col1[i].W == 0) f.Col1[i].W = 1;
+        var c = f.Col1[i];
+        f.Col1[i] = new Vector4(c.X, c.Y + (target.Y - c.Y) * a, c.Z + (target.Z - c.Z) * a, 1);
     }
 
     /// <summary>Terrain: one layer on whole faces.</summary>

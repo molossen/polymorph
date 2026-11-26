@@ -305,6 +305,7 @@ public sealed partial class EditorApp
         ImGui.SameLine(); if (Theme.Toggle("Assets", assetsOpen)) { if (assetsOpen) assetsOpen = false; else OpenAssetBrowser(); }
         Theme.Tip("Asset Browser: your models and the game props as thumbnails; double-click or drag into the view");
         ImGui.SameLine(); if (ImGui.Button("Scan")) ScanButton();
+        if (MapMode) { ImGui.SameLine(); if (ImGui.Button(PlayOn ? "Stop play" : "Play")) { if (PlayOn) StopPlay(); else StartPlay(); } if (ImGui.IsItemHovered()) ImGui.SetTooltip("Walk on the map as a player: ZQSD / WASD, Shift run, Space jump, right button look, Esc leaves"); }
         Theme.Tip("Scan to block-out: import a Gaussian splat scan (.ply / .spz / .splat), then copy the prompt for your AI connected through MCP: it models the room over the scan.");
         ImGui.SameLine(); Ui.TextDisabled("|"); ImGui.SameLine();
         ImGui.AlignTextToFramePadding(); Ui.Text(InteriorLight ? "Interior" : "Sun");

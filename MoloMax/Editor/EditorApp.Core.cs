@@ -169,8 +169,7 @@ public sealed partial class EditorApp : IDisposable
             MaterialDropCheck(); // a material dragged from the Material Editor, released over a viewport
             HandleShortcuts();
             AnimFrameUpdate(dt);
-            WalkCamera(dt);
-            HandleViewportInput();
+            if (!PlayFrame(dt)) { WalkCamera(dt); HandleViewportInput(); }
             Prof("input");
             MoloMax.Core.Gta.Library.TextureReader.BitmapLoader ??= LoadImageRgba;
             MoloMax.Core.Paint.BrushTips.PackFolder ??= Path.Combine(AppContext.BaseDirectory, "Assets", "paint", "alphas");
@@ -705,6 +704,7 @@ public sealed partial class EditorApp : IDisposable
             SnapDotsOverlay(dl, vp);
             ForgeOverlay(dl, vp);
             FlyOverlay(dl, vp);
+            PlayOverlay(dl, vp);
             Prof("ov snap");
             CursorOverlay(dl, vp);
             HubOverlay(dl, vp);

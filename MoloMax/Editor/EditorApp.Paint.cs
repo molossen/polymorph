@@ -474,7 +474,7 @@ public sealed partial class EditorApp
     {
         int c = 0;
         foreach (var (mp, mn, _) in Mirrors(p, n, p))
-            c += terrainPaintLayer >= 0 ? VertexPaint.StampLayer(o.Mesh, mp, mn, r, terrainPaintLayer, brush.Strength, brush.Hardness, brush.BackfaceCull)
+            c += terrainPaintLayer >= 0 ? VertexPaint.StampLayer(o.Mesh, mp, mn, r, terrainPaintLayer, brush.Strength, brush.Hardness, brush.BackfaceCull, id => Scene.Material(id)?.IsTerrain == true)
                                         : VertexPaint.Stamp(o.Mesh, mp, mn, r, vertexColour, brush.Strength, brush.Hardness, brush.BackfaceCull);
         if (c > 0) { o.Touch(); paintMeshVersion[o.Id] = o.Version; Dirty = true; } // colours only: the texel maps stay valid
     }
