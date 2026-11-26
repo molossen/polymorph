@@ -182,6 +182,8 @@ public sealed class SceneRenderer : IDisposable
     Texture2D shadowTex;
     DepthStencilView shadowDsv;
     readonly DepthStencilView[] shadowSlices = new DepthStencilView[3];
+    readonly Texture2D[] shadowTexs = new Texture2D[3];
+    readonly ShaderResourceView[] shadowSrvs = new ShaderResourceView[3];
     Buffer cascadeCB;
     readonly Vector4[] cascadeData = new Vector4[9];
     ShaderResourceView shadowSrv;
@@ -475,6 +477,7 @@ public sealed class SceneRenderer : IDisposable
         ctx.PixelShader.SetConstantBuffer(6, fogCB);
         ctx.PixelShader.SetSampler(1, shadowSampler);
         ctx.PixelShader.SetShaderResource(5, shadowSrv);
+        ctx.PixelShader.SetShaderResource(21, shadowSrvs[1]); ctx.PixelShader.SetShaderResource(22, shadowSrvs[2]);
         ctx.PixelShader.SetConstantBuffer(8, cascadeCB);
     }
 
@@ -506,6 +509,7 @@ public sealed class SceneRenderer : IDisposable
         ctx.PixelShader.SetConstantBuffer(6, fogCB);
         ctx.PixelShader.SetSampler(1, shadowSampler);
         ctx.PixelShader.SetShaderResource(5, shadowSrv);
+        ctx.PixelShader.SetShaderResource(21, shadowSrvs[1]); ctx.PixelShader.SetShaderResource(22, shadowSrvs[2]);
         ctx.PixelShader.SetConstantBuffer(8, cascadeCB);
         ctx.GeometryShader.Set(null);
         if (Picking) PickShaders();
@@ -540,25 +544,20 @@ public sealed class SceneRenderer : IDisposable
     void EnsureShadowMap()
     {
         if (shadowTex != null) return;
-        // slice 0: the near map (MODEL mode, and around the camera target in MAP mode); 1 and 2: wider maps in MAP mode
-        shadowTex = new Texture2D(device, new Texture2DDescription
-        {
-            Width = ShadowSize, Height = ShadowSize, MipLevels = 1, ArraySize = 3, Format = Format.R32_Typeless, SampleDescription = new SampleDescription(1, 0),
-            Usage = ResourceUsage.Default, BindFlags = BindFlags.DepthStencil | BindFlags.ShaderResource,
-        });
+        // 0: the near map (MODEL mode, and around the camera target in MAP mode); 1 and 2: wider maps in MAP mode
+        // (three textures, not an array: comparison sampling of arrays needs a newer shader model)
         for (int i = 0; i < 3; i++)
-            shadowSlices[i] = new DepthStencilView(device, shadowTex, new DepthStencilViewDescription
-            {
-                Format = Format.D32_Float, Dimension = DepthStencilViewDimension.Texture2DArray,
-                Texture2DArray = new DepthStencilViewDescription.Texture2DArrayResource { FirstArraySlice = i, ArraySize = 1, MipSlice = 0 },
-            });
-        shadowDsv = shadowSlices[0];
-        shadowSrv = new ShaderResourceView(device, shadowTex, new ShaderResourceViewDescription
         {
-            Format = Format.R32_Float, Dimension = ShaderResourceViewDimension.Texture2DArray,
-            Texture2DArray = new ShaderResourceViewDescription.Texture2DArrayResource { MipLevels = 1, FirstArraySlice = 0, ArraySize = 3 },
-        });
-        for (int i = 1; i < 3; i++) ctx.ClearDepthStencilView(shadowSlices[i], DepthStencilClearFlags.Depth, 1f, 0);
+            shadowTexs[i] = new Texture2D(device, new Texture2DDescription
+            {
+                Width = ShadowSize, Height = ShadowSize, MipLevels = 1, ArraySize = 1, Format = Format.R32_Typeless, SampleDescription = new SampleDescription(1, 0),
+                Usage = ResourceUsage.Default, BindFlags = BindFlags.DepthStencil | BindFlags.ShaderResource,
+            });
+            shadowSlices[i] = new DepthStencilView(device, shadowTexs[i], new DepthStencilViewDescription { Format = Format.D32_Float, Dimension = DepthStencilViewDimension.Texture2D });
+            shadowSrvs[i] = new ShaderResourceView(device, shadowTexs[i], new ShaderResourceViewDescription { Format = Format.R32_Float, Dimension = ShaderResourceViewDimension.Texture2D, Texture2D = new ShaderResourceViewDescription.Texture2DResource { MipLevels = 1 } });
+            ctx.ClearDepthStencilView(shadowSlices[i], DepthStencilClearFlags.Depth, 1f, 0);
+        }
+        shadowTex = shadowTexs[0]; shadowDsv = shadowSlices[0]; shadowSrv = shadowSrvs[0];
     }
 
     /// <summary>MAP: the wider shadow maps (slices 1 and 2) and how many are in use (0 = only the near one).</summary>
@@ -596,7 +595,7 @@ public sealed class SceneRenderer : IDisposable
         double up0 = UploadMs; bool complete = true;
         EnsureShadowMap();
         ctx.PixelShader.SetShaderResource(5, null);
-        ctx.PixelShader.SetShaderResource(5, null); // the array is read by the scene and written here
+        ctx.PixelShader.SetShaderResource(5, null); ctx.PixelShader.SetShaderResource(21, null); ctx.PixelShader.SetShaderResource(22, null); // read by the scene, written here
         var dsv = shadowSlices[Math.Clamp(slice, 0, 2)];
         ctx.OutputMerger.SetRenderTargets(dsv, (RenderTargetView)null);
         ctx.ClearDepthStencilView(dsv, DepthStencilClearFlags.Depth, 1f, 0);
@@ -842,7 +841,7 @@ public sealed class SceneRenderer : IDisposable
         Textures.Dispose();
         CullBack.Dispose(); CullNone.Dispose(); LinesState.Dispose();
         DepthDefault.Dispose(); DepthRead.Dispose(); DepthOff.Dispose(); Opaque.Dispose(); Alpha.Dispose();
-        shadowSrv?.Dispose(); foreach (var d in shadowSlices) d?.Dispose(); cascadeCB?.Dispose(); shadowTex?.Dispose(); shadowSampler.Dispose(); shadowRas.Dispose(); lightCB.Dispose(); clipCB.Dispose(); fogCB.Dispose(); pickCB.Dispose(); psPick.Dispose(); pickRtv?.Dispose(); pickTex?.Dispose(); pickZRtv?.Dispose(); pickZTex?.Dispose(); pickDsv?.Dispose(); pickDepth?.Dispose(); pickStage?.Dispose(); pickZStage?.Dispose();
+        foreach (var d in shadowSrvs) d?.Dispose(); foreach (var d in shadowSlices) d?.Dispose(); foreach (var d in shadowTexs) d?.Dispose(); cascadeCB?.Dispose(); shadowSampler.Dispose(); shadowRas.Dispose(); lightCB.Dispose(); clipCB.Dispose(); fogCB.Dispose(); pickCB.Dispose(); psPick.Dispose(); pickRtv?.Dispose(); pickTex?.Dispose(); pickZRtv?.Dispose(); pickZTex?.Dispose(); pickDsv?.Dispose(); pickDepth?.Dispose(); pickStage?.Dispose(); pickZStage?.Dispose();
         sampler.Dispose(); sceneCB.Dispose(); objectCB.Dispose(); materialCB.Dispose();
         layout.Dispose(); ps.Dispose(); vs.Dispose();
     }

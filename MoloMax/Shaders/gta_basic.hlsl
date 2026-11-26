@@ -102,7 +102,9 @@ cbuffer FogVars : register(b6)
 };
 
 Texture2D<float4> Colourmap : register(t0);
-Texture2DArray<float> ShadowMap : register(t5);
+Texture2D<float> ShadowMap : register(t5);
+Texture2D<float> ShadowMap1 : register(t21);
+Texture2D<float> ShadowMap2 : register(t22);
 // MAP: two wider sun shadow maps around the near one (slices 1 and 2), for what is further away
 cbuffer CascadeVars : register(b8)
 {
@@ -264,10 +266,11 @@ float3 SrgbToLinear(float3 c) { return lerp(pow((c + 0.055) / 1.055, 2.4), c / 1
 //      in tangent space, fewer steps when looking straight down, faded out with distance (none beyond 50 m)
 float PomHeight(float2 uv, float4 w, float2 gx, float2 gy)
 {
+    float h = Heightmap.SampleGrad(TextureSS, uv, gx, gy).r;
     if (Parallax == 2)
-        return 1.0 - (w.x * LayerHeight0.SampleGrad(TextureSS, uv, gx, gy).r + w.y * LayerHeight1.SampleGrad(TextureSS, uv, gx, gy).r
-                    + w.z * LayerHeight2.SampleGrad(TextureSS, uv, gx, gy).r + w.w * LayerHeight3.SampleGrad(TextureSS, uv, gx, gy).r);
-    return Heightmap.SampleGrad(TextureSS, uv, gx, gy).r;
+        h = 1.0 - (w.x * LayerHeight0.SampleGrad(TextureSS, uv, gx, gy).r + w.y * LayerHeight1.SampleGrad(TextureSS, uv, gx, gy).r
+                 + w.z * LayerHeight2.SampleGrad(TextureSS, uv, gx, gy).r + w.w * LayerHeight3.SampleGrad(TextureSS, uv, gx, gy).r);
+    return h;
 }
 
 float2 ParallaxUv(float2 uv, float3 wp, float3 n, float3 t, float3 b, float4 w)
@@ -304,6 +307,13 @@ float2 ParallaxUv(float2 uv, float3 wp, float3 n, float3 t, float3 b, float4 w)
 }
 
 // sun visibility from the shadow maps, 3x3 PCF (soft edge): the near map where it covers the point, else the wider ones
+float ShadowSample(float slice, float2 uv, float z)
+{
+    if (slice < 0.5) return ShadowMap.SampleCmpLevelZero(ShadowSS, uv, z);
+    if (slice < 1.5) return ShadowMap1.SampleCmpLevelZero(ShadowSS, uv, z);
+    return ShadowMap2.SampleCmpLevelZero(ShadowSS, uv, z);
+}
+
 float ShadowIn(float4x4 vp, float slice, float texel, float3 wp, float3 n, out bool inside)
 {
     float4 sp = mul(float4(wp + n * texel * 1.5, 1), vp);
@@ -315,7 +325,7 @@ float ShadowIn(float4x4 vp, float slice, float texel, float3 wp, float3 n, out b
     float t = 1.0 / 2048.0;
     [unroll] for (int y = -1; y <= 1; y++)
         [unroll] for (int x = -1; x <= 1; x++)
-            sum += ShadowMap.SampleCmpLevelZero(ShadowSS, float3(uv + float2(x, y) * t * 1.25, slice), z);
+            sum += ShadowSample(slice, uv + float2(x, y) * t * 1.25, z);
     return sum / 9.0;
 }
 
