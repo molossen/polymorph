@@ -10,7 +10,7 @@ namespace MoloMax.Core.Gta.Map;
 public static class MapMeshCache
 {
     const int Magic = 0x434D4D50; // "PMMC"
-    const int Version = 5; // 2: terrain layers + vertex colour 1, 3: tint palette, 4: terrain blend mask + second UVs, 5: shadow-only shapes
+    const int Version = 6; // 6: far tree cards opened; 2: terrain layers + vertex colour 1, 3: tint palette, 4: terrain blend mask + second UVs, 5: shadow-only shapes
 
     public static void Save(string path, PolyMesh m, IReadOnlyList<GtaMaterial> mats)
     {

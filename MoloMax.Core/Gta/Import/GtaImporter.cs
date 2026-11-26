@@ -341,7 +341,7 @@ public static class GtaImporter
                 // facing the camera (size from treeLod2Params x texcoord 2). Here: two crossed cards, seen from every side.
                 if (string.Equals(c.Res.Materials[mat].Shader, "trees_lod2", StringComparison.OrdinalIgnoreCase) && Has(Cw.VertexSemantics.TexCoord0))
                 {
-                    AddTreeCards(mesh, vd, idx, mat, place, ShaderVec(shader, "treeLod2Params"), Has(Cw.VertexSemantics.TexCoord2), Has(Cw.VertexSemantics.Colour0));
+                    AddTreeCards(mesh, vd, idx, mat, place, ShaderVec(shader, "treeLod2Params"), Has(Cw.VertexSemantics.TexCoord2), Has(Cw.VertexSemantics.Colour0), Has(Cw.VertexSemantics.TexCoord1));
                     continue;
                 }
                 for (int i = 0; i < vd.VertexCount; i++)
@@ -384,16 +384,17 @@ public static class GtaImporter
         return Vector4.Zero;
     }
 
-    static void AddTreeCards(PolyMesh mesh, Cw.VertexData vd, ushort[] idx, int mat, Matrix4x4 place, Vector4 prm, bool hasTc2, bool hasCol)
+    static void AddTreeCards(PolyMesh mesh, Cw.VertexData vd, ushort[] idx, int mat, Matrix4x4 place, Vector4 prm, bool hasTc2, bool hasCol, bool hasTc1)
     {
         int n = vd.VertexCount;
-        var pos = new Vector3[n]; var tc = new Vector2[n]; var sz = new Vector2[n]; var col = new Vector4[n];
+        var pos = new Vector3[n]; var tc = new Vector2[n]; var sz = new Vector2[n]; var col = new Vector4[n]; var at = new Vector2[n]; // at: place in the texture atlas
         var size = new Vector2(prm.X == 0 ? 10 : prm.X, prm.Y == 0 ? 10 : prm.Y);
         for (int i = 0; i < n; i++)
         {
             pos[i] = V(vd.GetVector3(i, (int)Cw.VertexSemantics.Position));
             tc[i] = ReadUv(vd, i, (int)Cw.VertexSemantics.TexCoord0);
             sz[i] = hasTc2 ? ReadUv(vd, i, (int)Cw.VertexSemantics.TexCoord2) : Vector2.One;
+            at[i] = hasTc1 ? ReadUv(vd, i, (int)Cw.VertexSemantics.TexCoord1) : tc[i];
             if (hasCol) { var cc = vd.GetColour(i, (int)Cw.VertexSemantics.Colour0); col[i] = new Vector4(cc.R, cc.G, cc.B, cc.A) / 255f; } else col[i] = PolyMesh.DefaultColour;
         }
         foreach (var side in new[] { Vector3.UnitX, Vector3.UnitY })
@@ -411,7 +412,7 @@ public static class GtaImporter
                 foreach (var (x, y, z) in new[] { (a, b, cI), (a, cI, b) })
                 {
                     var f = mesh.AddFace(new[] { baseV + x, baseV + y, baseV + z }, mat);
-                    f.UV = new[] { tc[x], tc[y], tc[z] };
+                    f.UV = new[] { at[x], at[y], at[z] };
                     f.Col = new[] { col[x], col[y], col[z] };
                 }
             }
