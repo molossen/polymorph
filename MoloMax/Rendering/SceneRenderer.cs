@@ -44,6 +44,8 @@ struct MaterialVarsCB
     public Vector4 DetailSettings;
     public Vector4 ViewportColour;
     public uint IsTerrain, IsTint, TerrainMode, VertexColoured;
+    public uint Parallax; public float HeightScale, HeightBias; public uint ParallaxPad;
+    public Vector4 LayerHeightScale, LayerHeightBias;
 }
 
 /// <summary>One scene light as the shader sees it.</summary>
@@ -635,7 +637,7 @@ public sealed class SceneRenderer : IDisposable
     sealed class MatTex
     {
         public int Epoch = -1; public bool Pending; public string D, B, S, T, Tn, Lk; public GtaShaderPreset P; public ShaderResourceView Diff, Bump, Spec, Det, Tint, Look;
-        public string LayerKey; public ShaderResourceView[] Lay = new ShaderResourceView[4], LayB = new ShaderResourceView[4];
+        public string LayerKey, Hk; public ShaderResourceView[] Lay = new ShaderResourceView[4], LayB = new ShaderResourceView[4], LayH = new ShaderResourceView[4]; public ShaderResourceView Hgt;
     }
     readonly System.Runtime.CompilerServices.ConditionalWeakTable<GtaMaterial, MatTex> matTex = new();
 
@@ -657,8 +659,9 @@ public sealed class SceneRenderer : IDisposable
         lastMat = m;
         bool terrain = m.IsTerrain;
         string lk = terrain ? string.Join("|", Enumerable.Range(0, 4).Select(i => m.Layer(i) + ">" + m.LayerBump(i))) : null;
+        string hk = m.HasParallax ? m.HeightTexture + "|" + string.Join("|", Enumerable.Range(0, 4).Select(m.LayerHeight)) : null;
         if (mt.Pending || mt.Epoch != Textures.Epoch || !ReferenceEquals(mt.P, p) || !ReferenceEquals(mt.D, m.DiffuseTexture) || !ReferenceEquals(mt.B, m.BumpTexture)
-            || !ReferenceEquals(mt.S, m.SpecTexture) || !ReferenceEquals(mt.T, m.DetailTexture) || !ReferenceEquals(mt.Tn, m.TintTexture) || !ReferenceEquals(mt.Lk, m.LookupTexture) || mt.LayerKey != lk)
+            || !ReferenceEquals(mt.S, m.SpecTexture) || !ReferenceEquals(mt.T, m.DetailTexture) || !ReferenceEquals(mt.Tn, m.TintTexture) || !ReferenceEquals(mt.Lk, m.LookupTexture) || mt.LayerKey != lk || mt.Hk != hk)
         {
             bool pending = false;
             mt.Diff = Tex(m.DiffuseTexture, ref pending);
@@ -667,7 +670,9 @@ public sealed class SceneRenderer : IDisposable
             mt.Det = p.Detail ? Tex(m.DetailTexture, ref pending) : null;
             mt.Tint = m.TintTexture != null ? Tex(m.TintTexture, ref pending) : null;
             mt.Look = terrain && m.LookupTexture != null ? Tex(m.LookupTexture, ref pending) : null;
-            mt.LayerKey = lk;
+            mt.LayerKey = lk; mt.Hk = hk;
+            mt.Hgt = m.HeightTexture != null ? Tex(m.HeightTexture, ref pending) : null;
+            for (int i = 0; i < 4; i++) mt.LayH[i] = terrain && m.LayerHeight(i) != null ? Tex(m.LayerHeight(i), ref pending) : null;
             for (int i = 0; i < 4; i++)
             {
                 mt.Lay[i] = terrain ? Tex(m.Layer(i) ?? m.DiffuseTexture, ref pending) : null;
@@ -696,6 +701,17 @@ public sealed class SceneRenderer : IDisposable
             VertexColoured = diff == null && string.Equals(m.Shader, "cpv_only", StringComparison.OrdinalIgnoreCase) ? 1u : 0u,
         };
         if (terrain) { mv.EnableTexture = 1; mv.EnableNormalMap = 1; mv.EnableDetailMap = 0; }
+        // parallax (PXM): the game's tessellation values are far bigger than what a parallax wants: brought to its range
+        if (Parallax && bump != null && (terrain ? mt.LayH.Any(t => t != null) : mt.Hgt != null))
+        {
+            float hs = m.HeightScale, hb = m.HeightBias;
+            if (MathF.Abs(hs) > 0.1f || hb < 0) { hs = MathF.Abs(hs) * 0.075f; hb = hs * 0.5f; }
+            static Vector4 Fix(Vector4 v) => new(Fx(v.X), Fx(v.Y), Fx(v.Z), Fx(v.W));
+            static float Fx(float x) => MathF.Abs(x) > 0.1f ? MathF.Abs(x) * 0.075f : x;
+            mv.Parallax = terrain ? 2u : 1u; mv.HeightScale = hs; mv.HeightBias = hb;
+            mv.LayerHeightScale = Fix(m.LayerHeightScale);
+            var lb = m.LayerHeightBias; mv.LayerHeightBias = new Vector4(lb.X < 0 ? mv.LayerHeightScale.X * 0.5f : lb.X, lb.Y < 0 ? mv.LayerHeightScale.Y * 0.5f : lb.Y, lb.Z < 0 ? mv.LayerHeightScale.Z * 0.5f : lb.Z, lb.W < 0 ? mv.LayerHeightScale.W * 0.5f : lb.W);
+        }
         ctx.UpdateSubresource(ref mv, materialCB);
         for (int i = 0; i < 4; i++)
         {
@@ -708,11 +724,15 @@ public sealed class SceneRenderer : IDisposable
         ctx.PixelShader.SetShaderResource(4, det ?? Textures.FlatNormal);
         ctx.PixelShader.SetShaderResource(14, mt.Tint ?? Textures.White);
         ctx.PixelShader.SetShaderResource(15, mt.Look ?? Textures.White);
+        ctx.PixelShader.SetShaderResource(16, mt.Hgt ?? Textures.White);
+        for (int i = 0; i < 4; i++) ctx.PixelShader.SetShaderResource(17 + i, mt.LayH[i] ?? Textures.White);
     }
 
     /// <summary>Tint shaders take their colour from the palette (MAP mode: the game's buildings in their real colours).</summary>
     public bool TintPalettes = true;
     /// <summary>Shapes the game never shows (trees' shadow balls, mirrors' placeholders...) are not drawn.</summary>
+    /// <summary>Parallax (PXM) on the materials that have a height map (realistic shading).</summary>
+    public bool Parallax = true;
     public bool HideNeverDrawn = true;
 
     /// <summary>

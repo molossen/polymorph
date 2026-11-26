@@ -239,6 +239,10 @@ public static class GtaImporter
         HSpec = MetaXml.Jenkins("SpecSampler"), HDetail = MetaXml.Jenkins("DetailSampler"), HTexture = MetaXml.Jenkins("TextureSampler"), HTint = MetaXml.Jenkins("TintPaletteSampler"), HLookup = MetaXml.Jenkins("lookupSampler");
     static readonly uint[] HLayer = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("TextureSampler_layer" + i)).ToArray();
     static readonly uint[] HLayerBump = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("BumpSampler_layer" + i)).ToArray();
+    static readonly uint[] HLayerHeight = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("heightMapSamplerLayer" + i)).ToArray();
+    static readonly uint[] HLayerHScale = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("heightScale" + i)).ToArray();
+    static readonly uint[] HLayerHBias = Enumerable.Range(0, 4).Select(i => MetaXml.Jenkins("heightBias" + i)).ToArray();
+    static readonly uint HHeight = MetaXml.Jenkins("heightSampler"), HHeightScale = MetaXml.Jenkins("heightScale"), HHeightBias = MetaXml.Jenkins("heightBias");
 
     /// <summary>One GtaMaterial per shader of the drawable; returns the material index (into the import result).</summary>
     static int MaterialFor(Ctx c, Cw.ShaderFX s, string drawableName, int shaderIndex)
@@ -267,6 +271,9 @@ public static class GtaImporter
                         if (li >= 0) mat.Layers[li] = tex; else mat.LayerBumps[lb] = tex;
                         continue;
                     }
+                    int lh = Array.IndexOf(HLayerHeight, h);
+                    if (lh >= 0) { mat.LayerHeights ??= new string[4]; mat.LayerHeights[lh] = tex; continue; }
+                    if (h == HHeight) { mat.HeightTexture = tex; continue; }
                     if (h == HDiffuse || h == HTexture) mat.DiffuseTexture = tex;
                     else if (h == HBump) mat.BumpTexture = tex;
                     else if (h == HSpec) mat.SpecTexture = tex;
@@ -281,6 +288,10 @@ public static class GtaImporter
                     else if (h == MetaXml.Jenkins("specularFalloffMult")) mat.SpecularFalloff = v.X;
                     else if (h == MetaXml.Jenkins("specularFresnel")) mat.SpecularFresnel = v.X;
                     else if (h == MetaXml.Jenkins("emissiveMultiplier")) mat.EmissiveMultiplier = v.X;
+                    else if (h == HHeightScale) mat.HeightScale = v.X;
+                    else if (h == HHeightBias) mat.HeightBias = v.X;
+                    else if (Array.IndexOf(HLayerHScale, h) is int si and >= 0) { var q = mat.LayerHeightScale; if (si == 0) q.X = v.X; else if (si == 1) q.Y = v.X; else if (si == 2) q.Z = v.X; else q.W = v.X; mat.LayerHeightScale = q; }
+                    else if (Array.IndexOf(HLayerHBias, h) is int bi and >= 0) { var q = mat.LayerHeightBias; if (bi == 0) q.X = v.X; else if (bi == 1) q.Y = v.X; else if (bi == 2) q.Z = v.X; else q.W = v.X; mat.LayerHeightBias = q; }
                 }
             }
         }

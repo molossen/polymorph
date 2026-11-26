@@ -120,6 +120,9 @@ public sealed partial class EditorApp
         bool nl = Settings.MapNightLights;
         if (ImGui.Checkbox("Night lights##maplook", ref nl)) { Settings.MapNightLights = nl; Settings.Save(); }
         Theme.Tip("At night, the lights of the city and the roads seen from far away (the game's distant lights).");
+        bool px = renderer.Parallax;
+        if (ImGui.Checkbox("Relief##maplook", ref px)) renderer.Parallax = px;
+        Theme.Tip("Parallax (PXM): ground, stones and walls that have a height map look raised up close, like in the game.");
         if (Settings.MapFog)
         {
             float d = Settings.MapFogDistance;

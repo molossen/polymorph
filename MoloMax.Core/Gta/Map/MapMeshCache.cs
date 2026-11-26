@@ -10,7 +10,7 @@ namespace MoloMax.Core.Gta.Map;
 public static class MapMeshCache
 {
     const int Magic = 0x434D4D50; // "PMMC"
-    const int Version = 6; // 6: far tree cards opened; 2: terrain layers + vertex colour 1, 3: tint palette, 4: terrain blend mask + second UVs, 5: shadow-only shapes
+    const int Version = 7; // 7: parallax height maps; 6: far tree cards opened; 2: terrain layers + vertex colour 1, 3: tint palette, 4: terrain blend mask + second UVs, 5: shadow-only shapes
 
     public static void Save(string path, PolyMesh m, IReadOnlyList<GtaMaterial> mats)
     {
@@ -28,6 +28,7 @@ public static class MapMeshCache
                 V3(w, x.SpecMapIntMask); w.Write(x.EmissiveMultiplier); V4(w, x.DetailSettings); V3(w, x.ViewportColour);
                 for (int k = 0; k < 4; k++) { Str(w, x.Layer(k)); Str(w, x.LayerBump(k)); }
                 Str(w, x.TintTexture); Str(w, x.LookupTexture); w.Write(x.ShadowOnly);
+                Str(w, x.HeightTexture); w.Write(x.HeightScale); w.Write(x.HeightBias); for (int k = 0; k < 4; k++) Str(w, x.LayerHeight(k)); V4(w, x.LayerHeightScale); V4(w, x.LayerHeightBias);
             }
             w.Write(m.Verts.Count);
             foreach (var v in m.Verts) V3(w, v);
@@ -71,6 +72,9 @@ public static class MapMeshCache
                     if (l != null || lb != null) { x.EnsureLayers(); x.Layers[k] = l; x.LayerBumps[k] = lb; }
                 }
                 x.TintTexture = Str(r); x.LookupTexture = Str(r); x.ShadowOnly = r.ReadBoolean();
+                x.HeightTexture = Str(r); x.HeightScale = r.ReadSingle(); x.HeightBias = r.ReadSingle();
+                for (int k = 0; k < 4; k++) { var hgt = Str(r); if (hgt != null) { x.LayerHeights ??= new string[4]; x.LayerHeights[k] = hgt; } }
+                x.LayerHeightScale = V4(r); x.LayerHeightBias = V4(r);
                 mats.Add(x);
             }
             // the geometry (most of the file) read in one block and decoded from memory

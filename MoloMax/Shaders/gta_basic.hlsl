@@ -58,6 +58,12 @@ cbuffer MaterialVars : register(b2)
     uint  IsTint;               // *_tnt shaders: diffuse times the palette column picked by vertex colour 0 blue
     uint  TerrainMode;          // 1 vertex colour 1 weights, 2 blend mask only (_cm), 3 mask and vertex colour mixed by vertex alpha
     uint  VertexColoured;       // cpv_only: the colour is the vertex colour
+    uint  Parallax;             // 1 height map (heightSampler), 2 terrain: one height map per layer
+    float HeightScale;
+    float HeightBias;
+    uint  ParallaxPad;
+    float4 LayerHeightScale;
+    float4 LayerHeightBias;
 };
 
 // Scene lights (realistic mode), sun shadow map and the final tone curve.
@@ -118,6 +124,54 @@ Texture2D<float4> LayerBump2 : register(t12);
 Texture2D<float4> LayerBump3 : register(t13);
 Texture2D<float4> TintPalette : register(t14);
 Texture2D<float4> TerrainMask : register(t15);
+Texture2D<float4> Heightmap : register(t16);
+Texture2D<float4> LayerHeight0 : register(t17);
+Texture2D<float4> LayerHeight1 : register(t18);
+Texture2D<float4> LayerHeight2 : register(t19);
+Texture2D<float4> LayerHeight3 : register(t20);
+
+// ---- parallax (PXM), after the method shared by ook3D for CodeWalker: march the view ray through the height map
+//      in tangent space, fewer steps when looking straight down, faded out with distance (none beyond 50 m)
+float PomHeight(float2 uv, float4 w, float2 gx, float2 gy)
+{
+    if (Parallax == 2)
+        return 1.0 - (w.x * LayerHeight0.SampleGrad(TextureSS, uv, gx, gy).r + w.y * LayerHeight1.SampleGrad(TextureSS, uv, gx, gy).r
+                    + w.z * LayerHeight2.SampleGrad(TextureSS, uv, gx, gy).r + w.w * LayerHeight3.SampleGrad(TextureSS, uv, gx, gy).r);
+    return Heightmap.SampleGrad(TextureSS, uv, gx, gy).r;
+}
+
+float2 ParallaxUv(float2 uv, float3 wp, float3 n, float3 t, float3 b, float4 w)
+{
+    float3 toEye = CameraPos.xyz - wp;
+    float dist = length(toEye);
+    float fade = 1 - saturate((dist - 5) / 45);
+    if (fade <= 0) return uv;
+    float3 v = toEye / dist;
+    float3 te = normalize(float3(dot(t, v), dot(b, v), dot(n, v)));
+    float vdn = abs(dot(v, n));
+    float steps = lerp(16.0, 3.0, vdn) * fade;
+    if (steps < 1) return uv;
+    float hs = Parallax == 2 ? dot(w, LayerHeightScale) : HeightScale;
+    float hb = Parallax == 2 ? dot(w, LayerHeightBias) : HeightBias;
+    float scale = saturate(steps - 1) * saturate(vdn / 0.25) * fade;
+    float z = max(0.1, te.z);
+    float2 maxOff = (-te.xy / z) * hs * scale;
+    float2 off = (te.xy / z) * hb * scale;
+    float2 gx = ddx(uv), gy = ddy(uv);
+    float stepH = 1.0 / steps; float2 stepOff = maxOff * stepH;
+    float bound = 1, prevBound = 1;
+    float h = PomHeight(uv + off, w, gx, gy) + 1e-6, prevH = h;
+    [loop] for (int i = 0; i < 16; i++)
+    {
+        if (i >= (int)steps || h >= bound) break;
+        prevBound = bound; prevH = h;
+        bound -= stepH; off += stepOff;
+        h = PomHeight(uv + off, w, gx, gy);
+    }
+    float cd = bound - h, pd = prevBound - prevH, den = pd - cd;
+    float fh = den > 0 ? (bound * pd - prevBound * cd) / den : h;
+    return uv + (te.xy / z) * hb * scale + maxOff * (1 - saturate(fh));
+}
 SamplerState TextureSS : register(s0);
 
 struct VS_INPUT
@@ -374,9 +428,15 @@ float4 PSMain(VS_OUTPUT input, bool front : SV_IsFrontFace) : SV_TARGET
         float va = TerrainMode == 3 ? saturate(input.Colour0.a) : 0;
         tb = lerp(tm.b, tb, va); tg = lerp(tm.g, tg, va);
     }
+    // parallax: the texture place moved along the view through the height map (realistic shading only)
+    float2 tc = input.Texcoord;
+    if (Parallax > 0 && RenderMode == 0)
+    {
+        float4 w = float4((1 - tb) * (1 - tg), tb * (1 - tg), (1 - tb) * tg, tb * tg);
+        tc = ParallaxUv(input.Texcoord, input.WorldPos, nrm, normalize(input.Tangent.xyz), normalize(input.Bitangent.xyz), w);
+    }
     if (IsTerrain > 0)
     {
-        float2 tc = input.Texcoord;
         float4 t1 = lerp(Layer0.Sample(TextureSS, tc), Layer1.Sample(TextureSS, tc), tb);
         float4 t2 = lerp(Layer2.Sample(TextureSS, tc), Layer3.Sample(TextureSS, tc), tb);
         c = lerp(t1, t2, tg);
@@ -384,7 +444,7 @@ float4 PSMain(VS_OUTPUT input, bool front : SV_IsFrontFace) : SV_TARGET
     }
     else if (EnableTexture > 0)
     {
-        c = Colourmap.Sample(TextureSS, input.Texcoord);
+        c = Colourmap.Sample(TextureSS, tc);
         if (IsDecal == 0 && IsGlass == 0)
         {
             if (AlphaTest > 0 && c.a <= 0.33) discard;
@@ -407,21 +467,20 @@ float4 PSMain(VS_OUTPUT input, bool front : SV_IsFrontFace) : SV_TARGET
 
     float3 norm = nrm;
     float3 spec = 0;
-    float4 nv = Bumpmap.Sample(TextureSS, input.Texcoord);
+    float4 nv = Bumpmap.Sample(TextureSS, tc);
     if (IsTerrain > 0)
     {
-        float2 tc = input.Texcoord;
         nv = lerp(lerp(LayerBump0.Sample(TextureSS, tc), LayerBump1.Sample(TextureSS, tc), tb),
                   lerp(LayerBump2.Sample(TextureSS, tc), LayerBump3.Sample(TextureSS, tc), tb), tg);
     }
-    float4 sv = Specmap.Sample(TextureSS, input.Texcoord);
+    float4 sv = Specmap.Sample(TextureSS, tc);
     if (EnableNormalMap > 0)
     {
         float2 nmv = nv.xy;
         if (EnableDetailMap > 0)
         {
             float4 r0;
-            r0.xy = input.Texcoord * detailSettings.zw;
+            r0.xy = tc * detailSettings.zw;
             r0.zw = r0.xy * 3.17;
             r0.xy = Detailmap.Sample(TextureSS, r0.xy).xy - 0.5;
             r0.zw = Detailmap.Sample(TextureSS, r0.zw).xy - 0.5;

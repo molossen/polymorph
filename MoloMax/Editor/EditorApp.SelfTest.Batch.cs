@@ -1384,6 +1384,24 @@ public sealed partial class EditorApp
                 Note($"under {pt.X:0},{pt.Y:0}: {(h == null ? "nothing" : Desc(lastPickEnt) + $" hit {h.Value.Point.X:0},{h.Value.Point.Y:0},{h.Value.Point.Z:0}")}");
             }
         }
+        {
+            // parallax up close: on the ground under the middle of the view
+            var vpC = Viewports[ActiveViewport];
+            var kt = cam.Target; float kd = cam.Distance, kp = cam.Pitch;
+            var hit = GpuPickMap(vpC, new Vector2(vpC.X + vpC.W * 0.5f, vpC.Y + vpC.H * 0.62f), null);
+            int pxm = Scene.Materials.Count(m => m.HasParallax);
+            if (hit is { } hh)
+            {
+                cam.Target = hh.Point; cam.Distance = 7; cam.Pitch = 0.45f;
+                for (int k = 0; k < 120 && (archLoading > 0 || renderer.Textures.Pending > 0); k++) yield return Frames(15);
+                yield return Frames(20);
+                yield return Shot("look_ground_relief");
+                renderer.Parallax = false; yield return Frames(5); yield return Shot("look_ground_flat"); renderer.Parallax = true;
+            }
+            Note($"parallax: {pxm} materials with a height map known, ground under the view at {(hit?.Point.ToString() ?? "-")}");
+            cam.Target = kt; cam.Distance = kd; cam.Pitch = kp;
+            yield return Frames(10);
+        }
         Hour = 19.5f; yield return Frames(10); yield return Shot("look_tataviam_19h30");
         Hour = 0; yield return Frames(10);
         for (int k = 0; k < 120 && lightsTask is { IsCompleted: false }; k++) yield return Frames(15);

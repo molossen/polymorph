@@ -90,6 +90,13 @@ public sealed class GtaMaterial
     /// <summary>Terrain shaders: the 4 layer textures (TextureSampler_layer0..3) and their normal maps (BumpSampler_layer0..3).</summary>
     public string[] Layers, LayerBumps;
     /// <summary>Tint shaders (*_tnt): the palette texture (TintPaletteSampler); the vertex colour's blue picks its column.</summary>
+    /// <summary>Parallax (PXM) shaders: the height map (heightSampler) and how deep it looks; terrains have one per layer.</summary>
+    public string HeightTexture;
+    public float HeightScale = 0.03f, HeightBias = 0.015f;
+    public string[] LayerHeights;
+    public Vector4 LayerHeightScale = new(0.03f), LayerHeightBias = new(0.015f);
+    public string LayerHeight(int i) => LayerHeights != null && i < LayerHeights.Length ? LayerHeights[i] : null;
+    public bool HasParallax => HeightTexture != null || LayerHeights != null && LayerHeights.Any(h => h != null);
     public string TintTexture;
     /// <summary>Terrain blend mask (lookupSampler), read with the second texture coordinates.</summary>
     public string LookupTexture;
@@ -111,7 +118,7 @@ public sealed class GtaMaterial
     public GtaMaterial Clone()
     {
         var c = (GtaMaterial)MemberwiseClone();
-        c.Layers = (string[])Layers?.Clone(); c.LayerBumps = (string[])LayerBumps?.Clone();
+        c.Layers = (string[])Layers?.Clone(); c.LayerBumps = (string[])LayerBumps?.Clone(); c.LayerHeights = (string[])LayerHeights?.Clone();
         return c;
     }
 
