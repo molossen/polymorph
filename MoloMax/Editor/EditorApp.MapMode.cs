@@ -61,6 +61,7 @@ public sealed partial class EditorApp
         public System.Threading.Tasks.Task<ArchLoad> Task;
         public string Error; public float Priority = float.MaxValue;
         public bool Seen; // went through a priority scan (until then nobody knows if it is wanted)
+        public int Ver;   // GPU mesh version shared by every object of this model
     }
     /// <summary>A model read in the background: merged mesh (materials still numbered as in the file) and its GPU triangles.</summary>
     sealed class ArchLoad { public string Why; public MoloMax.Core.IO.ImportResult R; public PolyMesh Mesh; public List<MoloMax.Core.Mesh.RenderGroup> Groups; public Vector3 Min, Max; }
@@ -174,9 +175,11 @@ public sealed partial class EditorApp
             });
         }
         PumpMapLoad(); Prof("map load");
-        PumpBackdrop(); Prof("map far");
+        PumpWorldEntities();
+        if (!LodTreeOn) PumpBackdrop(); Prof("map far");
         PumpArchetypes(); Prof("map models");
         if (MapStream && world != null && ImGui.GetTime() - mapLastStream > 0.5) { mapLastStream = ImGui.GetTime(); StreamWorld(HdStreamingNow); }
+        WorldSelectAfterLoad();
         PinPickedMaps();
         AutoInteriors();
         Prof("map stream");
@@ -218,7 +221,8 @@ public sealed partial class EditorApp
             mapStreamQueue.Clear(); foreach (var y in keep) mapStreamQueue.Enqueue(y);
         }
         if (near)
-            foreach (var y in world.Near(p, MapStreamRadius).Where(y => !mapDocs.ContainsKey(y.Name) && !mapStreamQueue.Contains(y) && !mapLoadQueue.Contains(y))
+            // with the level-of-detail world the game's objects are drawn already: only the maps holding interiors open by themselves
+            foreach (var y in world.Near(p, MapStreamRadius).Where(y => (!LodTreeOn || y.Interior) && !mapDocs.ContainsKey(y.Name) && !mapStreamQueue.Contains(y) && !mapLoadQueue.Contains(y))
                                     .OrderBy(y => Vector3.DistanceSquared(Vector3.Clamp(p, y.Min, y.Max), p)))
                 mapStreamQueue.Enqueue(y);
         // unload far maps that have no change (the ones opened by hand stay); zoomed out: every streamed one goes
@@ -532,6 +536,8 @@ public sealed partial class EditorApp
             int ver = lead?.Version ?? 0;
             if (mapDocs.Count > 0) backdropHiddenDirty = true; // its real size now decides whether it steps aside
             if (mine.Far != null) foreach (var o in mine.Far) { o.Mesh = mesh; if (lead == null) { o.Touch(); lead = o; ver = o.Version; } else o.Version = ver; }
+            if (worldTpl.TryGetValue(s.Hash, out var wt)) { wt.Mesh = mesh; if (lead == null) { wt.Touch(); lead = wt; ver = wt.Version; } else wt.Version = ver; }
+            s.Ver = lead != null ? ver : 0;
         }
         // reads still running (finished ones wait for the next batch without holding a reader)
         int running = 0; foreach (var x in archInFlight) if (x.Task != null && !x.Task.IsCompleted) running++;
@@ -548,6 +554,7 @@ public sealed partial class EditorApp
                 if (o.Id < 0 && (FarSteppedAside(o, eye) || !FarLodVisible(o, eye))) continue; // far model not shown at this distance
                 s.Priority = MathF.Min(s.Priority, Vector3.DistanceSquared(o.Position, eye));
             }
+            WorldPriorities(eye);
             archQueue.Clear(); archQueue.AddRange(archSlots.Values.Where(s => s.State == 0 && s.Priority < float.MaxValue).OrderBy(s => s.Priority));
             archQueuePos = 0;
         }

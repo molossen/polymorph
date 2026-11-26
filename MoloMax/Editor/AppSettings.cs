@@ -89,6 +89,8 @@ public sealed class AppSettings
     public bool PanelsOutside { get; set; } = true;
     /// <summary>MAP mode, realistic perspective views: sky of the hour behind the map, distance haze.</summary>
     public bool MapSky { get; set; } = true;
+    /// <summary>MAP mode: the whole map read as light records and drawn along the game's level-of-detail tree.</summary>
+    public bool MapLodTree { get; set; } = true;
     public bool MapFog { get; set; } = true;
     /// <summary>Distance (m) where the haze hides everything.</summary>
     public float MapFogDistance { get; set; } = 3000;

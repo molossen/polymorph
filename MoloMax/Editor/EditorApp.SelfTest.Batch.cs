@@ -1245,11 +1245,13 @@ public sealed partial class EditorApp
         cam.Target = eye + cam.Forward * 60;
         Hour = 13;
         var t0 = DateTime.Now;
+        yield return Until(() => !Settings.MapLodTree || worldEnts != null || worldEntsTask is { IsCompleted: true }, 300);
+        Note($"level-of-detail world: {worldEnts?.E.Length ?? 0:N0} map objects read in {(DateTime.Now - t0).TotalSeconds:0} s ({worldEntsStatus})");
         yield return Frames(30);
-        yield return Until(() => mapLoadTask == null && mapStreamQueue.Count == 0 && archLoading == 0 && backdropIn.IsEmpty && renderer.Textures.Pending == 0, 240);
+        yield return Until(() => mapLoadTask == null && mapStreamQueue.Count == 0 && archLoading == 0 && worldSelTask == null && (LodTreeOn || backdropIn.IsEmpty) && renderer.Textures.Pending == 0, 240);
         yield return Frames(30);
         yield return Until(() => archLoading == 0 && renderer.Textures.Pending == 0, 60);
-        Note($"view ready in {(DateTime.Now - t0).TotalSeconds:0} s: {entOf.Count:N0} entities, {MapVisible:N0} drawn, {MapDrawCalls} draw calls; memory {Environment.WorkingSet / 1048576:N0} MB");
+        Note($"view ready in {(DateTime.Now - t0).TotalSeconds:0} s: {entOf.Count:N0} entities, {worldSel.Count:N0} world objects chosen, {MapVisible:N0} drawn, {MapDrawCalls} draw calls; memory {Environment.WorkingSet / 1048576:N0} MB");
         yield return Shot("look_tataviam_13h");
         int st = stDts.Count;
         for (int i = 0; i < 60; i++) { cam.Orbit(1, 0); yield return Frames(1); }

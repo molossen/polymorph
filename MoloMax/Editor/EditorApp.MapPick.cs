@@ -12,6 +12,9 @@ namespace MoloMax.Editor;
 public sealed partial class EditorApp
 {
     readonly List<SceneObject> pickIds = new();
+    readonly List<int> pickEnts = new();
+    /// <summary>World entity under the last GPU pick (-1: a scene object or nothing).</summary>
+    int lastPickEnt = -1;
     Matrix4x4[] pickWorlds = new Matrix4x4[64];
     /// <summary>Last GPU pick time (ms), for the self tests.</summary>
     public double LastGpuPickMs;
@@ -27,7 +30,7 @@ public sealed partial class EditorApp
         var cam = vp.Camera;
         var viewProj = cam.ViewProj(vp.Aspect);
         MapGatherDraws(vp, viewProj);
-        pickIds.Clear();
+        pickIds.Clear(); pickEnts.Clear(); lastPickEnt = -1;
         int draws0 = renderer.StatDraws;
         renderer.BeginPick((int)vp.W, (int)vp.H, (int)local.X, (int)local.Y);
         renderer.BeginScene(viewProj, cam.Eye, Lights, ShadingMode.Realistic, 1, 0);
@@ -40,7 +43,7 @@ public sealed partial class EditorApp
             for (int i = 0; i < g.Count; i++)
             {
                 if (skip != null && skip(g.Objs[i])) continue;
-                pickWorlds[n++] = g.Worlds[i]; pickIds.Add(g.Objs[i]);
+                pickWorlds[n++] = g.Worlds[i]; pickIds.Add(g.Objs[i]); pickEnts.Add(g.Ents[i]);
             }
             if (n == 0) continue;
             renderer.SetClip(g.Template.Id < 0 ? hiddenClip : null);
@@ -52,7 +55,7 @@ public sealed partial class EditorApp
         {
             if (skip != null && skip(o)) continue;
             renderer.SetClip(o.Id < 0 ? hiddenClip : null);
-            renderer.SetPickBase((uint)pickIds.Count); pickIds.Add(o);
+            renderer.SetPickBase((uint)pickIds.Count); pickIds.Add(o); pickEnts.Add(-1);
             renderer.DrawObject(Scene, o, false, Vector4.Zero, BackfaceCull);
         }
         renderer.SetClip(null);
@@ -61,7 +64,7 @@ public sealed partial class EditorApp
         LastGpuPickMs = System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
         LastGpuPickInfo = $"id {id} depth {depth:0.0000}, {pickIds.Count} objects, {renderer.StatDraws - draws0} draws, groups {instGroups.Values.Count(g => g.Count > 0)}, singles {mapSingles.Count}, pixel {local.X:0},{local.Y:0} of {vp.W:0}x{vp.H:0}";
         if (id == 0 || id > pickIds.Count || depth >= 1f) return null;
-        var obj = pickIds[(int)id - 1];
+        var obj = pickIds[(int)id - 1]; lastPickEnt = pickEnts[(int)id - 1];
         // the point from the depth under the pixel
         Matrix4x4.Invert(viewProj, out var inv);
         float nx = (local.X + 0.5f) / vp.W * 2 - 1, ny = 1 - (local.Y + 0.5f) / vp.H * 2;
@@ -69,7 +72,7 @@ public sealed partial class EditorApp
         var p = new Vector3(h.X, h.Y, h.Z) / h.W;
         // exact face on that one object when its mesh is here (normals for placing on walls)
         var ray = vp.Camera.ScreenRay(local.X, local.Y, vp.W, vp.H);
-        if (obj.Id >= 0 && obj.Mesh != null && obj.Mesh.Faces.Count > 0 && Picking.PickFace(obj, ray, evaluated: obj.Modifiers is { Count: > 0 }) is { } f && Vector3.Distance(f.Point, p) < MathF.Max(0.5f, Vector3.Distance(p, cam.Eye) * 0.01f))
+        if (obj.Id >= 0 && lastPickEnt < 0 && obj.Mesh != null && obj.Mesh.Faces.Count > 0 && Picking.PickFace(obj, ray, evaluated: obj.Modifiers is { Count: > 0 }) is { } f && Vector3.Distance(f.Point, p) < MathF.Max(0.5f, Vector3.Distance(p, cam.Eye) * 0.01f))
             return f;
         return new PickHit(obj, -1, Vector3.Distance(cam.Eye, p), p);
     }

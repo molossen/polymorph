@@ -185,6 +185,7 @@ public sealed class GameFiles
                                 txdOfArchetype.TryAdd(a.Hash.Hash, a.TextureDict.Hash);
                                 var bb = a.BBMax - a.BBMin;
                                 sizeOfArchetype.TryAdd(a.Hash.Hash, Math.Max(bb.X, Math.Max(bb.Y, bb.Z)));
+                                lodDistOfArchetype.TryAdd(a.Hash.Hash, a.LodDist);
                                 if (a.DrawableDict.Hash != 0) yddOfArchetype.TryAdd(a.Hash.Hash, a.DrawableDict.Hash);
                                 if (a is MloArchetype) ytypOfMlo.TryAdd(a.Hash.Hash, fe);
                             }
@@ -305,6 +306,9 @@ public sealed class GameFiles
     }
 
     /// <summary>Largest side of an archetype's bounding box in metres (-1 when unknown).</summary>
+    /// <summary>Draw distance the archetype gives its entities when they don't set one (0 = unknown).</summary>
+    public float ArchetypeLodDist(uint hash) { BuildTypeIndex(); return lodDistOfArchetype.TryGetValue(hash, out var d) && float.IsFinite(d) ? d : 0; }
+    readonly System.Collections.Concurrent.ConcurrentDictionary<uint, float> lodDistOfArchetype = new();
     public float ArchetypeSize(uint hash) { BuildTypeIndex(); return sizeOfArchetype.TryGetValue(hash, out var s) && float.IsFinite(s) ? s : -1; }
 
     /// <summary>A texture dictionary read straight from the archive.</summary>

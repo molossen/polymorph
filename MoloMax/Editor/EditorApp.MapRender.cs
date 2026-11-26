@@ -9,7 +9,7 @@ namespace MoloMax.Editor;
 /// </summary>
 public sealed partial class EditorApp
 {
-    sealed class InstGroup { public SceneObject Template; public Matrix4x4[] Worlds = new Matrix4x4[64]; public SceneObject[] Objs = new SceneObject[64]; public int Count; }
+    sealed class InstGroup { public SceneObject Template; public Matrix4x4[] Worlds = new Matrix4x4[64]; public SceneObject[] Objs = new SceneObject[64]; public int[] Ents = new int[64]; public int Count; }
     readonly Dictionary<string, InstGroup> instGroups = new();
     readonly List<SceneObject> mapSingles = new();
     public int MapDrawCalls, MapVisible;
@@ -45,7 +45,8 @@ public sealed partial class EditorApp
         UpdateHiddenClip(eye);
         var live = MapLive();
         float vr2 = Settings.MapViewRadiusOn ? MathF.Max(20, Settings.MapViewRadius) * MathF.Max(20, Settings.MapViewRadius) : 0;
-        for (int i = 0, n = live.Count + backdrop.Count; i < n; i++)
+        GatherWorld(planes, eye, pix, vr2);
+        for (int i = 0, n = live.Count + (LodTreeOn ? 0 : backdrop.Count); i < n; i++)
         {
             var o = i < live.Count ? live[i] : backdrop[i - live.Count];
             if (o.Hidden || o.Mesh == null || o.Mesh.Faces.Count == 0) continue;
@@ -65,8 +66,8 @@ public sealed partial class EditorApp
             if (!instGroups.TryGetValue(o.InstanceKey, out var grp)) instGroups[o.InstanceKey] = grp = new InstGroup();
             if (grp.Template == null) grp.Template = o;
             else if (!ReferenceEquals(grp.Template.Mesh, o.Mesh)) { mapSingles.Add(o); continue; } // not synced yet this frame
-            if (grp.Count == grp.Worlds.Length) { Array.Resize(ref grp.Worlds, grp.Worlds.Length * 2); Array.Resize(ref grp.Objs, grp.Worlds.Length); }
-            grp.Objs[grp.Count] = o;
+            if (grp.Count == grp.Worlds.Length) { Array.Resize(ref grp.Worlds, grp.Worlds.Length * 2); Array.Resize(ref grp.Objs, grp.Worlds.Length); Array.Resize(ref grp.Ents, grp.Worlds.Length); }
+            grp.Objs[grp.Count] = o; grp.Ents[grp.Count] = -1;
             grp.Worlds[grp.Count++] = o.World;
         }
     }

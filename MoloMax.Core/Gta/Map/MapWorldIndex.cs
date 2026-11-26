@@ -56,6 +56,7 @@ public sealed class MapWorldIndex
         foreach (var e in entries) { var n = System.IO.Path.GetFileNameWithoutExtension(e.NameLower); latest[n] = e; order[n] = order.Count; }
         var replaced = ReplacedMaps(latest.Keys, order);
 
+        idx.Stamp = stamp;
         Dictionary<string, YmapInfo> cached = null;
         string stamp = $"v2|{g.Folder}|{latest.Count}|{(g.Folder != null && File.Exists(System.IO.Path.Combine(g.Folder, g.Gen9 ? "GTA5_Enhanced.exe" : "GTA5.exe")) ? File.GetLastWriteTimeUtc(System.IO.Path.Combine(g.Folder, g.Gen9 ? "GTA5_Enhanced.exe" : "GTA5.exe")).Ticks : 0)}";
         try
@@ -138,6 +139,9 @@ public sealed class MapWorldIndex
         }
         return res;
     }
+
+    /// <summary>What the game files were when the index was made (cache files built from it check it).</summary>
+    public string Stamp { get; private set; }
 
     sealed class CacheFile { public string Stamp { get; set; } public List<YmapInfo> Ymaps { get; set; } }
 
