@@ -42,7 +42,7 @@ public sealed class WorldEntities
     public int[] FarRoots = Array.Empty<int>();
     readonly Dictionary<long, List<int>> cells = new();
     public const float CellSize = 100f, NearRootDistance = 750f;
-    const int Magic = 0x45574D50, Version = 2; // "PMWE"; 2: scripted maps left out
+    const int Magic = 0x45574D50, Version = 3; // "PMWE"; 2: scripted maps left out, 3: parents in the same map (flag 8 clear)
 
     static long Key(int x, int y) => ((long)x << 32) ^ (uint)y;
 
@@ -69,6 +69,7 @@ public sealed class WorldEntities
         var ymaps = idx.Ymaps.ToList();
         var names = ymaps.Select(y => y.Name.ToLowerInvariant()).ToArray();
         var perMap = new (WorldEnt[] Ents, uint Parent, uint Name, uint Flags, bool ShortLod)[ymaps.Count];
+        var inParent = new bool[ymaps.Count][]; // entity flag 8: its LOD parent is in the parent map, else in its own map
         int done = 0;
         System.Threading.Tasks.Parallel.For(0, ymaps.Count, new System.Threading.Tasks.ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount - 2) }, i =>
         {
@@ -76,7 +77,7 @@ public sealed class WorldEntities
             {
                 var y = Cw.RpfFile.GetFile<Cw.YmapFile>(ymaps[i].Entry);
                 if (y == null) return;
-                var list = new List<WorldEnt>();
+                var list = new List<WorldEnt>(); var inPar = new List<bool>();
                 var all = y.AllEntities ?? Array.Empty<Cw.YmapEntityDef>();
                 for (int ei = 0; ei < all.Length; ei++)
                 {
@@ -84,6 +85,7 @@ public sealed class WorldEntities
                     if (e == null || e.MloParent != null) continue;
                     var c = e._CEntityDef;
                     var q = e.Orientation;
+                    inPar.Add((c.flags & 8) != 0);
                     list.Add(new WorldEnt
                     {
                         Arch = c.archetypeName.Hash, Pos = new Vector3(e.Position.X, e.Position.Y, e.Position.Z),
@@ -92,6 +94,7 @@ public sealed class WorldEntities
                         Ymap = i, Index = ei, Parent = c.parentIndex, // local index for now
                     });
                 }
+                inParent[i] = inPar.ToArray();
                 perMap[i] = (list.ToArray(), y._CMapData.parent.Hash, y._CMapData.name.Hash, y._CMapData.flags, all.Length > 0 && all.All(x => x?._CEntityDef.lodDist is > 0f and <= 10f));
             }
             catch { }
@@ -124,12 +127,18 @@ public sealed class WorldEntities
             for (int k = 0; k < ents.Length; k++)
             {
                 int g = first[i] + k, local = E[g].Parent;
-                E[g].Parent = pmap >= 0 && local >= 0 && placeMaps[pmap] != null && placeMaps[pmap].TryGetValue(local, out var pg) ? pg : -1;
+                int m = inParent[i] != null && k < inParent[i].Length && !inParent[i][k] ? i : pmap;
+                int par = m >= 0 && local >= 0 && placeMaps[m] != null && placeMaps[m].TryGetValue(local, out var pg) && pg != g ? pg : -1;
+                // a parent is coarser than its child, else the game ignores the link
+                if (par >= 0 && Coarse(E[par].Level) <= Coarse(E[g].Level)) par = -1;
+                E[g].Parent = par;
             }
         }
         w.E = E; w.Ymaps = names;
         return w;
     }
+
+    static int Coarse(byte level) => level == 5 ? 0 : level;
 
     /// <summary>Children lists, far roots and the grid of the near roots.</summary>
     void Index()
