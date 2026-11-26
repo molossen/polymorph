@@ -1240,6 +1240,7 @@ public sealed partial class EditorApp
         ("delperro", new Vector3(-1480, -1250, 20), 2.168f, -0.08f),
         ("legion", new Vector3(330, -1050, 90), 2.356f, -0.276f),
         ("vespucci_shore", new Vector3(-1350, -1600, 12), -2.356f, -0.06f),
+        ("sea_close", new Vector3(-1420, -1680, 18), -2.356f, -0.45f),
     };
 
     /// <summary>Same spots, same settings as the reference pictures: pictures 3, 10 and 30 s after arriving, what is still loading, frame time.</summary>
@@ -1267,7 +1268,7 @@ public sealed partial class EditorApp
                 var dd = stDts.Skip(s0).Where(x => x > 0).OrderBy(x => x).ToList();
                 Note($"{name} +{sec} s: frame {(dd.Count > 0 ? dd[dd.Count / 2] * 1000 : 0):0.0} ms, models loading {archLoading}, textures waiting {renderer.Textures.Pending}, drawn {MapVisible:N0}");
                 yield return Shot($"cmp_{name}_{sec}s");
-                if (sec == 3) Note($"water: quads {gameWaterData?.Quads.Count}, drawn by the game water {gameWater != null}, failed {gameWaterFailed}, task {gameWaterTask?.Status}, look {MapNrLookOn}, HDR {mapLight.IsHdr}, image {hdrImage != null}, DX11 {gpu.FeatureLevel11}, water on {Settings.MapWater}; {status}");
+                if (sec == 3) Note($"water: quads {gameWaterData?.Quads.Count}, drawn by the game water {gameWater != null}, failed {gameWaterFailed}, task {gameWaterTask?.Status}, look {MapNrLookOn}, HDR {mapLight.IsHdr}, image {hdrImage != null}, DX11 {gpu.FeatureLevel11}, water on {Settings.MapWater}; colour maps {gameWaterData?.ColorMaps.Count}, ocean waves {gameWaterData?.OceanWaves != null}, shore {gameWaterData?.ShoreWaves != null}, ripples {gameWaterData?.Ripples != null}, foam {gameWaterData?.Foam != null}, caustics {gameWaterData?.Caustics != null}, errors: {string.Join(" | ", gameWaterData?.Errors ?? new List<string>())}; {status}");
             }
             // what is where on screen (holes, odd surfaces): a grid of picks
             var vpc = Viewports[ActiveViewport];
