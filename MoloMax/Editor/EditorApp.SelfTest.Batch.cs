@@ -1278,6 +1278,11 @@ public sealed partial class EditorApp
                     yield return Shot("cmp_sea_close_down");
                     Settings.MapWaterWaves = false; yield return Frames(10);
                     yield return Shot("cmp_sea_close_down_flat");
+                    Settings.MapWaterWaves = w0;
+                    Note($"water renderer: surface vertices {gameWater?.SurfaceVertices}, grid indices {gameWater?.GridIndices}, open water {gameWater?.OpenWater}, eye {cam.Eye}, sea height there {gameWaterData?.HeightAt(cam.Eye.X, cam.Eye.Y)}");
+                    MoloMax.Rendering.GameWaterRenderer.DebugSolid = 1; yield return Frames(5); yield return Shot("cmp_sea_debug_red");
+                    MoloMax.Rendering.GameWaterRenderer.DebugSolid = 2; yield return Frames(5); yield return Shot("cmp_sea_debug_red_nodepth");
+                    MoloMax.Rendering.GameWaterRenderer.DebugSolid = 0;
                     Settings.MapWaterWaves = w0; cam.Pitch = p0; cam.Target = eye + cam.Forward * 20;
                 }
                 if (PlayOn) Note($"Play is on during the comparison (started by {playStartedBy})");

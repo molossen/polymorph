@@ -472,6 +472,8 @@ RAY_STARTS PSRays(PS_INPUT input)
 
 float4 PS(PS_INPUT input) : SV_Target
 {
+    if (Patterns.y > 0.5f)
+        return float4(1.0f, 0.0f, 0.0f, 1.0f); // self test: plain red where the water is drawn
     if (input.kind.x > 0.5f && !IsOpenWater(input.rest.xy))
         discard;
     float3 camera = CameraTime.xyz;

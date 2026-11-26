@@ -109,6 +109,9 @@ public sealed class GameWaterRenderer : IDisposable
     }
 
     public bool HasSurfaces => allSurfaces.Count > 0;
+    /// <summary>Self test: 1 = plain red where drawn, 2 = the same without the depth test.</summary>
+    public static int DebugSolid;
+    public int SurfaceVertices => allSurfaces.Count; public int GridIndices => gridCount; public bool OpenWater => openWater;
 
     /// <summary>The map's surfaces, the open ocean all around the main water file, its calm and wave zones and its look.</summary>
     public void SetSurfaces(WaterMap water)
@@ -331,7 +334,7 @@ public sealed class GameWaterRenderer : IDisposable
             OceanBounds = oceanBounds, GridCenter = new Vector4(center, 0, 0),
             ColorArea = colorTex == null ? Vector4.Zero : colorArea, IslandArea = islandTex == null ? Vector4.Zero : islandArea,
             Caustics = new Vector4(causticTex == null ? 0 : 1, 0, near, far),
-            Patterns = new Vector4(patterns == null ? 0 : 1, 0, 0, 0),
+            Patterns = new Vector4(patterns == null ? 0 : 1, DebugSolid > 0 ? 1 : 0, 0, 0),
         };
         ctx.UpdateSubresource(ref c, cb);
         ctx.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
@@ -352,7 +355,7 @@ public sealed class GameWaterRenderer : IDisposable
         }
         ctx.VertexShader.SetSampler(0, linearClamp);
         ctx.PixelShader.SetSampler(0, linearClamp); ctx.PixelShader.SetSampler(1, linearWrap);
-        ctx.OutputMerger.SetDepthStencilState(depth, 0);
+        ctx.OutputMerger.SetDepthStencilState(DebugSolid == 2 ? null : depth, 0);
         ctx.OutputMerger.SetBlendState(blend, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0), -1);
         var prevRas = ctx.Rasterizer.State;
         ctx.Rasterizer.State = ras;
