@@ -1385,7 +1385,11 @@ public sealed partial class EditorApp
             }
         }
         Hour = 19.5f; yield return Frames(10); yield return Shot("look_tataviam_19h30");
-        Hour = 0; yield return Frames(10); yield return Shot("look_tataviam_0h");
+        Hour = 0; yield return Frames(10);
+        for (int k = 0; k < 120 && lightsTask is { IsCompleted: false }; k++) yield return Frames(15);
+        yield return Frames(5);
+        Note($"night lights: {DistantLightCount:N0} distant lights");
+        yield return Shot("look_tataviam_0h");
         Hour = 13;
         {
             // the sea at Del Perro pier

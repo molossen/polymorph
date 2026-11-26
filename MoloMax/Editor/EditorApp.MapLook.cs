@@ -19,6 +19,38 @@ public sealed partial class EditorApp
     /// <summary>Water surfaces read from the game (for the tests).</summary>
     internal int WaterQuads => waterMap?.Quads.Count ?? 0;
 
+    DistantLightsRenderer lightsR;
+    System.Threading.Tasks.Task<MoloMax.Core.Gta.Map.DistantLights> lightsTask;
+    /// <summary>Distant lights read from the game (for the tests).</summary>
+    internal int DistantLightCount => lightsR?.Count ?? 0;
+
+    /// <summary>How much of the night the lights show (0 by day, 1 at night), from the sun's height.</summary>
+    static float NightOf(float hour) { var (_, _, sun, _) = GtaLighting.SkyOf(hour); return Math.Clamp((0.12f - sun.Z) * 5f, 0, 1); }
+
+    /// <summary>The city's lights at night, seen from far (the game's distant lights), added over the map.</summary>
+    void DrawMapLights(Viewport vp, Matrix4x4 viewProj)
+    {
+        if (!Settings.MapNightLights || world == null) return;
+        float night = NightOf(Hour);
+        if (night <= 0.01f) return;
+        if (lightsR == null)
+        {
+            var w = world;
+            lightsTask ??= System.Threading.Tasks.Task.Run(() => MoloMax.Core.Gta.Map.DistantLights.Load(w));
+            if (!lightsTask.IsCompleted) return;
+            lightsR = new DistantLightsRenderer(gpu.Device);
+            if (!lightsTask.IsFaulted) lightsR.SetLights(gpu.Device, lightsTask.Result.Positions, lightsTask.Result.Colours);
+        }
+        var cam = vp.Camera;
+        var v = new DistantLightsRenderer.Vars
+        {
+            ViewProj = viewProj, Eye = new Vector4(cam.Eye, 1.15f / MathF.Max(vp.H, 1)),
+            Right = new Vector4(cam.Right, 0), Up = new Vector4(Vector3.Normalize(Vector3.Cross(cam.Right, cam.Forward)), night),
+        };
+        lightsR.Draw(v);
+        renderer.RebindScene();
+    }
+
     /// <summary>The game's water (water.xml) under the map: read once in the background, then drawn blended over the opaque map.</summary>
     void DrawMapWater(Viewport vp, Matrix4x4 viewProj)
     {
@@ -84,6 +116,10 @@ public sealed partial class EditorApp
         bool w = Settings.MapWater;
         if (ImGui.Checkbox("Water##maplook", ref w)) { Settings.MapWater = w; Settings.Save(); }
         Theme.Tip("The game's sea, lakes and rivers (water.xml), with small waves and the sky's reflection.");
+        ImGui.SameLine();
+        bool nl = Settings.MapNightLights;
+        if (ImGui.Checkbox("Night lights##maplook", ref nl)) { Settings.MapNightLights = nl; Settings.Save(); }
+        Theme.Tip("At night, the lights of the city and the roads seen from far away (the game's distant lights).");
         if (Settings.MapFog)
         {
             float d = Settings.MapFogDistance;

@@ -94,6 +94,8 @@ public sealed class AppSettings
     public bool MapFog { get; set; } = true;
     /// <summary>MAP: the game's water (sea, lakes, rivers) drawn.</summary>
     public bool MapWater { get; set; } = true;
+    /// <summary>MAP: at night, the game's distant lights.</summary>
+    public bool MapNightLights { get; set; } = true;
     /// <summary>Distance (m) where the haze hides everything.</summary>
     public float MapFogDistance { get; set; } = 3000;
     /// <summary>MAP mode: only what is within this distance of the camera is drawn and picked (big custom maps).</summary>

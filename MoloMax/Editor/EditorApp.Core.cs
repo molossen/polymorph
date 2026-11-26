@@ -414,6 +414,7 @@ public sealed partial class EditorApp : IDisposable
         {
             renderer.DrawObject(Scene, o, true, Vector4.Zero, BackfaceCull);
         }
+        if (skyView) { ctx.Rasterizer.State = renderer.CullNone; DrawMapLights(vp, viewProj); ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1); }
         DrawSplats(vp);
 
         // wires, edges, selection, brackets, creation preview
