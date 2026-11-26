@@ -130,48 +130,6 @@ Texture2D<float4> LayerHeight1 : register(t18);
 Texture2D<float4> LayerHeight2 : register(t19);
 Texture2D<float4> LayerHeight3 : register(t20);
 
-// ---- parallax (PXM), after the method shared by ook3D for CodeWalker: march the view ray through the height map
-//      in tangent space, fewer steps when looking straight down, faded out with distance (none beyond 50 m)
-float PomHeight(float2 uv, float4 w, float2 gx, float2 gy)
-{
-    if (Parallax == 2)
-        return 1.0 - (w.x * LayerHeight0.SampleGrad(TextureSS, uv, gx, gy).r + w.y * LayerHeight1.SampleGrad(TextureSS, uv, gx, gy).r
-                    + w.z * LayerHeight2.SampleGrad(TextureSS, uv, gx, gy).r + w.w * LayerHeight3.SampleGrad(TextureSS, uv, gx, gy).r);
-    return Heightmap.SampleGrad(TextureSS, uv, gx, gy).r;
-}
-
-float2 ParallaxUv(float2 uv, float3 wp, float3 n, float3 t, float3 b, float4 w)
-{
-    float3 toEye = CameraPos.xyz - wp;
-    float dist = length(toEye);
-    float fade = 1 - saturate((dist - 5) / 45);
-    if (fade <= 0) return uv;
-    float3 v = toEye / dist;
-    float3 te = normalize(float3(dot(t, v), dot(b, v), dot(n, v)));
-    float vdn = abs(dot(v, n));
-    float steps = lerp(16.0, 3.0, vdn) * fade;
-    if (steps < 1) return uv;
-    float hs = Parallax == 2 ? dot(w, LayerHeightScale) : HeightScale;
-    float hb = Parallax == 2 ? dot(w, LayerHeightBias) : HeightBias;
-    float scale = saturate(steps - 1) * saturate(vdn / 0.25) * fade;
-    float z = max(0.1, te.z);
-    float2 maxOff = (-te.xy / z) * hs * scale;
-    float2 off = (te.xy / z) * hb * scale;
-    float2 gx = ddx(uv), gy = ddy(uv);
-    float stepH = 1.0 / steps; float2 stepOff = maxOff * stepH;
-    float bound = 1, prevBound = 1;
-    float h = PomHeight(uv + off, w, gx, gy) + 1e-6, prevH = h;
-    [loop] for (int i = 0; i < 16; i++)
-    {
-        if (i >= (int)steps || h >= bound) break;
-        prevBound = bound; prevH = h;
-        bound -= stepH; off += stepOff;
-        h = PomHeight(uv + off, w, gx, gy);
-    }
-    float cd = bound - h, pd = prevBound - prevH, den = pd - cd;
-    float fh = den > 0 ? (bound * pd - prevBound * cd) / den : h;
-    return uv + (te.xy / z) * hb * scale + maxOff * (1 - saturate(fh));
-}
 SamplerState TextureSS : register(s0);
 
 struct VS_INPUT
@@ -301,6 +259,49 @@ float3 GlobalLighting(float3 diff, float3 norm, float4 vc0, float lf)
 }
 
 float3 SrgbToLinear(float3 c) { return lerp(pow((c + 0.055) / 1.055, 2.4), c / 12.92, step(c, 0.04045)); }
+
+// ---- parallax (PXM), after the method shared by ook3D for CodeWalker: march the view ray through the height map
+//      in tangent space, fewer steps when looking straight down, faded out with distance (none beyond 50 m)
+float PomHeight(float2 uv, float4 w, float2 gx, float2 gy)
+{
+    if (Parallax == 2)
+        return 1.0 - (w.x * LayerHeight0.SampleGrad(TextureSS, uv, gx, gy).r + w.y * LayerHeight1.SampleGrad(TextureSS, uv, gx, gy).r
+                    + w.z * LayerHeight2.SampleGrad(TextureSS, uv, gx, gy).r + w.w * LayerHeight3.SampleGrad(TextureSS, uv, gx, gy).r);
+    return Heightmap.SampleGrad(TextureSS, uv, gx, gy).r;
+}
+
+float2 ParallaxUv(float2 uv, float3 wp, float3 n, float3 t, float3 b, float4 w)
+{
+    float3 toEye = CameraPos.xyz - wp;
+    float dist = length(toEye);
+    float fade = 1 - saturate((dist - 5) / 45);
+    if (fade <= 0) return uv;
+    float3 v = toEye / dist;
+    float3 te = normalize(float3(dot(t, v), dot(b, v), dot(n, v)));
+    float vdn = abs(dot(v, n));
+    float steps = lerp(16.0, 3.0, vdn) * fade;
+    if (steps < 1) return uv;
+    float hs = Parallax == 2 ? dot(w, LayerHeightScale) : HeightScale;
+    float hb = Parallax == 2 ? dot(w, LayerHeightBias) : HeightBias;
+    float scale = saturate(steps - 1) * saturate(vdn / 0.25) * fade;
+    float z = max(0.1, te.z);
+    float2 maxOff = (-te.xy / z) * hs * scale;
+    float2 off = (te.xy / z) * hb * scale;
+    float2 gx = ddx(uv), gy = ddy(uv);
+    float stepH = 1.0 / steps; float2 stepOff = maxOff * stepH;
+    float bound = 1, prevBound = 1;
+    float h = PomHeight(uv + off, w, gx, gy) + 1e-6, prevH = h;
+    [loop] for (int i = 0; i < 16; i++)
+    {
+        if (i >= (int)steps || h >= bound) break;
+        prevBound = bound; prevH = h;
+        bound -= stepH; off += stepOff;
+        h = PomHeight(uv + off, w, gx, gy);
+    }
+    float cd = bound - h, pd = prevBound - prevH, den = pd - cd;
+    float fh = den > 0 ? (bound * pd - prevBound * cd) / den : h;
+    return uv + (te.xy / z) * hb * scale + maxOff * (1 - saturate(fh));
+}
 
 // sun visibility from the shadow maps, 3x3 PCF (soft edge): the near map where it covers the point, else the wider ones
 float ShadowIn(float4x4 vp, float slice, float texel, float3 wp, float3 n, out bool inside)
