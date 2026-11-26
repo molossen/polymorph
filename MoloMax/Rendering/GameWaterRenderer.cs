@@ -65,7 +65,7 @@ public sealed class GameWaterRenderer : IDisposable
         meshCb = new Buffer(device, 80, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
         (gridVb, gridIb, gridCount) = CreateGrid(device);
         // seen from above and from below (under water)
-        ras = new RasterizerState(device, new RasterizerStateDescription { FillMode = FillMode.Solid, CullMode = CullMode.None, IsDepthClipEnabled = true, IsMultisampleEnabled = true, IsScissorEnabled = true });
+        ras = new RasterizerState(device, new RasterizerStateDescription { FillMode = FillMode.Solid, CullMode = CullMode.None, IsDepthClipEnabled = true, IsMultisampleEnabled = true, IsScissorEnabled = false });
         // standard depth, strictly in front: where two surfaces overlap at the same height, only the first is drawn
         depth = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.All, DepthComparison = Comparison.Less });
         var bd = new BlendStateDescription();
