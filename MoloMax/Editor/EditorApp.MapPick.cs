@@ -29,7 +29,8 @@ public sealed partial class EditorApp
         if (local.X < 0 || local.Y < 0 || local.X >= vp.W || local.Y >= vp.H) return null;
         var cam = vp.Camera;
         var viewProj = cam.ViewProj(vp.Aspect);
-        MapGatherDraws(vp, viewProj);
+        // the draw lists of the last frame are reused when the view has not moved since (a hover pick each frame while placing)
+        if (!(ReferenceEquals(gatherVp, vp) && gatherViewProj == viewProj && ImGuiNET.ImGui.GetFrameCount() - gatherFrame <= 1)) MapGatherDraws(vp, viewProj);
         pickIds.Clear(); pickEnts.Clear(); lastPickEnt = -1;
         int draws0 = renderer.StatDraws;
         renderer.BeginPick((int)vp.W, (int)vp.H, (int)local.X, (int)local.Y);

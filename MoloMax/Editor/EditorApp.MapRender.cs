@@ -33,8 +33,10 @@ public sealed partial class EditorApp
         return true;
     }
 
+    Viewport gatherVp; Matrix4x4 gatherViewProj; int gatherFrame = -10;
     void MapGatherDraws(Viewport vp, Matrix4x4 viewProj)
     {
+        gatherVp = vp; gatherViewProj = viewProj; gatherFrame = ImGuiNET.ImGui.GetFrameCount();
         foreach (var g in instGroups.Values) { g.Count = 0; g.Template = null; }
         mapSingles.Clear();
         var planes = FrustumPlanes(viewProj);
