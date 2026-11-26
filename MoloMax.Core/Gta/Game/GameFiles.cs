@@ -39,6 +39,10 @@ public sealed class GameFiles
     /// <summary>Archetypes whose model sits in a drawable dictionary (.ydd): most far LOD / SLOD models of the map.</summary>
     readonly Dictionary<uint, uint> yddOfArchetype = new();
     readonly Dictionary<uint, GameAsset> yddByHash = new();
+    /// <summary>Archetype name -> the model (asset) it draws, when they differ.</summary>
+    readonly Dictionary<uint, uint> assetOfArchetype = new();
+    /// <summary>The model an archetype draws (its own name when it has no separate asset name).</summary>
+    public uint AssetOf(uint archetype) { BuildTypeIndex(); return assetOfArchetype.TryGetValue(archetype, out var a) ? a : archetype; }
     /// <summary>Interiors (MLO archetypes): the .ytyp holding each one.</summary>
     readonly Dictionary<uint, RpfFileEntry> ytypOfMlo = new();
     /// <summary>Texture dictionary parents (gtxd): a model's textures can live in its dictionary's parent, grand-parent...</summary>
@@ -197,12 +201,19 @@ public sealed class GameFiles
                         foreach (var a in y.AllArchetypes)
                             if (a != null)
                             {
-                                txdOfArchetype.TryAdd(a.Hash.Hash, a.TextureDict.Hash);
-                                var bb = a.BBMax - a.BBMin;
-                                sizeOfArchetype.TryAdd(a.Hash.Hash, Math.Max(bb.X, Math.Max(bb.Y, bb.Z)));
-                                lodDistOfArchetype.TryAdd(a.Hash.Hash, a.LodDist);
-                                if (a.DrawableDict.Hash != 0) yddOfArchetype.TryAdd(a.Hash.Hash, a.DrawableDict.Hash);
-                                if (a is MloArchetype) ytypOfMlo.TryAdd(a.Hash.Hash, fe);
+                                // CodeWalker keys an archetype by its asset (model) name; map objects name the archetype itself:
+                                // both are indexed (they differ for models shared by several archetypes, e.g. tree LOD cards)
+                                uint an = a._BaseArchetypeDef.name.Hash, asset = a.Hash.Hash;
+                                foreach (var k in an != 0 && an != asset ? new[] { asset, an } : new[] { asset })
+                                {
+                                    txdOfArchetype.TryAdd(k, a.TextureDict.Hash);
+                                    var bb = a.BBMax - a.BBMin;
+                                    sizeOfArchetype.TryAdd(k, Math.Max(bb.X, Math.Max(bb.Y, bb.Z)));
+                                    lodDistOfArchetype.TryAdd(k, a.LodDist);
+                                    if (a.DrawableDict.Hash != 0) yddOfArchetype.TryAdd(k, a.DrawableDict.Hash);
+                                    if (a is MloArchetype) ytypOfMlo.TryAdd(k, fe);
+                                }
+                                if (an != 0 && an != asset) assetOfArchetype.TryAdd(an, asset);
                             }
                 }
                 catch { }
@@ -281,7 +292,7 @@ public sealed class GameFiles
     }
 
     /// <summary>The .ydr / .yft of an archetype hash (interior entities name their model by hash).</summary>
-    public GameAsset FindModel(uint hash) => modelByHash.TryGetValue(hash, out var a) ? a : null;
+    public GameAsset FindModel(uint hash) => modelByHash.TryGetValue(hash, out var a) ? a : TypesIndexed && assetOfArchetype.TryGetValue(hash, out var asset) && modelByHash.TryGetValue(asset, out a) ? a : null;
 
     public IReadOnlyList<GamePlacement> PlacementsOf(GameAsset a) => placements.TryGetValue(a.Hash, out var l) ? l : Array.Empty<GamePlacement>();
 

@@ -603,7 +603,8 @@ public sealed partial class EditorApp
             if (g == null) { lld.Why = "no geometry in " + Path.GetFileName(local); return lld; }
             a ??= g.FindModel(hash);
         }
-        var ld = FromCache(hash) ?? new ArchLoad();
+        uint asset = g?.AssetOf(hash) ?? hash; // several archetypes can draw one model (named differently)
+        var ld = FromCache(hash) ?? (asset != hash ? FromCache(asset) : null) ?? new ArchLoad();
         if (ld.Mesh == null)
         {
             var opt = new MoloMax.Core.IO.ImportOptions { Scale = 1, AutoSmoothAngle = 0 };
@@ -621,7 +622,7 @@ public sealed partial class EditorApp
                 if (dd == null) { ld.Why = g.WhyNoModel(hash); return ld; }
                 lock (yddLocks.GetOrAdd(dd.Hash, _ => new object()))
                 {
-                    if (FromCache(hash) is { } again) ld = again;
+                    if ((FromCache(hash) ?? (asset != hash ? FromCache(asset) : null)) is { } again) ld = again;
                     else if (yddDone.ContainsKey(dd.Hash)) ld.Why = $"not in {dd.Name}.ydd";
                     else
                     {
@@ -632,7 +633,7 @@ public sealed partial class EditorApp
                             var one = Merge(r, grp.ToList());
                             if (one.Mesh.Faces.Count == 0) continue;
                             try { MapMeshCache.Save(MeshCachePath(grp.Key), one.Mesh, one.R.Materials); } catch { }
-                            if (grp.Key == hash) ld = one;
+                            if (grp.Key == hash || grp.Key == asset) ld = one;
                         }
                         if (ld.Mesh == null) ld.Why = $"{dd.Name}.ydd read: {r.Meshes.Count} parts, hashes {string.Join(",", r.Meshes.Select(m => m.DrawableHash.ToString("X8")).Distinct().Take(4))}";
                     }
