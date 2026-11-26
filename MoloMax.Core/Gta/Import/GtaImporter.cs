@@ -337,6 +337,13 @@ public static class GtaImporter
                     AddCable(mesh, vd, idx, mat, place);
                     continue;
                 }
+                // far tree cards (trees_lod2): the 4 corners of each card sit on one point, the game's shader opens them
+                // facing the camera (size from treeLod2Params x texcoord 2). Here: two crossed cards, seen from every side.
+                if (string.Equals(c.Res.Materials[mat].Shader, "trees_lod2", StringComparison.OrdinalIgnoreCase) && Has(Cw.VertexSemantics.TexCoord0))
+                {
+                    AddTreeCards(mesh, vd, idx, mat, place, ShaderVec(shader, "treeLod2Params"), Has(Cw.VertexSemantics.TexCoord2), Has(Cw.VertexSemantics.Colour0));
+                    continue;
+                }
                 for (int i = 0; i < vd.VertexCount; i++)
                 {
                     mesh.AddVertex(Vector3.Transform(V(vd.GetVector3(i, (int)Cw.VertexSemantics.Position)), place));
@@ -366,6 +373,49 @@ public static class GtaImporter
             MeshOps.AutoSmooth(mesh, null, 40f);
         }
         c.Res.Meshes.Add(new ImportedMesh { Name = name, Mesh = mesh, GtaType = GtaObjectType.Drawable });
+    }
+
+    static Vector4 ShaderVec(Cw.ShaderFX s, string name)
+    {
+        var prm = s?.ParametersList; uint want = Cw.JenkHash.GenHash(name.ToLowerInvariant());
+        if (prm?.Parameters == null || prm.Hashes == null) return Vector4.Zero;
+        for (int i = 0; i < prm.Parameters.Length && i < prm.Hashes.Length; i++)
+            if ((uint)prm.Hashes[i] == want && prm.Parameters[i].Data is SDX.Vector4 v) return new Vector4(v.X, v.Y, v.Z, v.W);
+        return Vector4.Zero;
+    }
+
+    static void AddTreeCards(PolyMesh mesh, Cw.VertexData vd, ushort[] idx, int mat, Matrix4x4 place, Vector4 prm, bool hasTc2, bool hasCol)
+    {
+        int n = vd.VertexCount;
+        var pos = new Vector3[n]; var tc = new Vector2[n]; var sz = new Vector2[n]; var col = new Vector4[n];
+        var size = new Vector2(prm.X == 0 ? 10 : prm.X, prm.Y == 0 ? 10 : prm.Y);
+        for (int i = 0; i < n; i++)
+        {
+            pos[i] = V(vd.GetVector3(i, (int)Cw.VertexSemantics.Position));
+            tc[i] = ReadUv(vd, i, (int)Cw.VertexSemantics.TexCoord0);
+            sz[i] = hasTc2 ? ReadUv(vd, i, (int)Cw.VertexSemantics.TexCoord2) : Vector2.One;
+            if (hasCol) { var cc = vd.GetColour(i, (int)Cw.VertexSemantics.Colour0); col[i] = new Vector4(cc.R, cc.G, cc.B, cc.A) / 255f; } else col[i] = PolyMesh.DefaultColour;
+        }
+        foreach (var side in new[] { Vector3.UnitX, Vector3.UnitY })
+        {
+            int baseV = mesh.Verts.Count;
+            for (int i = 0; i < n; i++)
+            {
+                var o = size * (new Vector2(0.5f) - tc[i]) * sz[i];
+                mesh.AddVertex(Vector3.Transform(pos[i] + side * o.X + Vector3.UnitZ * o.Y, place));
+            }
+            for (int t = 0; t + 2 < idx.Length; t += 3)
+            {
+                int a = idx[t], b = idx[t + 1], cI = idx[t + 2];
+                if (a >= n || b >= n || cI >= n || a == b || b == cI || a == cI) continue;
+                foreach (var (x, y, z) in new[] { (a, b, cI), (a, cI, b) })
+                {
+                    var f = mesh.AddFace(new[] { baseV + x, baseV + y, baseV + z }, mat);
+                    f.UV = new[] { tc[x], tc[y], tc[z] };
+                    f.Col = new[] { col[x], col[y], col[z] };
+                }
+            }
+        }
     }
 
     static void AddCable(PolyMesh mesh, Cw.VertexData vd, ushort[] idx, int mat, Matrix4x4 place)
