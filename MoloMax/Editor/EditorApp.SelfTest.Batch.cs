@@ -1295,6 +1295,14 @@ public sealed partial class EditorApp
             bool sk = Settings.MapSky, fg = Settings.MapFog; Settings.MapSky = false; Settings.MapFog = false;
             foreach (var x in Measure("no sky, no haze", rows)) yield return x;
             Settings.MapSky = sk; Settings.MapFog = fg;
+            // the cost of each effect of the new look
+            bool ao = Settings.MapOcclusion; Settings.MapOcclusion = false; foreach (var x in Measure("no occlusion", rows)) yield return x; Settings.MapOcclusion = ao;
+            bool bl = Settings.MapBloom; Settings.MapBloom = false; foreach (var x in Measure("no glow", rows)) yield return x; Settings.MapBloom = bl;
+            bool cl = Settings.MapClouds; Settings.MapClouds = false; foreach (var x in Measure("no clouds", rows)) yield return x; Settings.MapClouds = cl;
+            bool wa = Settings.MapWater; Settings.MapWater = false; foreach (var x in Measure("no water", rows)) yield return x; Settings.MapWater = wa;
+            bool rp = renderer.Parallax; renderer.Parallax = false; foreach (var x in Measure("no relief", rows)) yield return x; renderer.Parallax = rp;
+            bool hd = Settings.MapHdr; Settings.MapHdr = false; foreach (var x in Measure("no HDR (plain image)", rows)) yield return x; Settings.MapHdr = hd;
+            bool nrl = Settings.MapNrLook; Settings.MapNrLook = false; foreach (var x in Measure("old lighting", rows)) yield return x; Settings.MapNrLook = nrl;
             Note("frame time matrix: " + string.Join("; ", rows));
         }
         foreach (var grp in archSlots.Values.Where(a => a.State == 3).GroupBy(a => (a.Error ?? "?").Split(':')[0]).OrderByDescending(gq => gq.Count()).Take(5))
@@ -1426,9 +1434,25 @@ public sealed partial class EditorApp
                 var dl = lightsTask is { IsCompletedSuccessfully: true } ltk ? ltk.Result : null;
                 Expect(lampsR != null && lampsR.Count > 1000, $"night lamps: {lampsR?.Count ?? 0:N0} lamps light the surfaces ({dl?.Detailed ?? 0:N0} with their reach, cone and hours from the lodlights)");
                 yield return Shot("look_street_night_lamps");
-                float kl = Settings.MapLampLight; Settings.MapLampLight = 0; yield return Frames(5);
+                IEnumerable<object> Night(string label, List<string> outp)
+                {
+                    yield return Frames(20);
+                    int s0 = stDts.Count; double g = 0; int gn = 0;
+                    for (int i = 0; i < 40; i++) { cam.Orbit(0.5f, 0); yield return Frames(1); g += GpuViewMs; gn++; }
+                    cam.Orbit(-20, 0);
+                    var dd = stDts.Skip(s0).Where(x => x > 0).OrderBy(x => x).ToList();
+                    outp.Add($"{label}: {(dd.Count > 0 ? dd[dd.Count / 2] * 1000 : 0):0.0} ms (GPU {g / Math.Max(gn, 1):0.0})");
+                }
+                var nrows = new List<string>();
+                foreach (var x in Night("lamps on", nrows)) yield return x;
+                float kl = Settings.MapLampLight; Settings.MapLampLight = 0;
+                foreach (var x in Night("lamps off", nrows)) yield return x;
                 yield return Shot("look_street_night_nolamps");
                 Settings.MapLampLight = kl;
+                bool kn = Settings.MapNightLights; Settings.MapNightLights = false;
+                foreach (var x in Night("no night lights at all", nrows)) yield return x;
+                Settings.MapNightLights = kn;
+                Note("night frame time: " + string.Join("; ", nrows));
             }
             cam.Target = kt; cam.Distance = kd; cam.Pitch = kp; cam.Yaw = ky;
         }
