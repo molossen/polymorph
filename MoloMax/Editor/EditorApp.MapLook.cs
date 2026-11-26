@@ -2,6 +2,7 @@ using System.Numerics;
 using ImGuiNET;
 using MoloMax.Core.Gta;
 using MoloMax.Rendering;
+using MoloMax.UI;
 
 namespace MoloMax.Editor;
 
