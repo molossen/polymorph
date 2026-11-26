@@ -92,6 +92,8 @@ public sealed class AppSettings
     /// <summary>MAP mode: the whole map read as light records and drawn along the game's level-of-detail tree.</summary>
     public bool MapLodTree { get; set; } = true;
     public bool MapFog { get; set; } = true;
+    /// <summary>MAP: the game's water (sea, lakes, rivers) drawn.</summary>
+    public bool MapWater { get; set; } = true;
     /// <summary>Distance (m) where the haze hides everything.</summary>
     public float MapFogDistance { get; set; } = 3000;
     /// <summary>MAP mode: only what is within this distance of the camera is drawn and picked (big custom maps).</summary>

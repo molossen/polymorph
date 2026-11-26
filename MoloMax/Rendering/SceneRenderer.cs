@@ -452,6 +452,27 @@ public sealed class SceneRenderer : IDisposable
     /// <summary>Forces every mesh to re-upload (after an undo replaced the scene).</summary>
     public void Invalidate() { foreach (var m in meshes.Values) m.Dispose(); meshes.Clear(); foreach (var m in instMeshes.Values) m.Dispose(); instMeshes.Clear(); }
 
+    /// <summary>Binds the scene shaders and buffers again after another renderer (water) used the pipeline.</summary>
+    public void RebindScene()
+    {
+        lastMat = null;
+        ctx.InputAssembler.InputLayout = layout;
+        ctx.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
+        ctx.VertexShader.Set(vs);
+        ctx.VertexShader.SetConstantBuffer(0, sceneCB); ctx.VertexShader.SetConstantBuffer(1, objectCB); ctx.VertexShader.SetConstantBuffer(2, materialCB);
+        ctx.PixelShader.Set(ps);
+        ctx.PixelShader.SetConstantBuffer(0, sceneCB); ctx.PixelShader.SetConstantBuffer(1, objectCB); ctx.PixelShader.SetConstantBuffer(2, materialCB);
+        ctx.PixelShader.SetSampler(0, sampler);
+        ctx.PixelShader.SetConstantBuffer(3, lightCB);
+        ctx.PixelShader.SetConstantBuffer(4, clipCB);
+        ctx.PixelShader.SetConstantBuffer(6, fogCB);
+        ctx.PixelShader.SetSampler(1, shadowSampler);
+        ctx.PixelShader.SetShaderResource(5, shadowSrv);
+    }
+
+    /// <summary>Last haze sent (for the water, drawn with the same).</summary>
+    public (Vector4 Colour, Vector4 Range) Fog => (fogData[0], fogData[1]);
+
     public void BeginScene(Matrix4x4 viewProj, Vector3 eye, in GtaGlobalLights l, ShadingMode mode, float exposure, float ambientBoost)
     {
         lastMat = null;

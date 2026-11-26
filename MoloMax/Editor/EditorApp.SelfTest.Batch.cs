@@ -1399,6 +1399,16 @@ public sealed partial class EditorApp
         Hour = 19.5f; yield return Frames(10); yield return Shot("look_tataviam_19h30");
         Hour = 0; yield return Frames(10); yield return Shot("look_tataviam_0h");
         Hour = 13;
+        {
+            // the sea at Del Perro pier
+            cam.Yaw = 2.3f; cam.Pitch = 0.25f; cam.Distance = 60;
+            var pe = new Vector3(-1780, -1150, 45); cam.Target = pe + cam.Forward * 60;
+            yield return Frames(30);
+            for (int k = 0; k < 240 && (archLoading > 0 || renderer.Textures.Pending > 0 || waterMap == null); k++) yield return Frames(15);
+            yield return Frames(20);
+            Note($"water: {WaterQuads:N0} surfaces from water.xml");
+            yield return Shot("look_delperro_water");
+        }
         Expect(true, "look pictures taken");
         SetMapMode(false);
     }

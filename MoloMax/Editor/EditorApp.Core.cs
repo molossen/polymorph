@@ -408,6 +408,7 @@ public sealed partial class EditorApp : IDisposable
         }
         ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1);
         ctx.OutputMerger.SetDepthStencilState(renderer.DepthRead);
+        if (skyView) { ctx.Rasterizer.State = renderer.CullNone; DrawMapWater(vp, viewProj); }
         if (MapMode && !wireOnly(vp)) MapDraw(true);
         else foreach (var o in drawList)
         {

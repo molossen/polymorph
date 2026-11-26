@@ -407,6 +407,8 @@ public sealed class GameFiles
 
     /// <summary>Raw bytes of a model file (resource header included), ready for CodeWalker's loaders.</summary>
     public byte[] ModelBytes(GameAsset a) => FileBytes(a.Entry);
+    /// <summary>A file of the game by its archive path (e.g. common.rpf\\data\\...), null when not found.</summary>
+    public byte[] ReadPath(string path) { try { return Rpf.GetFileData(path); } catch { return null; } }
 
     static byte[] FileBytes(RpfFileEntry e)
     {

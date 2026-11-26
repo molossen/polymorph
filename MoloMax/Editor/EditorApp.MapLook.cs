@@ -13,6 +13,41 @@ namespace MoloMax.Editor;
 public sealed partial class EditorApp
 {
     SkyRenderer sky;
+    WaterRenderer waterR;
+    MoloMax.Core.Gta.Water.WaterMap waterMap;
+    System.Threading.Tasks.Task<MoloMax.Core.Gta.Water.WaterMap> waterTask;
+    /// <summary>Water surfaces read from the game (for the tests).</summary>
+    internal int WaterQuads => waterMap?.Quads.Count ?? 0;
+
+    /// <summary>The game's water (water.xml) under the map: read once in the background, then drawn blended over the opaque map.</summary>
+    void DrawMapWater(Viewport vp, Matrix4x4 viewProj)
+    {
+        if (!Settings.MapWater || game == null) return;
+        if (waterMap == null)
+        {
+            var g = game;
+            waterTask ??= System.Threading.Tasks.Task.Run(() => MoloMax.Core.Gta.Water.WaterMap.Load(g.ReadPath));
+            if (!waterTask.IsCompleted) return;
+            waterMap = waterTask.IsFaulted ? new MoloMax.Core.Gta.Water.WaterMap() : waterTask.Result;
+            waterR ??= new WaterRenderer(gpu.Device);
+            waterR.SetSurfaces(gpu.Device, waterMap.Triangles());
+        }
+        if (waterR == null || !waterR.HasSurfaces) return;
+        var (z, h, sun, disc) = GtaLighting.SkyOf(Hour);
+        // body colour: the sea's blue-green, lit by the sky (dark at night)
+        float light = MathF.Max(0.08f, MathF.Min(1, (z.X + z.Y + z.Z) / 1.4f));
+        var deep = new Vector3(0.05f, 0.16f, 0.19f) * light;
+        var (fc, fr) = renderer.Fog;
+        var v = new WaterRenderer.Vars
+        {
+            ViewProj = viewProj, Eye = new Vector4(vp.Camera.Eye, (float)(ImGui.GetTime() % 10000)),
+            SunDir = new Vector4(sun, disc * MathF.Max(0, MathF.Min(1, sun.Z * 4))), Zenith = new Vector4(z, 1), Horizon = new Vector4(h, 1),
+            Deep = new Vector4(deep, 0.82f), FogColour = fc, FogRange = fr,
+        };
+        waterR.Draw(v);
+        renderer.RebindScene();
+    }
+
 
     bool MapSkyOn(Viewport vp) => MapMode && Settings.MapSky && !vp.Camera.Ortho && vp.Shading == ShadingMode.Realistic && !wireOnly(vp) && !InteriorLight;
 
@@ -44,6 +79,10 @@ public sealed partial class EditorApp
         ImGui.SameLine();
         if (ImGui.Checkbox("Tints##maplook", ref t)) renderer.TintPalettes = t;
         Theme.Tip("Buildings with a tint shader take their real colours from the game's palette.");
+        ImGui.SameLine();
+        bool w = Settings.MapWater;
+        if (ImGui.Checkbox("Water##maplook", ref w)) { Settings.MapWater = w; Settings.Save(); }
+        Theme.Tip("The game's sea, lakes and rivers (water.xml), with small waves and the sky's reflection.");
         if (Settings.MapFog)
         {
             float d = Settings.MapFogDistance;
