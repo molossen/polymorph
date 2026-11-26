@@ -104,6 +104,9 @@ public sealed class AppSettings
     public float MapExposure { get; set; } = 1f;
     public bool MapOcclusion { get; set; } = true;
     public bool MapBloom { get; set; } = true;
+    /// <summary>MAP: clouds in volume and the weather they come from (ExtraSunny, Clear, Clouds, Overcast, Rain...).</summary>
+    public bool MapClouds { get; set; } = true;
+    public string MapWeather { get; set; } = "Clear";
     /// <summary>MAP: at night, the game's distant lights.</summary>
     public bool MapNightLights { get; set; } = true;
     /// <summary>Distance (m) where the haze hides everything.</summary>

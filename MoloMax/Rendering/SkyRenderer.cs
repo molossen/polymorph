@@ -60,13 +60,13 @@ public sealed class SkyRenderer : IDisposable
     public void Draw(Matrix4x4 viewProj, Vector3 zenith, Vector3 horizon, Vector3 sunDir, float disc, Vector3 below)
         => Draw(viewProj, zenith, horizon, sunDir, disc, false, false, 0, Vector3.One, sunDir, 0);
 
-    public void Draw(Matrix4x4 viewProj, Vector3 zenith, Vector3 horizon, Vector3 sunDir, float disc, bool hdr, bool physical, float night, Vector3 tint, Vector3 trueSun, float grey)
+    public void Draw(Matrix4x4 viewProj, Vector3 zenith, Vector3 horizon, Vector3 sunDir, float disc, bool hdr, bool physical, float night, Vector3 tint, Vector3 trueSun, float grey, ShaderResourceView clouds = null)
     {
         Matrix4x4.Invert(viewProj, out var inv);
         var v = new SkyVars
         {
             InvViewProj = inv, Zenith = new(zenith, grey), Horizon = new(horizon, 1), SunDir = new(sunDir, disc),
-            Disc = new(hdr ? 60 : 6, hdr ? 1 : 0, physical && tableSrv != null ? 1 : 0, night), Tint = new(tint, 0), TrueSun = new(trueSun, 0),
+            Disc = new(hdr ? 60 : 6, hdr ? 1 : 0, physical && tableSrv != null ? 1 : 0, night), Tint = new(tint, 0), TrueSun = new(trueSun, clouds != null ? 1 : 0),
         };
         ctx.UpdateSubresource(ref v, cb);
         ctx.InputAssembler.InputLayout = null;
@@ -75,9 +75,10 @@ public sealed class SkyRenderer : IDisposable
         ctx.PixelShader.Set(ps); ctx.PixelShader.SetConstantBuffer(0, cb);
         ctx.PixelShader.SetSampler(0, clamp);
         ctx.PixelShader.SetShaderResource(0, physical ? tableSrv : null);
+        ctx.PixelShader.SetShaderResource(1, clouds);
         ctx.GeometryShader.Set(null);
         ctx.Draw(3, 0);
-        ctx.PixelShader.SetShaderResource(0, null);
+        ctx.PixelShader.SetShaderResource(0, null); ctx.PixelShader.SetShaderResource(1, null);
     }
 
     public void Dispose() { vs.Dispose(); ps.Dispose(); cb.Dispose(); clamp.Dispose(); tableSrv?.Dispose(); table?.Dispose(); }

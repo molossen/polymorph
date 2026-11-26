@@ -14,6 +14,7 @@ public sealed partial class EditorApp
 {
     SkyRenderer sky;
     HdrImage hdrImage;
+    CloudRenderer clouds; bool cloudsFailed;
     /// <summary>The MAP view lit like NodeRunner (its light of the hour, sky and haze).</summary>
     bool MapNrLookOn => MapMode && Settings.MapNrLook;
     MoloMax.Core.Gta.Look.MapLighting mapLight = MoloMax.Core.Gta.Look.MapLighting.Neutral;
@@ -125,7 +126,24 @@ public sealed partial class EditorApp
             // NodeRunner's sky: below the horizon the horizon colour darkened
             var ml = mapLight;
             if (ml.PhysicalSky) sky.PrepareTable(ml.Sun.Z, MoloMax.Core.Gta.Look.MapLighting.SkyBalance);
-            sky.Draw(viewProj, ml.Zenith, ml.Horizon, ml.SunDirection, ml.SunDisc, ml.IsHdr, ml.PhysicalSky, ml.NightLights, ml.SunTint, ml.Sun, 0);
+            // NodeRunner's clouds in volume (HDR image), drawn into their own image first
+            SharpDX.Direct3D11.ShaderResourceView cloudImg = null;
+            if (ml.IsHdr && Settings.MapClouds && gpu.FeatureLevel11 && !cloudsFailed && drawViewport is { } dv)
+            {
+                try
+                {
+                    clouds ??= new CloudRenderer(gpu.Device);
+                    var weather = MoloMax.Core.Gta.Look.CloudWeather.For(Enum.TryParse<MoloMax.Core.Gta.Look.Weather>(Settings.MapWeather, out var wt) ? wt : MoloMax.Core.Gta.Look.Weather.Clear);
+                    cloudImg = clouds.Render(viewProj, dv.Camera.Eye, ml, weather, (int)dv.W, (int)dv.H, 1);
+                }
+                catch { cloudsFailed = true; }
+                gpu.Context.Rasterizer.SetViewport(dv.X, dv.Y, dv.W, dv.H);
+                gpu.Context.Rasterizer.SetScissorRectangle((int)dv.X, (int)dv.Y, (int)(dv.X + dv.W), (int)(dv.Y + dv.H));
+                hdrImage?.Rebind(gpu);
+                gpu.Context.OutputMerger.SetDepthStencilState(renderer.DepthOff);
+                gpu.Context.Rasterizer.State = renderer.CullNone;
+            }
+            sky.Draw(viewProj, ml.Zenith, ml.Horizon, ml.SunDirection, ml.SunDisc, ml.IsHdr, ml.PhysicalSky, ml.NightLights, ml.SunTint, ml.Sun, 0, cloudImg);
             return;
         }
         var (z, h, sun, disc) = GtaLighting.SkyOf(Hour);

@@ -9,10 +9,11 @@ cbuffer SkyVars : register(b0)
     float4 SunDir;     // xyz towards the sun (the light's direction), w visibility of the disc
     float4 Disc;       // x brightness of the disc, y 1 = HDR image (linear colours), z 1 = sky from the table, w share of the night colours
     float4 Tint;       // colour of the sun through the air (table)
-    float4 TrueSun;    // direction of the sun, even below the horizon
+    float4 TrueSun;    // direction of the sun, even below the horizon; w 1 = clouds over the sky
 };
 static const float LowestSky = 0.07f;
 Texture2D Table : register(t0);
+Texture2D Clouds : register(t1); // rgb their light, a how much of the sky shows through
 SamplerState LinearClamp : register(s0);
 
 struct PS_IN { float4 pos : SV_POSITION; float2 ndc : TEXCOORD0; };
@@ -24,6 +25,16 @@ PS_IN VSMain(uint id : SV_VertexID)
     o.pos = float4(p, 0.5, 1.0);
     o.ndc = p;
     return o;
+}
+
+float3 WithClouds(float3 color, float2 ndc)
+{
+    if (TrueSun.w < 0.5) return color;
+    float width, height; Clouds.GetDimensions(width, height);
+    float2 uv = ndc * float2(0.5, -0.5) + 0.5, texel = 0.5 / float2(width, height);
+    float4 c = 0.25 * (Clouds.SampleLevel(LinearClamp, uv + float2(-texel.x, -texel.y), 0) + Clouds.SampleLevel(LinearClamp, uv + float2(texel.x, -texel.y), 0)
+        + Clouds.SampleLevel(LinearClamp, uv + float2(-texel.x, texel.y), 0) + Clouds.SampleLevel(LinearClamp, uv + float2(texel.x, texel.y), 0));
+    return color * c.a + c.rgb;
 }
 
 float4 PSMain(PS_IN i) : SV_TARGET
@@ -47,8 +58,9 @@ float4 PSMain(PS_IN i) : SV_TARGET
         sky = lerp(sky, dot(sky, float3(0.2126, 0.7152, 0.0722)), Zenith.w);
         color = lerp(sky, color, Disc.w);
         color += SunDir.w * pow(facing, 2000.0) * Disc.x * Tint.rgb;
-        return float4(color, 1.0);
+        return float4(WithClouds(color, i.ndc), 1.0);
     }
     color += SunDir.w * (pow(facing, 2000.0) * Disc.x * float3(1.0, 0.95, 0.85) + pow(facing, 24.0) * 0.25 * Horizon.rgb);
+    color = WithClouds(color, i.ndc);
     return float4(Disc.y > 0.5 ? color : saturate(color), 1.0);
 }

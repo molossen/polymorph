@@ -206,6 +206,9 @@ public sealed class HdrImage : IDisposable
         return (resolvedSrv, depthCopySrv);
     }
 
+    /// <summary>Binds the HDR image again (after another pass drew into its own image).</summary>
+    public void Rebind(GpuDevice gpu) => ctx.OutputMerger.SetRenderTargets(gpu.DepthView, msRtv);
+
     /// <summary>Brings the image to the window (the current viewport only), the window's image bound again after.</summary>
     public void End(GpuDevice gpu, float exposure, float x, float y, float w, float h, System.Numerics.Matrix4x4 proj, float near, float far, float aoShare, float bloomShare, float saturation = 1.12f)
     {
