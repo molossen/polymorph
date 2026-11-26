@@ -101,6 +101,14 @@ public sealed partial class EditorApp
 
     public void DropFile(string path)
     {
+        // a map folder (FiveM resource or its stream folder) dropped on the window: opened in MAP mode
+        if (Directory.Exists(path))
+        {
+            bool mapFiles = Directory.Exists(Path.Combine(path, "stream")) || Directory.EnumerateFiles(path, "*.*", SearchOption.AllDirectories).Take(5000)
+                .Any(f => f.EndsWith(".ymap", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".ytyp", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".ydr", StringComparison.OrdinalIgnoreCase));
+            if (mapFiles) OpenStreamFolder(path); else SetStatus("No map files (.ymap, .ytyp, .ydr) in " + path);
+            return;
+        }
         var ext = Path.GetExtension(path).ToLowerInvariant();
         if (ext == ".mmx") { if (ConfirmDiscard()) OpenFile(path); return; }
         if (TryImportSplat(path, null)) return;

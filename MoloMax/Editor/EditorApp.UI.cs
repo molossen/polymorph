@@ -49,6 +49,8 @@ public sealed partial class EditorApp
             if (ImGui.MenuItem("Save As...", "Ctrl+Shift+S")) Save(true);
             ImGui.Separator();
             if (ImGui.MenuItem("Import model (GLB, glTF, OBJ)...", "Ctrl+Shift+O")) ImportDialog();
+            if (ImGui.MenuItem("Import map folder (FiveM resource / stream)...")) OpenStreamFolderDialog();
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("A map resource or its stream folder (.ymap, .ytyp, .ydr, .ytd...): opens it in MAP mode, at its place on the GTA map, to edit and save in place.");
             if (ImGui.MenuItem("Export models (.ydr / .yft)...")) OpenModelExport();
             if (ImGui.MenuItem("Export OBJ (all)...")) ExportObj(false);
             if (ImGui.MenuItem("Export OBJ (selected)...", null, false, Selected.Count > 0)) ExportObj(true);

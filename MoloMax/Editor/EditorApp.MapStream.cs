@@ -26,7 +26,7 @@ public sealed partial class EditorApp
 
     void OpenStreamFolderDialog()
     {
-        var dir = PickFolder("Stream folder of a map resource (its .ymap, .ytyp, .ydr...)");
+        var dir = PickFolder("Map folder: a FiveM map resource or its stream folder (.ymap, .ytyp, .ydr...)");
         Input.ReleaseAllKeys();
         if (dir != null) OpenStreamFolder(dir);
     }
@@ -34,6 +34,8 @@ public sealed partial class EditorApp
     public void OpenStreamFolder(string dir)
     {
         if (!Directory.Exists(dir)) { SetStatus("Folder not found: " + dir); return; }
+        // the resource folder itself (fxmanifest.lua next to "stream"): its stream folder
+        if (Directory.Exists(Path.Combine(dir, "stream")) && !string.Equals(Path.GetFileName(dir.TrimEnd('\\', '/')), "stream", StringComparison.OrdinalIgnoreCase)) dir = Path.Combine(dir, "stream");
         if (!MapMode) SetMapMode(true);
         StreamFolder sf;
         try { sf = StreamFolder.Read(dir); }

@@ -249,6 +249,7 @@ public sealed partial class EditorApp
         T("ANIM: timeline, I key, auto key, play, UV keys, camera, .ycd out and in, your .ycd files", AnimTest);
         T("DIAG cables: what the cable models hold", CableDiag);
         T("MAP STREAM: open a stream folder (ymap, ytyp, ydr), edit, save in place", MapStreamTest);
+        T("USER: File > Import map folder: a whole FiveM resource (dropped or picked) opens in MAP mode", MapFolderImportTest);
         T("USER: MAP 4-layer paint: on a terrain model of my own map (stream folder), PAINT TERRAIN LAYERS and a real mouse stroke", MapTerrainPaintTest);
         T("UX tour: panels a 3D artist uses", UxTour);
         T("CHECKLIST: the points without their own test", ChecklistTest);
@@ -3618,6 +3619,38 @@ room.Mesh.Faces.Count");
             catch (Exception e) { Note("   raw read: " + e.Message); }
         }
         Expect(true, "diag done");
+    }
+
+    IEnumerable<object> MapFolderImportTest()
+    {
+        var gtaFolder = SelfTestArgs.ElementAtOrDefault(0);
+        string res = null;
+        foreach (var n in new[] { "molo_ile_keys", "molo_ile_cartel", "molo_narcos_island" })
+        {
+            var d = Path.Combine(@"C:\Users\molo3\Desktop\base_para_testes\resources\[map]", n);
+            if (Directory.Exists(Path.Combine(d, "stream"))) { res = d; break; }
+        }
+        if (res == null) { Note("no map of Mimi found: not checked"); yield break; }
+        // a copy: the test must not touch the real resource
+        var copy = StPath("import_copy");
+        if (Directory.Exists(copy)) Directory.Delete(copy, true);
+        foreach (var f in Directory.EnumerateFiles(res, "*.*", SearchOption.AllDirectories))
+        {
+            var t = Path.Combine(copy, Path.GetRelativePath(res, f)); Directory.CreateDirectory(Path.GetDirectoryName(t)); File.Copy(f, t);
+        }
+        Fresh(); SetMapMode(false);
+        if (game == null && !string.IsNullOrEmpty(gtaFolder)) { Settings.GtaFolder = gtaFolder; if (gameTask == null || gameTask.IsCompleted) StartGameLoad(gtaFolder); }
+        yield return Until(() => game != null || gameError != null, 400);
+        // the resource folder itself (not its stream folder), dropped on the window
+        DropFile(copy);
+        yield return Frames(10);
+        Note($"after dropping the resource folder: MAP {MapMode}, stream folder {stream?.Folder}, maps open {mapDocs.Count}; {status}");
+        Expect(MapMode && stream != null && stream.Folder.TrimEnd('\\').EndsWith("stream", StringComparison.OrdinalIgnoreCase), "dropping a resource folder opens its stream folder in MAP mode");
+        Expect(mapDocs.Values.Any(d => stream != null && stream.Contains(d.FilePath)), "its .ymap files are open");
+        yield return Settle(() => archLoading == 0, 120);
+        yield return Frames(20);
+        yield return Shot("map_folder_imported");
+        SetMapMode(false);
     }
 
     IEnumerable<object> MapTerrainPaintTest()
