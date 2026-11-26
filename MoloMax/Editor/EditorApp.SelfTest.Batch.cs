@@ -1339,6 +1339,31 @@ public sealed partial class EditorApp
                 for (int k = 0; k < e.ChildCount; k++) { int c = worldEnts.ChildList[e.FirstChild + k]; if (worldSel.Contains(c)) kidsChosen++; if (archSlots.TryGetValue(worldEnts.E[c].Arch, out var cs) && (cs.State == 2 || cs.GpuOnly)) kidsReady++; }
                 return $"{sl?.Name ?? e.Arch.ToString("X8")} L{e.Level} {worldEnts.Ymaps[e.Ymap]}#{e.Index} lod {e.LodDist:0} at {Vector3.Distance(e.Pos, cam.Eye):0} m, children {e.ChildCount} ({kidsChosen} chosen, {kidsReady} ready), parent {(e.Parent >= 0 ? $"{(archSlots.TryGetValue(par.Arch, out var ps) ? ps.Name : "?")} L{par.Level} chosen={worldSel.Contains(e.Parent)}" : "none")}";
             }
+            {
+                // chosen objects close by that were not drawn this frame, and why
+                var drawn = new HashSet<int>(instGroups.Values.SelectMany(g => Enumerable.Range(0, g.Count).Select(k => g.Ents[k])).Where(k => k >= 0));
+                var why = new Dictionary<string, int>(); var ex = new List<string>();
+                var planes = FrustumPlanes(cam.ViewProj(vpL.Aspect));
+                foreach (var i in worldSel)
+                {
+                    var e = worldEnts.E[i];
+                    if (drawn.Contains(i) || e.Mlo || Vector3.Distance(e.Pos, cam.Eye) > 700) continue;
+                    string r;
+                    if (!archSlots.TryGetValue(e.Arch, out var sl)) r = "no slot";
+                    else if (!(sl.State == 2 && sl.Mesh != null || sl.GpuOnly)) r = $"state {sl.State}";
+                    else
+                    {
+                        var c = e.Pos + Vector3.Transform((sl.Min + sl.Max) * 0.5f * new Vector3(e.ScaleXY, e.ScaleXY, e.ScaleZ), e.Rot);
+                        float rad = (sl.Max - sl.Min).Length() * 0.5f * MathF.Max(e.ScaleXY, e.ScaleZ);
+                        bool vis = planes.All(p => p.X * c.X + p.Y * c.Y + p.Z * c.Z + p.W >= -rad);
+                        r = vis ? $"in view, r {rad:0}" : "outside the view";
+                        if (vis && ex.Count < 6) ex.Add($"{sl.Name ?? e.Arch.ToString("X8")} L{e.Level} {worldEnts.Ymaps[e.Ymap]} at {Vector3.Distance(e.Pos, cam.Eye):0} m r {rad:0} tpl={(worldTpl.TryGetValue(e.Arch, out var tp) ? tp.Mesh?.Faces.Count.ToString() ?? "null" : "none")} gpuOnly={sl.GpuOnly}");
+                        if (vis) r = "in view";
+                    }
+                    why[r] = why.GetValueOrDefault(r) + 1;
+                }
+                Note("chosen within 700 m, not drawn: " + string.Join(", ", why.Select(kv => $"{kv.Key} {kv.Value}")) + (ex.Count > 0 ? " | e.g. " + string.Join(" ; ", ex) : ""));
+            }
             foreach (var pt in new[] { new Vector2(1121, 713), new Vector2(501, 445), new Vector2(800, 600), new Vector2(1400, 760) })
             {
                 var h = GpuPickMap(vpL, pt, null);
