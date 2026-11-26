@@ -54,7 +54,21 @@ public sealed class TextureCache : IDisposable
     readonly Dictionary<string, string> resolved = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Call after changing SearchFolders or when files appear on disk.</summary>
-    public void ClearResolveCache() { resolved.Clear(); dirIndex.Clear(); Epoch++; }
+    public void ClearResolveCache() { resolved.Clear(); dirIndex.Clear(); merged.Clear(); mergedCount = 0; Epoch++; }
+
+    static readonly string[] Exts = { "", ".dds", ".png", ".jpg", ".bmp" };
+    // file name -> its path in the first searched folder that holds it (and that folder's place in the list)
+    readonly Dictionary<string, (string Path, int Folder)> merged = new(StringComparer.OrdinalIgnoreCase);
+    int mergedCount; string mergedFirst;
+    Dictionary<string, (string Path, int Folder)> Merged()
+    {
+        // folders are only ever added at the end; a cleared or changed list is read again
+        if (mergedCount > SearchFolders.Count || mergedCount > 0 && !string.Equals(mergedFirst, SearchFolders[0], StringComparison.OrdinalIgnoreCase)) { merged.Clear(); mergedCount = 0; }
+        for (; mergedCount < SearchFolders.Count; mergedCount++)
+            foreach (var kv in DirFiles(SearchFolders[mergedCount])) merged.TryAdd(kv.Key, (kv.Value, mergedCount));
+        mergedFirst = SearchFolders.Count > 0 ? SearchFolders[0] : null;
+        return merged;
+    }
     /// <summary>Changes whenever a lookup could give another answer (renderer caches per material check it).</summary>
     public int Epoch { get; private set; }
     /// <summary>The last Get returned null only because the texture is still on its way.</summary>
@@ -77,6 +91,11 @@ public sealed class TextureCache : IDisposable
         {
             var dir = Path.GetDirectoryName(f);
             if (dir != null && dirIndex.TryGetValue(dir, out var idx)) idx[Path.GetFileName(f)] = f;
+            if (dir != null && mergedCount > 0)
+            {
+                int fi = SearchFolders.FindIndex(x => string.Equals(x, dir, StringComparison.OrdinalIgnoreCase));
+                if (fi >= 0 && fi < mergedCount && (!merged.TryGetValue(Path.GetFileName(f), out var me) || me.Folder > fi)) merged[Path.GetFileName(f)] = (f, fi);
+            }
             var n = Path.GetFileNameWithoutExtension(f);
             if (resolved.TryGetValue(n, out var v) && v == null) { resolved.Remove(n); Epoch++; }
             if (resolved.TryGetValue(Path.GetFileName(f), out v) && v == null) { resolved.Remove(Path.GetFileName(f)); Epoch++; }
@@ -104,15 +123,16 @@ public sealed class TextureCache : IDisposable
     {
         if (File.Exists(nameOrPath)) return Path.GetFullPath(nameOrPath);
         bool bare = nameOrPath.IndexOfAny(new[] { '/', '\\', ':' }) < 0;
+        if (bare)
+        {
+            // one index of every searched folder: MAP mode searches hundreds of folders (one per model read)
+            var m = Merged(); string best = null; int bestIdx = int.MaxValue;
+            foreach (var ext in Exts)
+                if (m.TryGetValue(nameOrPath + ext, out var e) && e.Folder < bestIdx) { best = e.Path; bestIdx = e.Folder; }
+            return best;
+        }
         foreach (var dir in SearchFolders)
         {
-            if (bare)
-            {
-                var files = DirFiles(dir);
-                foreach (var ext in new[] { "", ".dds", ".png", ".jpg", ".bmp" })
-                    if (files.TryGetValue(nameOrPath + ext, out var hitPath)) return hitPath;
-                continue;
-            }
             foreach (var ext in new[] { "", ".dds", ".png", ".jpg", ".bmp" })
             {
                 var p = Path.Combine(dir, nameOrPath + ext);
