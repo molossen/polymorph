@@ -448,16 +448,20 @@ public sealed partial class EditorApp
         {
             if (!nrSlices.MustDraw(i)) continue;
             var c = nrSlices.Centres[i]; float r = nrSlices.Radii[i];
+            // the wide images only take what is big enough to show at their resolution (a far slice covers kilometres:
+            // benches and bins there are less than a texel and cost as much to draw as a building)
+            float minR = i == 0 ? r / 300 : r / 90;
             var live = new List<SceneObject>();
             foreach (var o in MapLive())
             {
                 if (!CastsShadow(o) || WorldHidesEditable(o)) continue;
                 var (mn, mx) = o.FastWorldBounds();
                 if (mx.X < c.X - r || mn.X > c.X + r || mx.Y < c.Y - r || mn.Y > c.Y + r) continue;
+                if (i > 0 && (mx - mn).Length() * 0.5f < minR) continue;
                 live.Add(o);
             }
             long ver = 0;
-            var wl = WorldShadowCasters(c, r, ref ver, r / 300);
+            var wl = WorldShadowCasters(c, r, ref ver, minR);
             bool complete = renderer.RenderShadows(Scene, live, nrSlices.Cascades[i], gl, 8, wl, i, noDepthClip: true);
             if (!complete) nrSlices.Unfinished(i);
         }

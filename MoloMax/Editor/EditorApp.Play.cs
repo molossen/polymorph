@@ -211,6 +211,7 @@ public sealed partial class EditorApp
     }
 
     readonly Dictionary<uint, System.Threading.Tasks.Task<PlayShape>> playShapeTasks = new();
+    readonly Dictionary<PolyMesh, System.Threading.Tasks.Task<PlayShape>> playSceneTasks = new();
 
     /// <summary>The walkable shape of a world model, made in the background (null while it is being made).</summary>
     PlayShape ShapeOfArch(uint hash, ArchSlot s)
@@ -281,8 +282,25 @@ public sealed partial class EditorApp
         foreach (var o in MapLive())
         {
             if (o.Hidden || o.Mesh == null || o.Mesh.Faces.Count == 0 || o.Mesh == GpuOnlyStub) continue;
-            if (Vector3.DistanceSquared(o.Position, p) > (reach + 200) * (reach + 200)) continue;
-            if (!playSceneShapes.TryGetValue(o.Mesh, out var sh)) playSceneShapes[o.Mesh] = sh = MakeShape(o.Mesh, id => Scene.Material(id));
+            var (bmn, bmx) = o.FastWorldBounds();
+            if (p.X < bmn.X - reach || p.Y < bmn.Y - reach || p.Z < bmn.Z - reach || p.X > bmx.X + reach || p.Y > bmx.Y + reach || p.Z > bmx.Z + reach) continue;
+            if (!playSceneShapes.TryGetValue(o.Mesh, out var sh))
+            {
+                // made in the background like the world's (a city block holds thousands of these)
+                if (!playSceneTasks.TryGetValue(o.Mesh, out var st))
+                {
+                    if (playSceneTasks.Count < 4)
+                    {
+                        var mesh = o.Mesh; var through = new Dictionary<int, bool>();
+                        foreach (var f in mesh.Faces) if (!through.ContainsKey(f.MatId)) through[f.MatId] = WalkThrough(Scene.Material(f.MatId));
+                        playSceneTasks[mesh] = System.Threading.Tasks.Task.Run(() => MakeShape(mesh, id => through.TryGetValue(id, out var b) && b ? WalkThroughMarker : null));
+                    }
+                    playCandMissing++; continue;
+                }
+                if (!st.IsCompleted) { playCandMissing++; continue; }
+                playSceneTasks.Remove(o.Mesh);
+                playSceneShapes[o.Mesh] = sh = st.IsCompletedSuccessfully ? st.Result : new PlayShape { Tris = Array.Empty<Vector3>() };
+            }
             if (sh.Tris.Length == 0) continue;
             var w = o.World;
             if (!Matrix4x4.Invert(w, out var inv)) continue;
@@ -354,7 +372,7 @@ public sealed partial class EditorApp
         var vp = Viewports[ActiveViewport]; var cam = vp.Camera; Maximized = true; cam.Ortho = false;
         Hour = 13; Settings.MapWeather = "Clear";
         // Legion Square (pavement, kerbs, benches), then the Vespucci beach and its sea
-        foreach (var (name, spot, yaw, testWater) in new[] { ("legion", new Vector3(195, -935, 30.7f), 2.2f, false), ("beach", new Vector3(-1450, -1400, 4f), 3.6f, true) })
+        foreach (var (name, spot, yaw, testWater) in new[] { ("legion", new Vector3(188, -927, 30.7f), 2.2f, false), ("beach", new Vector3(-1450, -1400, 4f), 3.6f, true) })
         {
             cam.Yaw = yaw + MathF.PI; cam.Pitch = 0.6f; cam.Distance = 12; cam.Target = spot;
             var t0 = DateTime.Now;
