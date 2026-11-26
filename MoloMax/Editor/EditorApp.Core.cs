@@ -423,7 +423,11 @@ public sealed partial class EditorApp : IDisposable
             ctx.OutputMerger.SetDepthStencilState(renderer.DepthOff);
             ctx.OutputMerger.SetBlendState(renderer.Opaque, blendCol, -1);
             ctx.Rasterizer.State = renderer.CullNone;
-            hdrImage.End(gpu, Settings.MapExposure * MathF.Max(mapLight.Adaptation, 1));
+            // share of the light coming from the surroundings (what the occlusion darkens): more at night and in the shade
+            static float Lum(Vector3 c) => 0.2126f * c.X + 0.7152f * c.Y + 0.0722f * c.Z;
+            float amb = Lum(mapLight.SkyAmbient), sunL = Lum(mapLight.SunColor) * MathF.Max(mapLight.SunDirection.Z, 0.1f);
+            float share = Settings.MapOcclusion ? amb / MathF.Max(amb + sunL * 0.5f, 1e-4f) : 0;
+            hdrImage.End(gpu, Settings.MapExposure * MathF.Max(mapLight.Adaptation, 1), vp.X, vp.Y, vp.W, vp.H, cam.Projection(vp.Aspect), cam.Near, cam.Far, share);
             ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1);
         }
         DrawSplats(vp);

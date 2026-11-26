@@ -13,6 +13,8 @@ public sealed class GpuDevice : IDisposable
     public SwapChain SwapChain { get; private set; }
     public RenderTargetView BackBufferView { get; private set; }
     public DepthStencilView DepthView { get; private set; }
+    public ShaderResourceView DepthRead { get; private set; }
+    public bool FeatureLevel11 => Device.FeatureLevel >= FeatureLevel.Level_11_0;
     public int Width { get; private set; }
     public int Height { get; private set; }
     public int SampleCount { get; private set; } = 1;
@@ -55,11 +57,20 @@ public sealed class GpuDevice : IDisposable
         depthTex = new Texture2D(Device, new Texture2DDescription
         {
             Width = Width, Height = Height, MipLevels = 1, ArraySize = 1,
-            Format = Format.D24_UNorm_S8_UInt,
+            Format = Format.R24G8_Typeless,
             SampleDescription = new SampleDescription(SampleCount, 0),
-            Usage = ResourceUsage.Default, BindFlags = BindFlags.DepthStencil,
+            Usage = ResourceUsage.Default, BindFlags = BindFlags.DepthStencil | BindFlags.ShaderResource,
         });
-        DepthView = new DepthStencilView(Device, depthTex);
+        DepthView = new DepthStencilView(Device, depthTex, new DepthStencilViewDescription
+        {
+            Format = Format.D24_UNorm_S8_UInt, Dimension = SampleCount > 1 ? DepthStencilViewDimension.Texture2DMultisampled : DepthStencilViewDimension.Texture2D,
+        });
+        // readable by the MAP effects (ambient occlusion), when not bound as the depth buffer
+        DepthRead = new ShaderResourceView(Device, depthTex, new ShaderResourceViewDescription
+        {
+            Format = Format.R24_UNorm_X8_Typeless, Dimension = SampleCount > 1 ? ShaderResourceViewDimension.Texture2DMultisampled : ShaderResourceViewDimension.Texture2D,
+            Texture2D = new ShaderResourceViewDescription.Texture2DResource { MipLevels = 1 },
+        });
     }
 
     public void Resize(int width, int height)
@@ -68,7 +79,7 @@ public sealed class GpuDevice : IDisposable
         if (width == Width && height == Height) return;
         Width = width; Height = height;
         Context.OutputMerger.SetRenderTargets((DepthStencilView)null, (RenderTargetView)null);
-        BackBufferView?.Dispose(); DepthView?.Dispose(); depthTex?.Dispose();
+        BackBufferView?.Dispose(); DepthView?.Dispose(); DepthRead?.Dispose(); depthTex?.Dispose();
         SwapChain.ResizeBuffers(1, Width, Height, Format.R8G8B8A8_UNorm, SwapChainFlags.None);
         CreateViews();
     }
@@ -132,7 +143,7 @@ public sealed class GpuDevice : IDisposable
 
     public void Dispose()
     {
-        DepthView?.Dispose(); depthTex?.Dispose(); BackBufferView?.Dispose();
+        DepthView?.Dispose(); DepthRead?.Dispose(); depthTex?.Dispose(); BackBufferView?.Dispose();
         SwapChain?.Dispose(); Context?.Dispose(); Device?.Dispose();
     }
 }
