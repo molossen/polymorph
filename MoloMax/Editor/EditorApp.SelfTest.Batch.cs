@@ -1379,6 +1379,17 @@ public sealed partial class EditorApp
                 }
                 Note($"maps within 500 m left out: {outMaps.Count}: " + string.Join(", ", outMaps.Take(25)));
             }
+            {
+                // everything of the world standing around the hole (1600, -130), biggest first
+                var P = new Vector2(1600, -130); var sel = new HashSet<int>(worldSel);
+                var near = Enumerable.Range(0, worldEnts.E.Length).Where(i => !worldEnts.E[i].Mlo && Vector2.Distance(new Vector2(worldEnts.E[i].Pos.X, worldEnts.E[i].Pos.Y), P) < 250)
+                    .OrderByDescending(i => game.ArchetypeSize(worldEnts.E[i].Arch)).Take(14).ToList();
+                foreach (var i in near)
+                {
+                    var e = worldEnts.E[i];
+                    Note($"  near hole: {e.Arch:X8} size {game.ArchetypeSize(e.Arch):0} L{e.Level} {worldEnts.Ymaps[e.Ymap]}#{e.Index} lod {e.LodDist:0} at {Vector3.Distance(e.Pos, cam.Eye):0} m chosen={sel.Contains(i)} parent={(e.Parent >= 0 ? $"L{worldEnts.E[e.Parent].Level} {worldEnts.Ymaps[worldEnts.E[e.Parent].Ymap]} lod {worldEnts.E[e.Parent].LodDist:0} at {Vector3.Distance(worldEnts.E[e.Parent].Pos, cam.Eye):0} chosen={sel.Contains(e.Parent)}" : "none")} kids {e.ChildCount}");
+                }
+            }
             foreach (var pt in new[] { new Vector2(2595, 160), new Vector2(2427, 278), new Vector2(2562, 227), new Vector2(2300, 200), new Vector2(2700, 300) })
             {
                 var h = GpuPickMap(vpL, pt, null);
