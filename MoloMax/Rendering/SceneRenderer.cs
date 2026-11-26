@@ -540,7 +540,8 @@ public sealed class SceneRenderer : IDisposable
     }
 
     /// <summary>Returns false when it stopped sending new meshes to stay smooth (some casters left out: call again soon).</summary>
-    public bool RenderShadows(Scene scene, IEnumerable<SceneObject> casters, Matrix4x4 lightViewProj, in GtaGlobalLights l, double uploadBudgetMs = double.MaxValue)
+    public bool RenderShadows(Scene scene, IEnumerable<SceneObject> casters, Matrix4x4 lightViewProj, in GtaGlobalLights l, double uploadBudgetMs = double.MaxValue,
+        IReadOnlyList<(SceneObject Template, Matrix4x4[] Worlds, int Count)> instanced = null)
     {
         double up0 = UploadMs; bool complete = true;
         EnsureShadowMap();
@@ -569,6 +570,12 @@ public sealed class SceneRenderer : IDisposable
                 ctx.DrawIndexed(g.Count, 0, 0);
             }
         }
+        if (instanced != null)
+            foreach (var (t, w, n) in instanced)
+            {
+                if (UploadMs - up0 > uploadBudgetMs && NeedsUpload(t)) { complete = false; continue; }
+                DrawInstanced(scene, t, w, n, false, false, depthOnly: true);
+            }
         ctx.OutputMerger.SetRenderTargets((DepthStencilView)null, (RenderTargetView)null);
         ctx.PixelShader.Set(ps);
         return complete;
@@ -733,9 +740,12 @@ public sealed class SceneRenderer : IDisposable
         ctx.InputAssembler.InputLayout = layoutInst;
         ctx.VertexShader.Set(vsInst);
         if (!depthOnly) ctx.Rasterizer.State = Picking ? CullNone : NoCull ? CullNone : backfaceCull ? CullBack : CullNone;
+        // shadow of a tree: its shadow shapes stand in for the leaves (cut-out cards would cast solid squares without a pixel shader)
+        bool proxy = depthOnly && gm.Groups.Any(g => ShadowProxy(scene.Material(g.MatId)));
         foreach (var g in gm.Groups)
         {
             var mat = scene.Material(g.MatId);
+            if (depthOnly && (mat.NeverDrawn && !ShadowProxy(mat) || proxy && mat.Preset.Cutout && !ShadowProxy(mat))) continue;
             if (mat.Preset.AlphaBlended != alphaPass || HideNeverDrawn && mat.NeverDrawn && !depthOnly) continue;
             if (!depthOnly) SetMaterial(mat);
             instBindings[0] = new VertexBufferBinding(g.Vb, RenderVertex.SizeInBytes, 0);
@@ -749,6 +759,8 @@ public sealed class SceneRenderer : IDisposable
         ctx.InputAssembler.InputLayout = layout;
         ctx.VertexShader.Set(vs);
     }
+
+    static bool ShadowProxy(GtaMaterial m) => m.ShadowOnly || string.Equals(m.Shader, "trees_shadow_proxy", StringComparison.OrdinalIgnoreCase);
 
     public void Dispose()
     {

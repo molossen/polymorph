@@ -156,6 +156,34 @@ public sealed partial class EditorApp
         }
     }
 
+    readonly Dictionary<uint, (SceneObject T, List<Matrix4x4> W)> shadowGroups = new();
+    readonly List<(SceneObject Template, Matrix4x4[] Worlds, int Count)> shadowList = new();
+
+    /// <summary>The chosen world objects within <paramref name="r"/> of the shadow focus, by model.</summary>
+    List<(SceneObject Template, Matrix4x4[] Worlds, int Count)> WorldShadowCasters(Vector3 c, float r, ref long ver)
+    {
+        shadowList.Clear();
+        if (!LodTreeOn || WorldDrawOff) return shadowList;
+        foreach (var g in shadowGroups.Values) g.W.Clear();
+        var we = worldEnts;
+        foreach (var i in worldSel)
+        {
+            ref var e = ref we.E[i];
+            if (e.Mlo || !archSlots.TryGetValue(e.Arch, out var s) || !(s.State == 2 && s.Mesh != null || s.GpuOnly)) continue;
+            float rr = (s.Max - s.Min).Length() * 0.5f * MathF.Max(e.ScaleXY, e.ScaleZ);
+            if (MathF.Abs(e.Pos.X - c.X) > r + rr || MathF.Abs(e.Pos.Y - c.Y) > r + rr) continue;
+            if (!shadowGroups.TryGetValue(e.Arch, out var g)) shadowGroups[e.Arch] = g = (null, new List<Matrix4x4>());
+            g.W.Add(e.World);
+            ver += i * 31 + s.Ver;
+        }
+        foreach (var (h, g) in shadowGroups)
+        {
+            if (g.W.Count == 0 || !archSlots.TryGetValue(h, out var s)) continue;
+            shadowList.Add((WorldTemplate(s), g.W.ToArray(), g.W.Count));
+        }
+        return shadowList;
+    }
+
     /// <summary>Archetypes the chosen world entities need, nearest first (added to the reading order).</summary>
     readonly Dictionary<uint, float> worldWanted = new();
     void WorldPriorities(Vector3 eye)

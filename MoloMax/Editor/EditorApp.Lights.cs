@@ -374,7 +374,9 @@ public sealed partial class EditorApp
             if (mx.X < snapped.X - r || mn.X > snapped.X + r || mx.Y < snapped.Y - r || mn.Y > snapped.Y + r) continue;
             casters.Add(o); ver += o.Version + (long)(o.Position.X * 7 + o.Position.Y * 13 + o.Position.Z * 17);
         }
-        int hash = HashCode.Combine(gl.LightDir, casters.Count, ver, snapped);
+        // the level-of-detail world: the chosen objects near the focus, grouped by model (one instanced draw each)
+        var wl = WorldShadowCasters(snapped, r, ref ver);
+        int hash = HashCode.Combine(gl.LightDir, casters.Count, ver, snapped, wl.Count);
         // while maps / models are still arriving the casters change all the time: refresh less often (each refresh is a heavy pass)
         bool streaming = mapStreamQueue.Count > 0 || mapLoadTask != null || mapLoadQueue.Count > 0 || archLoading > 0;
         if (hash == shadowHash || ImGui.GetTime() - mapShadowTime < (streaming ? 3.0 : 0.75)) return;
@@ -384,7 +386,7 @@ public sealed partial class EditorApp
         shadowVP = view * proj;
         shadowTexel = 2 * r / SceneRenderer.ShadowSize;
         // at most ~10 ms of new meshes per refresh: the rest of the casters arrive over the next refreshes (no 400 ms hitch)
-        bool complete = renderer.RenderShadows(Scene, casters, shadowVP, gl, 10);
+        bool complete = renderer.RenderShadows(Scene, casters, shadowVP, gl, 10, wl);
         shadowHash = complete ? hash : 0; mapShadowTime = complete ? ImGui.GetTime() : ImGui.GetTime() - 10;
     }
 }
