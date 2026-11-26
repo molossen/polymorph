@@ -1260,6 +1260,31 @@ public sealed partial class EditorApp
         Note($"frame median {(dts.Count > 0 ? dts[dts.Count / 2] * 1000 : 0):0.0} ms; {ProfileText()}");
         Note($"drawn by level: " + string.Join(", ", Enumerable.Range(0, 6).Select(l => $"L{l} {instGroups.Values.Sum(g => Enumerable.Range(0, g.Count).Count(k => g.Ents[k] >= 0 && worldEnts.E[g.Ents[k]].Level == l))}")));
         cam.Orbit(-60, 0);
+        {
+            // what the frame time is made of: the same view with one thing changed at a time
+            IEnumerable<object> Measure(string label, List<string> outp)
+            {
+                yield return Frames(20);
+                int s0 = stDts.Count; double g = 0; int gn = 0;
+                for (int i = 0; i < 40; i++) { yield return Frames(1); g += GpuViewMs; gn++; }
+                var dd = stDts.Skip(s0).Where(x => x > 0).OrderBy(x => x).ToList();
+                outp.Add($"{label}: {(dd.Count > 0 ? dd[dd.Count / 2] * 1000 : 0):0.0} ms (GPU {g / Math.Max(gn, 1):0.0}, {MapVisible:N0} drawn, {MapDrawCalls} calls)");
+            }
+            var rows = new List<string>();
+            foreach (var x in Measure("as is", rows)) yield return x;
+            bool sh = Settings.SunShadows; Settings.SunShadows = false;
+            foreach (var x in Measure("no sun shadows", rows)) yield return x;
+            Settings.SunShadows = sh;
+            WorldPixCull = 3; foreach (var x in Measure("cull under 3 px", rows)) yield return x;
+            WorldPixCull = 6; foreach (var x in Measure("cull under 6 px", rows)) yield return x;
+            WorldPixCull = 1.5f;
+            WorldDrawOff = true; foreach (var x in Measure("world not drawn", rows)) yield return x;
+            WorldDrawOff = false;
+            bool sk = Settings.MapSky, fg = Settings.MapFog; Settings.MapSky = false; Settings.MapFog = false;
+            foreach (var x in Measure("no sky, no haze", rows)) yield return x;
+            Settings.MapSky = sk; Settings.MapFog = fg;
+            Note("frame time matrix: " + string.Join("; ", rows));
+        }
         renderer.TintPalettes = false; yield return Frames(5); yield return Shot("look_tataviam_13h_notint"); renderer.TintPalettes = true;
         {
             // which shaders and textures the white-looking trees use

@@ -103,12 +103,16 @@ public sealed partial class EditorApp
         return t;
     }
 
+    /// <summary>World objects smaller than this many pixels on screen are not drawn.</summary>
+    internal float WorldPixCull = 1.5f;
+    internal bool WorldDrawOff;
+
     bool IsWorldTemplate(SceneObject o) => o != null && o.Id <= -2_000_000;
 
     /// <summary>Adds the chosen world entities to the draw lists (frustum, tiny-on-screen and view radius culled).</summary>
     void GatherWorld(Vector4[] planes, Vector3 eye, float pix, float vr2)
     {
-        if (!LodTreeOn) return;
+        if (!LodTreeOn || WorldDrawOff) return;
         worldNow = ImGui.GetTime();
         worldWanted.Clear();
         var we = worldEnts;
@@ -139,7 +143,7 @@ public sealed partial class EditorApp
             if (!vis) continue;
             s.LastUsed = worldNow;
             float d = Vector3.Distance(c, eye);
-            if (pix > 0 && d > r && r / d < pix * 1.5f) continue;
+            if (pix > 0 && d > r && r / d < pix * WorldPixCull) continue;
             if (vr2 > 0 && MathF.Max(0, d - r) * MathF.Max(0, d - r) > vr2) continue;
             var t = WorldTemplate(s);
             if (!instGroups.TryGetValue(t.InstanceKey, out var grp)) instGroups[t.InstanceKey] = grp = new InstGroup();
