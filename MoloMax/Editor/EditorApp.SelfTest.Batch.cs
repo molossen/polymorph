@@ -1421,58 +1421,93 @@ public sealed partial class EditorApp
         if (world == null) { SetMapMode(false); yield break; }
         GoTo(new Vector3(195, -934, 30));
         var cam = Viewports[ActiveViewport].Camera; cam.Distance = 90;
-        // the whole map first (far models), nothing editable loaded yet
-        var tw = DateTime.Now;
-        yield return Until(() => backdrop.Count > 300 && archSlots.Values.Count(a => a.State == 2) > 30, 240);
-        Expect(backdrop.Count > 300 && entOf.Count == 0, $"whole map shown with far models: {backdrop.Count:N0} far models from {backdropMaps}/{backdropTotal} maps in {(DateTime.Now - tw).TotalSeconds:0} s, no editable map loaded ({entOf.Count})");
-        // overview of the whole map from high above (like CodeWalker): wait until everything seen from there is read
         var keepTarget = cam.Target; float keepPitch = cam.Pitch;
-        cam.Target = new Vector3(-300, 900, 0); cam.Distance = 6500; cam.Pitch = 1.05f;
-        var tv = DateTime.Now; int up0v = renderer.Uploads;
-        int FarWaiting() => backdrop.Count(o => !FarSteppedAside(o, cam.Eye) && FarLodVisible(o, cam.Eye) && mapSlotOf.TryGetValue(o.InstanceKey, out var sl) && sl.State <= 1);
-        yield return Until(() => backdropIn.IsEmpty && backdropMaps >= backdropTotal && archLoading == 0 && FarWaiting() == 0, 420);
-        int shown = backdrop.Count(o => FarLodVisible(o, cam.Eye));
-        var lv = new int[6]; foreach (var o in backdrop) if (FarLodVisible(o, cam.Eye) && farInfo.TryGetValue(o.Id, out var fi)) lv[fi.Level]++;
-        Expect(FarWaiting() == 0, $"whole map overview read in {(DateTime.Now - tv).TotalSeconds:0} s: {shown:N0} far models at their distance (LOD {lv[1]}, SLOD1 {lv[2]}, SLOD2 {lv[3]}, SLOD3 {lv[4]}), "
-            + $"{archSlots.Values.Count(a => a.State == 2):N0} models ready, {archSlots.Values.Count(a => a.State == 3):N0} not found, {ArchParallel} read at once");
-        foreach (var grp in archSlots.Values.Where(a => a.State == 3).GroupBy(a => (a.Error ?? "?").Split(':')[0]).OrderByDescending(gq => gq.Count()).Take(6))
-            Note($"not found x{grp.Count()}: {grp.First().Name ?? grp.First().Hash.ToString("X8")} - {grp.First().Error}");
-        yield return Frames(20);
-        yield return Shot("map_overview");
+        if (Settings.MapLodTree)
         {
-            int so = stDts.Count; ResetWorstFrame();
-            for (int i = 0; i < 40; i++) { cam.Orbit(3, 0); yield return Frames(1); }
-            renderer.StatDraws = 0; renderer.StatTris = 0; yield return Frames(1);
-            Note($"overview: one frame = {renderer.StatDraws:N0} GPU draws, {renderer.StatTris:N0} triangles; LOD links: {farInfo.Values.Count(f => f.HasParent):N0} with parent, {farInfo.Values.Count(f => f.HasKids):N0} with children, {farLinks.Count:N0} parents not found");
-            var od = stDts.Skip(so).Where(x => x > 0).OrderBy(x => x).ToList();
-            Note($"overview: {MapVisible:N0} drawn, {MapDrawCalls} draw calls, frame median {(od.Count > 0 ? od[od.Count / 2] * 1000 : 0):0.0} ms; profile {ProfileText()}; {WorstFrameText()}");
+            // the level-of-detail world: every map object of the game, the right level for each distance
+            var tw = DateTime.Now;
+            yield return Until(() => worldEnts != null || worldEntsTask is { IsCompleted: true }, 300);
+            yield return Until(() => worldSel.Count > 300 && MapVisible > 100, 240);
+            Expect(LodTreeOn && worldSel.Count > 300 && entOf.Count == 0, $"whole map shown from the level-of-detail tree: {worldEnts?.E.Length:N0} map objects, {worldSel.Count:N0} chosen here, {MapVisible:N0} drawn in {(DateTime.Now - tw).TotalSeconds:0} s, no editable map loaded ({entOf.Count})");
+            cam.Target = new Vector3(-300, 900, 0); cam.Distance = 6500; cam.Pitch = 1.05f;
+            var tv = DateTime.Now;
+            int Waiting() => worldWanted.Count(kv => archSlots.TryGetValue(kv.Key, out var sl) && sl.State < 2);
+            yield return Frames(30);
+            yield return Until(() => archLoading == 0 && Waiting() == 0 && renderer.Textures.Pending == 0, 420);
+            var lv = new int[6]; foreach (var g in instGroups.Values) for (int k = 0; k < g.Count; k++) if (g.Ents[k] >= 0) lv[worldEnts.E[g.Ents[k]].Level]++;
+            Expect(Waiting() == 0, $"whole map overview read in {(DateTime.Now - tv).TotalSeconds:0} s: {MapVisible:N0} drawn (HD {lv[0] + lv[5]}, LOD {lv[1]}, SLOD1 {lv[2]}, SLOD2 {lv[3]}, SLOD3 {lv[4]}), "
+                + $"{archSlots.Values.Count(a => a.State == 2 || a.GpuOnly):N0} models ready, {archSlots.Values.Count(a => a.State == 3):N0} not found");
+            foreach (var grp in archSlots.Values.Where(a => a.State == 3).GroupBy(a => (a.Error ?? "?").Split(':')[0]).OrderByDescending(gq => gq.Count()).Take(6))
+                Note($"not found x{grp.Count()}: {grp.First().Name ?? grp.First().Hash.ToString("X8")} - {grp.First().Error}");
+            yield return Frames(20);
+            yield return Shot("map_overview");
+            {
+                int so = stDts.Count; ResetWorstFrame();
+                for (int i = 0; i < 40; i++) { cam.Orbit(3, 0); yield return Frames(1); }
+                var od = stDts.Skip(so).Where(x => x > 0).OrderBy(x => x).ToList();
+                Note($"overview: {MapVisible:N0} drawn, {MapDrawCalls} draw calls, frame median {(od.Count > 0 ? od[od.Count / 2] * 1000 : 0):0.0} ms; profile {ProfileText()}; {WorstFrameText()}; memory {Environment.WorkingSet / 1048576:N0} MB");
+            }
+            cam.Pitch = 0.5f; cam.Distance = 1800; cam.Target = new Vector3(100, -600, 0);
+            yield return Frames(30);
+            yield return Until(() => archLoading == 0 && Waiting() == 0, 120);
+            yield return Frames(20);
+            yield return Shot("map_city_far");
         }
-        // levels of detail: one checkbox each, switching one off hides that level and lets its neighbours show at every distance
+        else
         {
-            int Shown(int lvl) => backdrop.Count(o => farInfo.TryGetValue(o.Id, out var f) && f.Level == lvl && FarLodVisible(o, cam.Eye));
-            int s1 = Shown(2), s2before = Shown(3);
-            SetMapLevel(2, false); yield return Frames(2);
-            int s1off = Shown(2), s2after = Shown(3);
-            SetMapLevel(2, true); yield return Frames(2);
-            Expect(s1 > 100 && s1off == 0 && s2after >= s2before && Shown(2) == s1, $"LOD levels switch per level: SLOD1 {s1} shown -> {s1off} when off (SLOD2 {s2before} -> {s2after}), back to {Shown(2)}");
-            int minBefore = backdropLevel;
-            var shownBefore = new[] { Shown(2), Shown(3), Shown(4) };
-            int readyBefore = backdrop.Count(o => o.Mesh != null && FarLodVisible(o, cam.Eye) && mapSlotOf.TryGetValue(o.InstanceKey, out var sl) && sl.State == 2);
-            SetMapLevel(1, true); yield return Frames(3);
-            Expect(backdropLevel == 1 && minBefore == 2, $"switching LOD on reads the LOD maps (finest level read {minBefore} -> {backdropLevel})");
-            yield return Until(() => backdropIn.IsEmpty && backdropMaps >= backdropTotal, 120);
-            int withLod = backdrop.Count;
-            SetMapLevel(1, false); yield return Frames(3);
-            Expect(backdropLevel == 2 && backdrop.Count < withLod && !farInfo.Values.Any(f => f.Level < 2), $"switching LOD off lets its models go ({withLod:N0} -> {backdrop.Count:N0} far models)");
-            var shownAfter = new[] { Shown(2), Shown(3), Shown(4) };
-            int readyAfter = backdrop.Count(o => o.Mesh != null && FarLodVisible(o, cam.Eye) && mapSlotOf.TryGetValue(o.InstanceKey, out var sl) && sl.State == 2);
-            int placeholders = backdrop.Count(o => FarLodVisible(o, cam.Eye) && mapSlotOf.TryGetValue(o.InstanceKey, out var sl) && sl.State == 2 && !ReferenceEquals(o.Mesh, sl.Mesh));
-            Expect(shownAfter.SequenceEqual(shownBefore) && placeholders == 0, $"after LOD on / off the same SLOD models show (SLOD1/2/3 {string.Join("/", shownBefore)} -> {string.Join("/", shownAfter)}), ready {readyBefore} -> {readyAfter}, {placeholders} still on a placeholder");
+            // the whole map first (far models), nothing editable loaded yet
+            var tw = DateTime.Now;
+            yield return Until(() => backdrop.Count > 300 && archSlots.Values.Count(a => a.State == 2) > 30, 240);
+            Expect(backdrop.Count > 300 && entOf.Count == 0, $"whole map shown with far models: {backdrop.Count:N0} far models from {backdropMaps}/{backdropTotal} maps in {(DateTime.Now - tw).TotalSeconds:0} s, no editable map loaded ({entOf.Count})");
+            // overview of the whole map from high above (like CodeWalker): wait until everything seen from there is read
+            cam.Target = new Vector3(-300, 900, 0); cam.Distance = 6500; cam.Pitch = 1.05f;
+            var tv = DateTime.Now; int up0v = renderer.Uploads;
+            int FarWaiting() => backdrop.Count(o => !FarSteppedAside(o, cam.Eye) && FarLodVisible(o, cam.Eye) && mapSlotOf.TryGetValue(o.InstanceKey, out var sl) && sl.State <= 1);
+            yield return Until(() => backdropIn.IsEmpty && backdropMaps >= backdropTotal && archLoading == 0 && FarWaiting() == 0, 420);
+            int shown = backdrop.Count(o => FarLodVisible(o, cam.Eye));
+            var lv = new int[6]; foreach (var o in backdrop) if (FarLodVisible(o, cam.Eye) && farInfo.TryGetValue(o.Id, out var fi)) lv[fi.Level]++;
+            Expect(FarWaiting() == 0, $"whole map overview read in {(DateTime.Now - tv).TotalSeconds:0} s: {shown:N0} far models at their distance (LOD {lv[1]}, SLOD1 {lv[2]}, SLOD2 {lv[3]}, SLOD3 {lv[4]}), "
+                + $"{archSlots.Values.Count(a => a.State == 2):N0} models ready, {archSlots.Values.Count(a => a.State == 3):N0} not found, {ArchParallel} read at once");
+            foreach (var grp in archSlots.Values.Where(a => a.State == 3).GroupBy(a => (a.Error ?? "?").Split(':')[0]).OrderByDescending(gq => gq.Count()).Take(6))
+                Note($"not found x{grp.Count()}: {grp.First().Name ?? grp.First().Hash.ToString("X8")} - {grp.First().Error}");
+            yield return Frames(20);
+            yield return Shot("map_overview");
+            {
+                int so = stDts.Count; ResetWorstFrame();
+                for (int i = 0; i < 40; i++) { cam.Orbit(3, 0); yield return Frames(1); }
+                renderer.StatDraws = 0; renderer.StatTris = 0; yield return Frames(1);
+                Note($"overview: one frame = {renderer.StatDraws:N0} GPU draws, {renderer.StatTris:N0} triangles; LOD links: {farInfo.Values.Count(f => f.HasParent):N0} with parent, {farInfo.Values.Count(f => f.HasKids):N0} with children, {farLinks.Count:N0} parents not found");
+                var od = stDts.Skip(so).Where(x => x > 0).OrderBy(x => x).ToList();
+                Note($"overview: {MapVisible:N0} drawn, {MapDrawCalls} draw calls, frame median {(od.Count > 0 ? od[od.Count / 2] * 1000 : 0):0.0} ms; profile {ProfileText()}; {WorstFrameText()}");
+            }
+            // levels of detail: one checkbox each, switching one off hides that level and lets its neighbours show at every distance
+            {
+                int Shown(int lvl) => backdrop.Count(o => farInfo.TryGetValue(o.Id, out var f) && f.Level == lvl && FarLodVisible(o, cam.Eye));
+                int s1 = Shown(2), s2before = Shown(3);
+                SetMapLevel(2, false); yield return Frames(2);
+                int s1off = Shown(2), s2after = Shown(3);
+                SetMapLevel(2, true); yield return Frames(2);
+                Expect(s1 > 100 && s1off == 0 && s2after >= s2before && Shown(2) == s1, $"LOD levels switch per level: SLOD1 {s1} shown -> {s1off} when off (SLOD2 {s2before} -> {s2after}), back to {Shown(2)}");
+                int minBefore = backdropLevel;
+                var shownBefore = new[] { Shown(2), Shown(3), Shown(4) };
+                int readyBefore = backdrop.Count(o => o.Mesh != null && FarLodVisible(o, cam.Eye) && mapSlotOf.TryGetValue(o.InstanceKey, out var sl) && sl.State == 2);
+                SetMapLevel(1, true); yield return Frames(3);
+                Expect(backdropLevel == 1 && minBefore == 2, $"switching LOD on reads the LOD maps (finest level read {minBefore} -> {backdropLevel})");
+                yield return Until(() => backdropIn.IsEmpty && backdropMaps >= backdropTotal, 120);
+                int withLod = backdrop.Count;
+                SetMapLevel(1, false); yield return Frames(3);
+                Expect(backdropLevel == 2 && backdrop.Count < withLod && !farInfo.Values.Any(f => f.Level < 2), $"switching LOD off lets its models go ({withLod:N0} -> {backdrop.Count:N0} far models)");
+                var shownAfter = new[] { Shown(2), Shown(3), Shown(4) };
+                int readyAfter = backdrop.Count(o => o.Mesh != null && FarLodVisible(o, cam.Eye) && mapSlotOf.TryGetValue(o.InstanceKey, out var sl) && sl.State == 2);
+                int placeholders = backdrop.Count(o => FarLodVisible(o, cam.Eye) && mapSlotOf.TryGetValue(o.InstanceKey, out var sl) && sl.State == 2 && !ReferenceEquals(o.Mesh, sl.Mesh));
+                Expect(shownAfter.SequenceEqual(shownBefore) && placeholders == 0, $"after LOD on / off the same SLOD models show (SLOD1/2/3 {string.Join("/", shownBefore)} -> {string.Join("/", shownAfter)}), ready {readyBefore} -> {readyAfter}, {placeholders} still on a placeholder");
+            }
+            cam.Pitch = 0.5f; cam.Distance = 1800; cam.Target = new Vector3(100, -600, 0);
+            yield return Until(() => archLoading == 0 && FarWaiting() == 0, 120);
+            yield return Frames(20);
+            yield return Shot("map_city_far");
+
         }
-        cam.Pitch = 0.5f; cam.Distance = 1800; cam.Target = new Vector3(100, -600, 0);
-        yield return Until(() => archLoading == 0 && FarWaiting() == 0, 120);
-        yield return Frames(20);
-        yield return Shot("map_city_far");
         cam.Target = keepTarget; cam.Pitch = keepPitch;
         cam.Distance = 900; yield return Frames(30);
         yield return Shot("map_whole_world");
