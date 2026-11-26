@@ -721,6 +721,9 @@ public sealed class SceneRenderer : IDisposable
         if (UploadBudgetMs > 0 && UploadMs - frameUpload0 > UploadBudgetMs && NeedsUpload(template)) return;
         var gm = Upload(template);
         if (gm.Groups.Count == 0) return;
+        bool any = false; // nothing of this model in this pass: no instance copy at all (most models have no blended part)
+        foreach (var g in gm.Groups) if (scene.Material(g.MatId).Preset.AlphaBlended == alphaPass) { any = true; break; }
+        if (!any) return;
         // one big buffer filled one after the other (no-overwrite), emptied only when full: thousands of map draws a frame
         // otherwise each ask the driver for a fresh buffer
         if (instBuf == null || instCap < count)

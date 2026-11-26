@@ -1297,6 +1297,10 @@ public sealed partial class EditorApp
             Settings.MapSky = sk; Settings.MapFog = fg;
             Note("frame time matrix: " + string.Join("; ", rows));
         }
+        foreach (var grp in archSlots.Values.Where(a => a.State == 3).GroupBy(a => (a.Error ?? "?").Split(':')[0]).OrderByDescending(gq => gq.Count()).Take(5))
+            Note($"not read x{grp.Count()}: {grp.First().Name ?? grp.First().Hash.ToString("X8")} - {grp.First().Error}");
+        { int failedInView = worldSel.Count(i => archSlots.TryGetValue(worldEnts.E[i].Arch, out var sl) && sl.State == 3 && Vector3.Distance(worldEnts.E[i].Pos, cam.Eye) < 600);
+          Note($"chosen world objects within 600 m whose model could not be read: {failedInView}"); }
         yield return Frames(150); // trimming runs every 2 s
         {
             long before = GC.GetTotalMemory(false); GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); long after = GC.GetTotalMemory(true);
