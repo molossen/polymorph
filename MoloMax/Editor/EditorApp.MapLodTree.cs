@@ -124,51 +124,88 @@ public sealed partial class EditorApp
 
     bool IsWorldTemplate(SceneObject o) => o != null && o.Id <= -2_000_000;
 
-    /// <summary>Adds the chosen world entities to the draw lists (frustum, tiny-on-screen and view radius culled).</summary>
+    /// <summary>Parents shown in place of children whose models are not read yet (like the game: the LOD stays until its detail is ready).</summary>
+    readonly HashSet<int> worldBlocked = new(), worldFallbackDrawn = new();
+    /// <summary>The last frame drew a parent in place of children still loading (the selection is worked out again soon).</summary>
+    int worldFallbacks;
+
+    bool WorldReady(ArchSlot s) => s.State == 2 && s.Mesh != null || s.GpuOnly;
+
+    /// <summary>Adds the chosen world entities to the draw lists (frustum, tiny-on-screen and view radius culled).
+    /// A child whose model is not read yet leaves its LOD parent drawn instead, with its brothers, until all are ready.</summary>
     void GatherWorld(Vector4[] planes, Vector3 eye, float pix, float vr2)
     {
         if (!LodTreeOn || WorldDrawOff) return;
         worldNow = ImGui.GetTime();
-        worldWanted.Clear();
+        worldWanted.Clear(); worldBlocked.Clear(); worldFallbackDrawn.Clear();
         var we = worldEnts;
+        // 1. children not ready: their parent stays; they are all asked for (even off screen, else the parent would stay for good)
         foreach (var i in worldSel)
         {
             ref var e = ref we.E[i];
-            if (e.Mlo || worldOpenMaps.Contains(e.Ymap)) continue; // open for editing: its editable copy is drawn
+            if (e.Mlo || worldOpenMaps.Contains(e.Ymap)) continue;
             if (!archSlots.TryGetValue(e.Arch, out var s)) s = Slot(e.Arch, null);
-            float sc = MathF.Max(e.ScaleXY, e.ScaleZ);
-            if (!(s.State == 2 && s.Mesh != null || s.GpuOnly))
+            if (WorldReady(s) || s.State == 3) continue;
+            if (e.Parent >= 0) worldBlocked.Add(e.Parent);
+            if (s.State == 0)
             {
-                // not read yet: wanted when it would be on screen (rough size from the archetype until the model is here)
-                if (s.State != 0) continue;
-                float rr = MathF.Max(game?.ArchetypeSize(e.Arch) ?? 20f, 5f) * sc;
-                bool on = true;
-                foreach (var p in planes) if (p.X * e.Pos.X + p.Y * e.Pos.Y + p.Z * e.Pos.Z + p.W < -rr) { on = false; break; }
-                if (!on) continue;
                 float d2 = Vector3.DistanceSquared(e.Pos, eye);
+                // off screen: asked for after what is in view
+                float rr = MathF.Max(game?.ArchetypeSize(e.Arch) ?? 20f, 5f) * MathF.Max(e.ScaleXY, e.ScaleZ);
+                foreach (var p in planes) if (p.X * e.Pos.X + p.Y * e.Pos.Y + p.Z * e.Pos.Z + p.W < -rr) { d2 = d2 * 4 + 1e6f; break; }
                 if (!worldWanted.TryGetValue(e.Arch, out var w0) || d2 < w0) worldWanted[e.Arch] = d2;
-                s.LastUsed = worldNow;
-                continue;
             }
-            var lc = (s.Min + s.Max) * 0.5f;
-            var c = e.Pos + Vector3.Transform(lc * new Vector3(e.ScaleXY, e.ScaleXY, e.ScaleZ), e.Rot);
-            float r = (s.Max - s.Min).Length() * 0.5f * sc;
-            bool vis = true;
-            foreach (var p in planes) if (p.X * c.X + p.Y * c.Y + p.Z * c.Z + p.W < -r) { vis = false; break; }
-            if (!vis) continue;
             s.LastUsed = worldNow;
-            float d = Vector3.Distance(c, eye);
-            if (pix > 0 && d > r && r / d < pix * WorldPixCull) continue;
-            if (vr2 > 0 && MathF.Max(0, d - r) * MathF.Max(0, d - r) > vr2) continue;
-            var t = WorldTemplate(s);
-            if (!instGroups.TryGetValue(t.InstanceKey, out var grp)) instGroups[t.InstanceKey] = grp = new InstGroup();
-            if (grp.Template == null) grp.Template = t;
-            else if (!ReferenceEquals(grp.Template.Mesh, t.Mesh)) continue;
-            if (grp.Count == grp.Worlds.Length) { Array.Resize(ref grp.Worlds, grp.Worlds.Length * 2); Array.Resize(ref grp.Objs, grp.Worlds.Length); Array.Resize(ref grp.Ents, grp.Worlds.Length); }
-            grp.Objs[grp.Count] = t; grp.Ents[grp.Count] = i;
-            grp.Worlds[grp.Count++] = e.World;
-            MapVisible++;
         }
+        // 2. what is ready, unless its parent stands in for the family
+        foreach (var i in worldSel)
+        {
+            ref var e = ref we.E[i];
+            if (e.Mlo || worldOpenMaps.Contains(e.Ymap)) continue;
+            if (e.Parent >= 0 && worldBlocked.Contains(e.Parent)) continue;
+            DrawWorldEntity(i, planes, eye, pix, vr2);
+        }
+        // 3. the parents standing in (or the nearest ancestor that is ready)
+        worldFallbacks = 0;
+        foreach (var p0 in worldBlocked)
+        {
+            int p = p0;
+            while (p >= 0)
+            {
+                ref var pe = ref we.E[p];
+                if (archSlots.TryGetValue(pe.Arch, out var ps) && WorldReady(ps)) break;
+                if (!archSlots.TryGetValue(pe.Arch, out ps)) ps = Slot(pe.Arch, null);
+                if (ps.State == 0) { float d2 = Vector3.DistanceSquared(pe.Pos, eye); if (!worldWanted.TryGetValue(pe.Arch, out var w0) || d2 < w0) worldWanted[pe.Arch] = d2; }
+                p = pe.Parent;
+            }
+            if (p < 0 || !worldFallbackDrawn.Add(p)) continue;
+            worldFallbacks++;
+            DrawWorldEntity(p, planes, eye, pix, vr2);
+        }
+    }
+
+    void DrawWorldEntity(int i, Vector4[] planes, Vector3 eye, float pix, float vr2)
+    {
+        var we = worldEnts;
+        ref var e = ref we.E[i];
+        if (!archSlots.TryGetValue(e.Arch, out var s) || !WorldReady(s)) return;
+        float sc = MathF.Max(e.ScaleXY, e.ScaleZ);
+        var lc = (s.Min + s.Max) * 0.5f;
+        var c = e.Pos + Vector3.Transform(lc * new Vector3(e.ScaleXY, e.ScaleXY, e.ScaleZ), e.Rot);
+        float r = (s.Max - s.Min).Length() * 0.5f * sc;
+        foreach (var p in planes) if (p.X * c.X + p.Y * c.Y + p.Z * c.Z + p.W < -r) return;
+        s.LastUsed = worldNow;
+        float d = Vector3.Distance(c, eye);
+        if (pix > 0 && d > r && r / d < pix * WorldPixCull) return;
+        if (vr2 > 0 && MathF.Max(0, d - r) * MathF.Max(0, d - r) > vr2) return;
+        var t = WorldTemplate(s);
+        if (!instGroups.TryGetValue(t.InstanceKey, out var grp)) instGroups[t.InstanceKey] = grp = new InstGroup();
+        if (grp.Template == null) grp.Template = t;
+        else if (!ReferenceEquals(grp.Template.Mesh, t.Mesh)) return;
+        if (grp.Count == grp.Worlds.Length) { Array.Resize(ref grp.Worlds, grp.Worlds.Length * 2); Array.Resize(ref grp.Objs, grp.Worlds.Length); Array.Resize(ref grp.Ents, grp.Worlds.Length); }
+        grp.Objs[grp.Count] = t; grp.Ents[grp.Count] = i;
+        grp.Worlds[grp.Count++] = e.World;
+        MapVisible++;
     }
 
     readonly Dictionary<uint, (SceneObject T, List<Matrix4x4> W)> shadowGroups = new();
@@ -181,7 +218,7 @@ public sealed partial class EditorApp
         if (!LodTreeOn || WorldDrawOff) return shadowList;
         foreach (var g in shadowGroups.Values) g.W.Clear();
         var we = worldEnts;
-        foreach (var i in worldSel)
+        foreach (var i in worldSel.Where(x => !(we.E[x].Parent >= 0 && worldBlocked.Contains(we.E[x].Parent))).Concat(worldFallbackDrawn))
         {
             ref var e = ref we.E[i];
             if (e.Mlo || !archSlots.TryGetValue(e.Arch, out var s) || !(s.State == 2 && s.Mesh != null || s.GpuOnly)) continue;
