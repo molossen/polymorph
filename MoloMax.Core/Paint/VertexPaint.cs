@@ -67,15 +67,25 @@ public static class VertexPaint
             }
         }
         // big terrain triangles (a map's ground has corners metres apart): a brush smaller than them reaches no corner and
-        // nothing happened. Then the corner nearest the brush takes the colour (the blend spreads over its triangles, as in game).
-        if (changed == 0 && nearV >= 0 && nearD < MathF.Max(radius * 6, 12f))
+        // nothing happened. Then the brush grows to the nearest corners (the blend spreads over their triangles, as in game).
+        if (changed == 0 && nearV >= 0 && nearD < MathF.Max(radius * 8, 16f))
+        {
+            float r2 = nearD * 1.35f + 0.01f;
             for (int fi = 0; fi < m.Faces.Count; fi++)
             {
                 var f = m.Faces[fi];
                 if (faceOk != null && !faceOk(f.MatId)) continue;
+                if (backfaceCull && Vector3.Dot(m.FaceNormal(f), normal) < 0.05f) continue;
                 for (int i = 0; i < f.V.Length; i++)
-                    if (f.V[i] == nearV) { Blend(f, i, target, strength); changed++; }
+                {
+                    float d = Vector3.Distance(m.Verts[f.V[i]], center);
+                    if (d > r2) continue;
+                    float a = (d <= nearD * 1.05f ? 1 : 1 - Smooth((d - nearD * 1.05f) / MathF.Max(r2 - nearD * 1.05f, 1e-6f))) * strength;
+                    if (a <= 0) continue;
+                    Blend(f, i, target, a); changed++;
+                }
             }
+        }
         return changed;
     }
 

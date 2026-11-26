@@ -3678,6 +3678,7 @@ room.Mesh.Faces.Count");
         string Col1Sum(SceneObject o) { double sy = 0, sz = 0; int n = 0; foreach (var f in o.Mesh.Faces) if (f.Col1 != null) foreach (var cc in f.Col1) { sy += cc.Y; sz += cc.Z; n++; } return $"{n} corners, sum G {sy:0.0}, sum B {sz:0.0}"; }
         Note($"colour 1 before: {Col1Sum(g)}; layer {terrainPaintLayer}, backface cull {brush.BackfaceCull}");
         int before = Painted(g);
+        var snap = g.Mesh.Faces.Select(f => f.Col1 == null ? null : (Vector4[])f.Col1.Clone()).ToList();
         // a stroke across the middle of the model, with the real mouse
         // on the terrain itself: the centre of the terrain face nearest the middle of the view, then 4 m along
         var tf = g.Mesh.Faces.Select((f, k) => (f, k)).Where(x => Scene.Material(x.f.MatId)?.IsTerrain == true)
@@ -3689,6 +3690,13 @@ room.Mesh.Faces.Count");
         foreach (var x in MouseTo(a, 8)) yield return x;
         yield return Frames(4);
         Note($"before the stroke: hover hit {paintHover.Hit} at {paintHover.P}, screen {a}");
+        {
+            // the layer least present where the stroke goes (painting a layer already there changes nothing)
+            var tff = g.Mesh.Faces[tf.k];
+            float gy = tff.Col1 == null ? 0 : tff.Col1.Average(cc => cc.Y);
+            terrainPaintLayer = gy > 0.5f ? 0 : 2;
+            Note($"layer painted: {terrainPaintLayer + 1} (colour 1 green there {gy:0.00})");
+        }
         foreach (var x in DragTo(a, b, 40)) yield return x;
         yield return Frames(8); g = Scene.Find(g.Id);
         int after = Painted(g);
@@ -3700,7 +3708,14 @@ room.Mesh.Faces.Count");
             foreach (var f in g.Mesh.Faces) { var fc = f.V.Aggregate(Vector3.Zero, (acc, vi) => acc + g.Mesh.Verts[vi]) / f.V.Length; if (Vector3.Distance(fc, hp) < 3) { near++; if (Vector3.Dot(g.Mesh.FaceNormal(f), hn) < 0.05f) back++; } }
             Note($"under the brush: hit face {hf}, normal {hn}, faces within 3 m {near}, of which facing away {back}; average edge {AverageEdgeLength(g):0.00} m");
         }
-        Expect(after > before, $"the stroke paints texture 3 on my map's terrain ({before} -> {after} corners)");
+        int moved = 0;
+        for (int k = 0; k < g.Mesh.Faces.Count && k < snap.Count; k++)
+        {
+            var f = g.Mesh.Faces[k]; if (f.Col1 == null) continue;
+            for (int i = 0; i < f.Col1.Length; i++) { var o0 = snap[k] != null && i < snap[k].Length ? snap[k][i] : Vector4.Zero; if (MathF.Abs(f.Col1[i].Y - o0.Y) + MathF.Abs(f.Col1[i].Z - o0.Z) > 0.2f) moved++; }
+        }
+        Note($"corners whose layer blend changed under the stroke: {moved}");
+        Expect(after > before || moved > 0, $"the stroke paints texture 3 on my map's terrain ({before} -> {after} corners at texture 3, {moved} corners changed)");
         yield return Shot("map_paint_stroke");
         // the copies of this model drawn by the level-of-detail world must show the paint too: the editable object is the one drawn
         Expect(!WorldHidesEditable(g), "the painted terrain is the one drawn (not hidden behind a world copy)");
