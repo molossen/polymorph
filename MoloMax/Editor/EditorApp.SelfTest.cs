@@ -204,6 +204,7 @@ public sealed partial class EditorApp
             T("MAP LOOK: the reference view (Tataviam, 13:00)", () => MapLookTest(gtaFolder));
             T("COMPARE: the reference spots, pictures after 3, 10 and 30 s", () => CompareTest(gtaFolder));
             T("PLAY: walk on the map (ground, steps, walls, jump, swim)", () => PlayTest(gtaFolder));
+            T("MAP image: sun rays and sharpness on and off (pictures, cost)", () => SunRaysTest(gtaFolder));
             T("LIBRARY BUILD: texture library from my own GTA V (every interior)", () => LibraryBuildTest(gtaFolder));
             T("MAP modeling: build on the map, MLO rooms, edit a game model in place", () => MapBuildTest(gtaFolder));
             T("FORGE: weapon and vehicle from a model, game donors", () => ForgeTest(gtaFolder));

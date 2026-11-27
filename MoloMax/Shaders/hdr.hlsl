@@ -4,11 +4,13 @@ cbuffer HdrVars : register(b0)
 {
     float4 Settings; // x exposure, y share of the light the occlusion darkens (0: none), z share of the glow, w saturation
     float4 View;     // xy top-left of the view (pixels), zw its size
-    float4 Window;   // xy 1 / size of the window's images
+    float4 Window;   // xy 1 / size of the window's images, z sharpening (0: none), w share of the sun rays (0: none)
+    float4 RayColor; // colour of the sun rays
 };
 Texture2D SceneColor : register(t0);
 Texture2D<float> Occlusion : register(t1);
 Texture2D Glow : register(t2);
+Texture2D Rays : register(t3);
 SamplerState LinearClamp : register(s0);
 
 float4 VSFull(uint id : SV_VertexID) : SV_POSITION
@@ -32,9 +34,26 @@ float3 ToDisplay(float3 c) { return c <= 0.0031308 ? c * 12.92 : 1.055 * pow(abs
 float4 PSComposite(float4 pos : SV_POSITION) : SV_TARGET
 {
     float3 c = max(SceneColor.Load(int3(pos.xy, 0)).rgb, 0);
+    if (Window.z > 0)
+    {
+        // sharpening: the difference with the four neighbours added back (on the light squeezed to 0..1, so a very
+        // bright pixel does not ring), less where the edge is already contrasted
+        float2 lo = View.xy, hi = View.xy + View.zw - 1;
+        float3 m = c / (1 + c);
+        float3 n = max(SceneColor.Load(int3(clamp(pos.xy + float2(0, -1), lo, hi), 0)).rgb, 0); n /= 1 + n;
+        float3 s = max(SceneColor.Load(int3(clamp(pos.xy + float2(0, 1), lo, hi), 0)).rgb, 0); s /= 1 + s;
+        float3 e = max(SceneColor.Load(int3(clamp(pos.xy + float2(1, 0), lo, hi), 0)).rgb, 0); e /= 1 + e;
+        float3 w = max(SceneColor.Load(int3(clamp(pos.xy + float2(-1, 0), lo, hi), 0)).rgb, 0); w /= 1 + w;
+        float3 low = min(m, min(min(n, s), min(e, w))), high = max(m, max(max(n, s), max(e, w)));
+        float contrast = saturate(dot(high - low, 0.333) * 4.0);
+        m = clamp(m + (4.0 * m - n - s - e - w) * (Window.z * 0.3 * (1.0 - 0.7 * contrast)), 0, 0.995);
+        c = m / (1 - m);
+    }
     if (Settings.y > 0) { float ao = Occlusion.SampleLevel(LinearClamp, (pos.xy - View.xy) / View.zw, 0); c *= saturate(1 - (1 - ao) * Settings.y); }
     if (Settings.z > 0) c = lerp(c, Glow.SampleLevel(LinearClamp, pos.xy * Window.xy, 0).rgb, Settings.z);
-    c = ToneMap(c * Settings.x);
+    c *= Settings.x;
+    if (Window.w > 0) c += Rays.SampleLevel(LinearClamp, (pos.xy - View.xy) / View.zw, 0).rgb * RayColor.rgb * Window.w;
+    c = ToneMap(c);
     c = max(lerp(dot(c, float3(0.2126, 0.7152, 0.0722)), c, Settings.w), 0);
     c = ToDisplay(c);
     float noise = frac(52.9829189 * frac(dot(pos.xy, float2(0.06711056, 0.00583715))));

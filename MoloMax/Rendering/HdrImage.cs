@@ -28,7 +28,7 @@ public sealed class HdrImage : IDisposable
         this.device = device; ctx = device.ImmediateContext;
         using (var b = ShaderLoader.Compile("hdr.hlsl", "VSFull", "vs_4_0")) vs = new VertexShader(device, b);
         using (var b = ShaderLoader.Compile("hdr.hlsl", "PSComposite", "ps_4_0")) ps = new PixelShader(device, b);
-        cb = new Buffer(device, 48, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+        cb = new Buffer(device, 64, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
         clamp = new SamplerState(device, new SamplerStateDescription { Filter = Filter.MinMagMipLinear, AddressU = TextureAddressMode.Clamp, AddressV = TextureAddressMode.Clamp, AddressW = TextureAddressMode.Clamp, MaximumLod = float.MaxValue });
         try
         {
@@ -184,6 +184,62 @@ public sealed class HdrImage : IDisposable
         return true;
     }
 
+    // sun rays: half-size images of the view (the bright sky around the sun, then smeared away from it)
+    VertexShader rayVs; PixelShader rayMaskPs, rayPs; Buffer rayCb; bool raysFailed;
+    Texture2D rayMask, rays; RenderTargetView rayMaskRtv, raysRtv; ShaderResourceView rayMaskSrv, raysSrv; int rayW, rayH;
+    /// <summary>Sun rays to add at End: xy the sun in the view (0 to 1), z strength (0: none); their colour.</summary>
+    public System.Numerics.Vector3 SunRays, SunRayColor;
+    /// <summary>Sharpening of the image at End (0: none, 1: strong).</summary>
+    public float Sharpen;
+    /// <summary>The last End added sun rays.</summary>
+    public bool RaysDrawn;
+
+    bool Rays(GpuDevice gpu, float exposure, float x, float y, float w, float h)
+    {
+        if (raysFailed || SunRays.Z <= 0 || gpu.SampleCount < 2 || gpu.DepthRead == null || w < 32 || h < 32) return false;
+        if (rayPs == null)
+        {
+            try
+            {
+                if (device.FeatureLevel < FeatureLevel.Level_11_0) throw new NotSupportedException();
+                using (var b = ShaderLoader.Compile("rays.hlsl", "VSFull", "vs_5_0")) rayVs = new VertexShader(device, b);
+                using (var b = ShaderLoader.Compile("rays.hlsl", "PSMask", "ps_5_0")) rayMaskPs = new PixelShader(device, b);
+                using (var b = ShaderLoader.Compile("rays.hlsl", "PSRays", "ps_5_0")) rayPs = new PixelShader(device, b);
+                rayCb = new Buffer(device, 48, ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+            }
+            catch { raysFailed = true; return false; }
+        }
+        int width = Math.Max(1, (int)(w / 2)), height = Math.Max(1, (int)(h / 2));
+        if (rays == null || rayW != width || rayH != height)
+        {
+            rayMaskRtv?.Dispose(); rayMaskSrv?.Dispose(); rayMask?.Dispose(); raysRtv?.Dispose(); raysSrv?.Dispose(); rays?.Dispose();
+            rayW = width; rayH = height;
+            Texture2D T() => new(device, new Texture2DDescription { Width = width, Height = height, MipLevels = 1, ArraySize = 1, Format = Format.R11G11B10_Float, SampleDescription = new SampleDescription(1, 0), Usage = ResourceUsage.Default, BindFlags = BindFlags.RenderTarget | BindFlags.ShaderResource });
+            rayMask = T(); rays = T();
+            rayMaskRtv = new RenderTargetView(device, rayMask); rayMaskSrv = new ShaderResourceView(device, rayMask);
+            raysRtv = new RenderTargetView(device, rays); raysSrv = new ShaderResourceView(device, rays);
+        }
+        var v = new[] { new System.Numerics.Vector4(SunRays.X, SunRays.Y, exposure, w / h), new System.Numerics.Vector4(x, y, w, h), new System.Numerics.Vector4(1f / this.w, 1f / this.h, 0, 0) };
+        ctx.UpdateSubresource(v, rayCb);
+        ctx.Rasterizer.SetViewport(0, 0, width, height);
+        ctx.Rasterizer.SetScissorRectangle(0, 0, width, height);
+        ctx.InputAssembler.InputLayout = null; ctx.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
+        ctx.VertexShader.Set(rayVs); ctx.GeometryShader.Set(null);
+        ctx.PixelShader.SetSampler(0, clamp);
+        ctx.PixelShader.SetConstantBuffer(0, rayCb);
+        ctx.OutputMerger.SetRenderTargets((DepthStencilView)null, rayMaskRtv);
+        ctx.PixelShader.SetShaderResource(0, resolvedSrv); ctx.PixelShader.SetShaderResource(1, gpu.DepthRead);
+        ctx.PixelShader.Set(rayMaskPs);
+        ctx.Draw(3, 0);
+        ctx.PixelShader.SetShaderResource(0, null); ctx.PixelShader.SetShaderResource(1, null);
+        ctx.OutputMerger.SetRenderTargets((DepthStencilView)null, raysRtv);
+        ctx.PixelShader.SetShaderResource(2, rayMaskSrv);
+        ctx.PixelShader.Set(rayPs);
+        ctx.Draw(3, 0);
+        ctx.PixelShader.SetShaderResource(2, null);
+        return true;
+    }
+
     Texture2D depthCopy; ShaderResourceView depthCopySrv;
     /// <summary>The scene so far (colours resolved, depth copied), for the water drawn over it: what it mirrors and
     /// what shows through it.</summary>
@@ -224,22 +280,24 @@ public sealed class HdrImage : IDisposable
         ctx.ResolveSubresource(ms, 0, resolved, 0, Format.R16G16B16A16_Float);
         bool hasAo = aoShare > 0 && Occlusion(gpu, x, y, w, h, proj, near, far);
         bool glow = bloomShare > 0 && Glow();
+        bool sunRays = Rays(gpu, exposure, x, y, w, h); RaysDrawn = sunRays;
         ctx.Rasterizer.SetViewport(x, y, w, h);
         ctx.Rasterizer.SetScissorRectangle((int)x, (int)y, (int)(x + w), (int)(y + h));
         gpu.BindBackBuffer();
-        var s = new[] { new System.Numerics.Vector4(exposure, hasAo ? aoShare : 0, glow ? bloomShare : 0, saturation), new System.Numerics.Vector4(x, y, w, h), new System.Numerics.Vector4(1f / this.w, 1f / this.h, 0, 0) };
+        var s = new[] { new System.Numerics.Vector4(exposure, hasAo ? aoShare : 0, glow ? bloomShare : 0, saturation), new System.Numerics.Vector4(x, y, w, h), new System.Numerics.Vector4(1f / this.w, 1f / this.h, Sharpen, sunRays ? SunRays.Z : 0), new System.Numerics.Vector4(SunRayColor, 0) };
         ctx.UpdateSubresource(s, cb);
         ctx.PixelShader.SetSampler(0, clamp);
         ctx.PixelShader.SetShaderResource(1, hasAo ? aoSrv : null);
         ctx.PixelShader.SetShaderResource(2, glow ? bloomSrv[0] : null);
+        ctx.PixelShader.SetShaderResource(3, sunRays ? raysSrv : null);
         ctx.InputAssembler.InputLayout = null;
         ctx.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
         ctx.VertexShader.Set(vs);
         ctx.PixelShader.Set(ps); ctx.PixelShader.SetConstantBuffer(0, cb); ctx.PixelShader.SetShaderResource(0, resolvedSrv);
         ctx.GeometryShader.Set(null);
         ctx.Draw(3, 0);
-        ctx.PixelShader.SetShaderResource(0, null); ctx.PixelShader.SetShaderResource(1, null); ctx.PixelShader.SetShaderResource(2, null);
+        ctx.PixelShader.SetShaderResource(0, null); ctx.PixelShader.SetShaderResource(1, null); ctx.PixelShader.SetShaderResource(2, null); ctx.PixelShader.SetShaderResource(3, null);
     }
 
-    public void Dispose() { msRtv?.Dispose(); ms?.Dispose(); resolvedSrv?.Dispose(); resolved?.Dispose(); vs.Dispose(); ps.Dispose(); cb.Dispose(); clamp.Dispose(); aoVs?.Dispose(); aoPs?.Dispose(); blurPs?.Dispose(); aoCb?.Dispose(); aoRtv?.Dispose(); aoSrv?.Dispose(); ao?.Dispose(); aoBRtv?.Dispose(); aoBSrv?.Dispose(); aoB?.Dispose(); depthCopySrv?.Dispose(); depthCopy?.Dispose(); for (int i = 0; i < BloomSteps; i++) { bloomRtv[i]?.Dispose(); bloomSrv[i]?.Dispose(); bloom[i]?.Dispose(); } downPs?.Dispose(); upPs?.Dispose(); bloomVs?.Dispose(); bloomCb?.Dispose(); add?.Dispose(); }
+    public void Dispose() { rayVs?.Dispose(); rayMaskPs?.Dispose(); rayPs?.Dispose(); rayCb?.Dispose(); rayMaskRtv?.Dispose(); rayMaskSrv?.Dispose(); rayMask?.Dispose(); raysRtv?.Dispose(); raysSrv?.Dispose(); rays?.Dispose(); msRtv?.Dispose(); ms?.Dispose(); resolvedSrv?.Dispose(); resolved?.Dispose(); vs.Dispose(); ps.Dispose(); cb.Dispose(); clamp.Dispose(); aoVs?.Dispose(); aoPs?.Dispose(); blurPs?.Dispose(); aoCb?.Dispose(); aoRtv?.Dispose(); aoSrv?.Dispose(); ao?.Dispose(); aoBRtv?.Dispose(); aoBSrv?.Dispose(); aoB?.Dispose(); depthCopySrv?.Dispose(); depthCopy?.Dispose(); for (int i = 0; i < BloomSteps; i++) { bloomRtv[i]?.Dispose(); bloomSrv[i]?.Dispose(); bloom[i]?.Dispose(); } downPs?.Dispose(); upPs?.Dispose(); bloomVs?.Dispose(); bloomCb?.Dispose(); add?.Dispose(); }
 }

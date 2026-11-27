@@ -68,6 +68,7 @@
     <EmbeddedResource Include="Shaders\lamps.hlsl"><LogicalName>lamps.hlsl</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="Shaders\gamewater.hlsl"><LogicalName>gamewater.hlsl</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="Shaders\hdr.hlsl"><LogicalName>hdr.hlsl</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="Shaders\rays.hlsl"><LogicalName>rays.hlsl</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="Shaders\ao.hlsl"><LogicalName>ao.hlsl</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="Shaders\nrwater.hlsl"><LogicalName>nrwater.hlsl</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="Shaders\bloom.hlsl"><LogicalName>bloom.hlsl</LogicalName></EmbeddedResource>

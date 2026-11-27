@@ -254,6 +254,14 @@ public sealed partial class EditorApp
             float ex = Settings.MapExposure; ImGui.SetNextItemWidth(120);
             if (ImGui.SliderFloat("Exposure##maplook", ref ex, 0.3f, 3f, "%.2f")) Settings.MapExposure = ex;
             if (ImGui.IsItemDeactivatedAfterEdit()) Settings.Save();
+            bool sr = Settings.MapSunRays;
+            if (ImGui.Checkbox("Sun rays##maplook", ref sr)) { Settings.MapSunRays = sr; Settings.Save(); }
+            Theme.Tip("The sun's light spilling through the air, between buildings, trees and hills, when you look towards it.");
+            ImGui.SameLine();
+            float sh = Settings.MapSharpen; ImGui.SetNextItemWidth(120);
+            if (ImGui.SliderFloat("Sharpness##maplook", ref sh, 0f, 1f, "%.2f")) Settings.MapSharpen = sh;
+            if (ImGui.IsItemDeactivatedAfterEdit()) Settings.Save();
+            Theme.Tip("Brings out the fine detail of the textures (0: the image as drawn).");
             if (Settings.MapNightLights)
             {
                 float ll = Settings.MapLampLight; ImGui.SetNextItemWidth(160);

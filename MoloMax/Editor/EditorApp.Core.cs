@@ -442,6 +442,23 @@ public sealed partial class EditorApp : IDisposable
             static float Lum(Vector3 c) => 0.2126f * c.X + 0.7152f * c.Y + 0.0722f * c.Z;
             float amb = Lum(mapLight.SkyAmbient), sunL = Lum(mapLight.SunColor) * MathF.Max(mapLight.SunDirection.Z, 0.1f);
             float share = Settings.MapOcclusion ? amb / MathF.Max(amb + sunL * 0.5f, 1e-4f) : 0;
+            hdrImage.Sharpen = Settings.MapSharpen; hdrImage.SunRays = default;
+            if (Settings.MapSunRays && mapLight.SunDirection.Z > -0.02f && mapLight.NightLights < 1)
+            {
+                // where the sun is in the view; the rays fade out as it leaves the image
+                var sun = Vector3.Normalize(mapLight.SunDirection);
+                var clip = Vector4.Transform(new Vector4(cam.Eye + sun * 10000f, 1), viewProj);
+                float facing = Vector3.Dot(Vector3.Normalize(cam.Forward), sun);
+                if (clip.W > 0 && facing > 0)
+                {
+                    var at = new Vector2(clip.X / clip.W * 0.5f + 0.5f, 0.5f - clip.Y / clip.W * 0.5f);
+                    float outside = MathF.Max(MathF.Max(-at.X, at.X - 1), MathF.Max(-at.Y, at.Y - 1));
+                    float strength = Math.Clamp(Settings.MapSunRayStrength, 0, 1) * Math.Clamp(1 - outside * 2, 0, 1) * Math.Clamp(facing * 2, 0, 1);
+                    hdrImage.SunRays = new Vector3(at, strength);
+                    var tint = mapLight.SunColor * (1 - mapLight.NightLights); float top = MathF.Max(tint.X, MathF.Max(tint.Y, tint.Z));
+                    hdrImage.SunRayColor = top > 1e-4f ? tint / top : Vector3.One;
+                }
+            }
             hdrImage.End(gpu, Settings.MapExposure * MathF.Max(mapLight.Adaptation, 1), vp.X, vp.Y, vp.W, vp.H, cam.Projection(vp.Aspect), cam.Near, cam.Far, share, Settings.MapBloom ? 0.5f * 0.2f / 6f : 0);
             ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1);
         }

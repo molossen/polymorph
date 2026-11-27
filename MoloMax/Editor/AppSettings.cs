@@ -108,6 +108,10 @@ public sealed class AppSettings
     public float MapExposure { get; set; } = 1f;
     public bool MapOcclusion { get; set; } = true;
     public bool MapBloom { get; set; } = true;
+    /// <summary>MAP look (HDR): the sun's rays through the air, and how sharp the image is (0: as drawn).</summary>
+    public bool MapSunRays { get; set; } = true;
+    public float MapSunRayStrength { get; set; } = 0.5f;
+    public float MapSharpen { get; set; } = 0.35f;
     /// <summary>MAP: clouds in volume and the weather they come from (ExtraSunny, Clear, Clouds, Overcast, Rain...).</summary>
     public bool MapClouds { get; set; } = true;
     public string MapWeather { get; set; } = "Clear";
