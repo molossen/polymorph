@@ -265,6 +265,15 @@ public sealed partial class EditorApp : IDisposable
     void ProfStart() { profSw.Restart(); profGatherMs = 0; profGc0 = GC.GetTotalPauseDuration(); profUp0 = renderer.UploadMs; profTex0 = renderer.Textures.LoadMs; }
     int syncTick;
 
+    readonly System.Diagnostics.Stopwatch vpSw = new();
+    /// <summary>Inside a 3D view: time since the last mark, kept as "view: name" in the frame profile (smoothed).</summary>
+    void VpProf(string name)
+    {
+        double ms = vpSw.Elapsed.TotalMilliseconds; vpSw.Restart();
+        string k = "view: " + name;
+        FrameProfile[k] = FrameProfile.TryGetValue(k, out var old) ? old * 0.9 + ms * 0.1 : ms;
+    }
+
     void Prof(string section)
     {
         double ms = profSw.Elapsed.TotalMilliseconds; profSw.Restart();
@@ -285,7 +294,7 @@ public sealed partial class EditorApp : IDisposable
     public double LastFrameCpuMs;
     public void ResetWorstFrame() { WorstFrameMs = 0; worstFrame = new(); renderer.SlowestUploadMs = 0; renderer.SlowestUpload = null; }
     public string WorstFrameText() => $"slowest frame {WorstFrameMs:0} ms: " + string.Join(", ", worstFrame);
-    public string ProfileText(int n = 6) => string.Join(", ", FrameProfile.OrderByDescending(kv => kv.Value).Take(n).Select(kv => $"{kv.Key} {kv.Value:0.0}")) + $"  [graphics card: views {GpuViewMs:0.0}]";
+    public string ProfileText(int n = 6) => string.Join(", ", FrameProfile.Where(kv => !kv.Key.StartsWith("view: ")).OrderByDescending(kv => kv.Value).Take(n).Select(kv => $"{kv.Key} {kv.Value:0.0}")) + " | " + string.Join(", ", FrameProfile.Where(kv => kv.Key.StartsWith("view: ")).Select(kv => $"{kv.Key[6..]} {kv.Value:0.0}")) + $"  [graphics card: views {GpuViewMs:0.0}]";
 
     /// <summary>Height of the Blender-mode outliner at the top of the right column.</summary>
     float OutlinerH => ShowPanel ? MathF.Floor((gpu.Height - menuH - toolbarH - statusH) * 0.32f) : gpu.Height - menuH - toolbarH - statusH;
@@ -382,7 +391,9 @@ public sealed partial class EditorApp : IDisposable
         renderer.BeginScene(viewProj, cam.Eye, l, vp.Shading, Exposure, AmbientBoost);
         ctx.OutputMerger.SetDepthStencilState(renderer.DepthDefault);
         ctx.OutputMerger.SetBlendState(renderer.Opaque, blendCol, -1);
+        vpSw.Restart();
         if (MapMode && !wireOnly(vp)) { long g0 = System.Diagnostics.Stopwatch.GetTimestamp(); MapGatherDraws(vp, viewProj); profGatherMs += System.Diagnostics.Stopwatch.GetElapsedTime(g0).TotalMilliseconds; }
+        VpProf("choose what to draw");
         // what the camera can see (objects outside the view are not sent to the graphics card), worked out once for both passes
         drawList.Clear();
         if (!(MapMode && !wireOnly(vp)) && !wireOnly(vp))
@@ -408,15 +419,18 @@ public sealed partial class EditorApp : IDisposable
             var hl = o.Frozen ? new Vector4(0.55f, 0.55f, 0.6f, 0.6f) : Vector4.Zero;
             renderer.DrawObject(Scene, o, false, hl, BackfaceCull);
         }
+        VpProf("opaque models");
         if (skyView && hdrView) DrawMapLamps(vp, viewProj);
         ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1);
         ctx.OutputMerger.SetDepthStencilState(renderer.DepthRead);
         if (skyView) { ctx.Rasterizer.State = renderer.CullNone; DrawMapWater(vp, viewProj); }
+        VpProf("lamps + water");
         if (MapMode && !wireOnly(vp)) MapDraw(true);
         else foreach (var o in drawList)
         {
             renderer.DrawObject(Scene, o, true, Vector4.Zero, BackfaceCull);
         }
+        VpProf("see-through models");
         if (skyView) { ctx.Rasterizer.State = renderer.CullNone; DrawMapLights(vp, viewProj); ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1); }
         if (hdrView)
         {
@@ -431,6 +445,7 @@ public sealed partial class EditorApp : IDisposable
             hdrImage.End(gpu, Settings.MapExposure * MathF.Max(mapLight.Adaptation, 1), vp.X, vp.Y, vp.W, vp.H, cam.Projection(vp.Aspect), cam.Near, cam.Far, share, Settings.MapBloom ? 0.5f * 0.2f / 6f : 0);
             ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1);
         }
+        VpProf("image (HDR, occlusion, glow)");
         DrawSplats(vp);
 
         // wires, edges, selection, brackets, creation preview
