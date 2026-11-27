@@ -11,6 +11,8 @@ public enum UiMode { Blender, Max }
 public sealed class AppSettings
 {
     public UiMode Mode { get; set; } = UiMode.Blender;
+    /// <summary>The optional Molo look: black, orange and green of the logo, round corners, soft animations.</summary>
+    public bool MoloLook { get; set; }
     /// <summary>False until the user picked Blender or 3ds Max mode in the first-run dialog.</summary>
     public bool ModeChosen { get; set; }
     public Keymap Keymap { get; set; } = Keymap.Blender;

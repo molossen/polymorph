@@ -64,6 +64,8 @@ public sealed partial class EditorApp
             {
                 if (ImGui.MenuItem("Standard", null, Settings.Mode == UiMode.Blender)) SetMode(UiMode.Blender);
                 if (ImGui.MenuItem("Classic (4 views)", null, Settings.Mode == UiMode.Max)) SetMode(UiMode.Max);
+                ImGui.Separator();
+                if (ImGui.MenuItem("Molo look (black, orange, green, animated)", null, Settings.MoloLook)) SetMoloLook(!Settings.MoloLook);
                 ImGui.EndMenu();
             }
             ImGui.Separator();
@@ -351,6 +353,13 @@ public sealed partial class EditorApp
         ImGui.SetNextWindowPos(new Vector2(0, gpu.Height - statusH));
         ImGui.SetNextWindowSize(new Vector2(gpu.Width, statusH));
         ImGui.Begin("##status", Fixed | ImGuiWindowFlags.NoScrollbar);
+        if (Theme.Neon)
+        {
+            // Molo look: one sliding orange-to-green line under the toolbar and over the status bar
+            var fg = ImGui.GetForegroundDrawList();
+            Theme.AccentLine(fg, new Vector2(0, menuH + toolbarH - 2), new Vector2(gpu.Width, menuH + toolbarH - 2), 2f, 0.9f);
+            Theme.AccentLine(fg, new Vector2(0, gpu.Height - statusH), new Vector2(gpu.Width, gpu.Height - statusH), 1f, 0.6f);
+        }
         var cur = Current;
         string selText = Level != SubObject.Object && cur != null
             ? $"{SubSel(cur).Count(Level)} {Level}{(SubSel(cur).Count(Level) == 1 ? "" : "s")} Selected"

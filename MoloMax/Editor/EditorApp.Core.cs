@@ -83,7 +83,7 @@ public sealed partial class EditorApp : IDisposable
         // Classic is only a look (colours + 4 views): the keys stay Standard or Industry Compatible
         if (Settings.Keymap == Keymap.Max) Settings.Keymap = Keymap.Blender;
         Settings.KeymapChosen = true; Settings.ModeChosen = true;
-        Theme.Apply(Settings.Mode);
+        Theme.Apply(Settings.Mode, Settings.MoloLook);
         Maximized = Settings.Mode == UiMode.Blender;
         Viewports[3].Camera.Frame(new Vector3(-4, -4, 0), new Vector3(4, 4, 3));
         foreach (var v in Viewports.Take(3)) v.Camera.OrthoHeight = 16;
@@ -718,6 +718,15 @@ public sealed partial class EditorApp : IDisposable
             dl.PopClipRect();
             if (i == ActiveViewport) TutorialOverlay();
             uint border = i == ActiveViewport ? ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 0.82f, 0.25f, 1)) : 0xFF202020;
+            if (Theme.Neon && i == ActiveViewport)
+            {
+                // Molo look: the active view is framed by a line sliding from orange to green
+                Theme.AccentLine(dl, new Vector2(min.X - 1, min.Y - 2), new Vector2(max.X + 1, min.Y - 2));
+                Theme.AccentLine(dl, new Vector2(min.X - 1, max.Y), new Vector2(max.X + 1, max.Y));
+                Theme.AccentLine(dl, new Vector2(min.X - 2, min.Y - 1), new Vector2(min.X - 2, max.Y + 1));
+                Theme.AccentLine(dl, new Vector2(max.X, min.Y - 1), new Vector2(max.X, max.Y + 1));
+            }
+            else
             dl.AddRect(min - Vector2.One, max + Vector2.One, border, 0, ImDrawFlags.None, i == ActiveViewport ? 2f : 1f);
         }
     }

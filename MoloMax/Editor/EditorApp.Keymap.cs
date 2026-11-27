@@ -48,11 +48,19 @@ public sealed partial class EditorApp
         });
     }
 
+    /// <summary>The optional Molo look on or off (colours and animations only: layout and keys do not change).</summary>
+    public void SetMoloLook(bool on)
+    {
+        Settings.MoloLook = on; Settings.Save();
+        Theme.Apply(Settings.Mode, on);
+        SetStatus(on ? "Molo look on: black, orange and green, soft animations." : "Molo look off.");
+    }
+
     /// <summary>Standard or Classic look: colours and viewport layout only, the keys do not change.</summary>
     public void SetMode(UiMode mode)
     {
         Settings.Mode = mode; Settings.ModeChosen = true; Settings.Save();
-        Theme.Apply(mode);
+        Theme.Apply(mode, Settings.MoloLook);
         Maximized = mode == UiMode.Blender;
         SetStatus(mode == UiMode.Blender ? "Standard look: one big view." : "Classic look: classic colours and 4 views. Your keys stay the same.");
     }

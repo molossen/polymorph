@@ -16,6 +16,7 @@ public sealed partial class EditorApp
 {
     enum PropTab { Map, Tool, Scene, Object, Modifiers, Data, Material, Light, Paint, Gta, Weapon, Vehicle, Ped, Tripo, Addons }
     PropTab propTab = PropTab.Object;
+    float tabMarkY = -1; // Molo look: where the sliding marker of the open tab is
     SubObject propLastLevel = SubObject.Object; PropTab? propTabBeforeEdit;
     int materialSlot;
 
@@ -68,9 +69,22 @@ public sealed partial class EditorApp
             bool hov = ImGui.IsItemHovered();
             ImGui.PopID();
             if (on || hov) dl.AddRectFilled(p, p + new Vector2(24, 24), ImGui.ColorConvertFloat4ToU32(on ? Theme.Panel : Theme.Button), 4);
+            if (Theme.Neon)
+            {
+                // Molo look: an orange marker slides to the open tab, the icon under the mouse lifts a little
+                if (on) { float dtT = MathF.Min(ImGui.GetIO().DeltaTime, 0.05f); tabMarkY = tabMarkY < 0 ? p.Y : tabMarkY + (p.Y - tabMarkY) * (1 - MathF.Exp(-dtT * 16f)); }
+                float lift = Theme.Ease(0x7AB00000u + (uint)tab, hov);
+                if (lift > 0.01f) dl.AddRect(p, p + new Vector2(24, 24), ImGui.ColorConvertFloat4ToU32(new Vector4(Theme.NeonOrange.X, Theme.NeonOrange.Y, Theme.NeonOrange.Z, 0.8f * lift)), 5, ImDrawFlags.None, 1.5f);
+            }
             DrawTabIcon(dl, tab, p + new Vector2(12, 12), col);
             if (hov) ImGui.SetTooltip(tip);
             ImGui.SetCursorScreenPos(new Vector2(ImGui.GetWindowPos().X, p.Y + 27));
+        }
+        if (Theme.Neon && tabMarkY >= 0)
+        {
+            var wp = ImGui.GetWindowPos();
+            dl.AddRectFilled(new Vector2(wp.X, tabMarkY + 3), new Vector2(wp.X + 3, tabMarkY + 21), ImGui.ColorConvertFloat4ToU32(Theme.NeonOrange), 2);
+            dl.AddRectFilled(new Vector2(wp.X, tabMarkY + 3), new Vector2(wp.X + 7, tabMarkY + 21), ImGui.ColorConvertFloat4ToU32(new Vector4(Theme.NeonOrange.X, Theme.NeonOrange.Y, Theme.NeonOrange.Z, 0.18f)), 3);
         }
         ImGui.Dummy(Vector2.Zero); // ImGui needs an item after moving the cursor
         ImGui.EndChild();
