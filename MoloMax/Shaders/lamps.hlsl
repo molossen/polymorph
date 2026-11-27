@@ -1,7 +1,9 @@
 // MoloMax - the map's lamps at night lighting the surfaces around them (street lamps, lit windows, signs).
 // One patch per lamp facing the camera; each pixel of it finds the surface behind from the depth, its facing from the
-// depth next to it, and brightens it. Added by blending (destination colour x light): the colour drawn there already
-// stands for the surface under the night's sky light, so x (lamp / sky light) gives the surface's own colour x lamp.
+// depth next to it, and adds the lamp's light on it. The colour of the surface is worked out from a copy of the image
+// drawn so far: that colour stands for the surface under the night's sky light, so (colour / sky light) is the surface's
+// own colour, never more than white. A glowing thing (a bulb, a lit sign, a window) therefore takes no more light than a
+// white wall would: multiplying what was on screen made every lamp globe and neon near a lamp blow up into a glare.
 cbuffer LampVars : register(b0)
 {
     row_major float4x4 ViewProj;   // camera-relative point -> image
@@ -10,6 +12,7 @@ cbuffer LampVars : register(b0)
     float4 Right;    // xyz camera right, w strength (1 / the night's sky light)
     float4 Up;       // xyz camera up, w hour (0 to 23)
     float4 Origin;   // xy top-left of the view in the image (pixels), zw its size
+    float4 Sky;      // rgb the night's sky light the surfaces were drawn under
 };
 struct Lamp
 {
@@ -17,6 +20,7 @@ struct Lamp
 };
 StructuredBuffer<Lamp> Lamps : register(t0);
 Texture2DMS<float> Depth : register(t1);
+Texture2D<float4> Scene : register(t2);
 
 static const float4 Hidden = float4(-4, -4, 0.5, 1);
 
@@ -70,5 +74,9 @@ float4 PSLamp(LAMP_OUT i) : SV_Target
     float window = 1 - d2 / r2;
     float strength = window * window * 3 / (1 + d2 * 0.02);
     if (lamp.CosOuter > -1.5) strength *= smoothstep(lamp.CosOuter, lamp.CosInner, dot(-l, lamp.Direction));
-    return float4(min(lamp.Color * (strength * facing * Right.w * i.fade), 24), 0);
+    float3 surface = saturate(Scene.Load(int3(px, 0)).rgb / Sky.rgb);
+    // dark surfaces stay dark, but not black: a wet road or a dark wall still shows the pool of light
+    surface = max(surface, 0.04);
+    float3 light = min(lamp.Color * (strength * facing * Right.w * i.fade), 6);
+    return float4(surface * light, 0);
 }

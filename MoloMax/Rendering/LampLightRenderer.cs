@@ -21,7 +21,7 @@ public sealed class LampLightRenderer : IDisposable
         public Vector3 Direction; public float CosOuter; public float CosInner; public uint Hours; public float Spare1, Spare2;
     }
     [StructLayout(LayoutKind.Sequential)]
-    struct Vars { public Matrix4x4 ViewProj, Unproject; public Vector4 Camera, Right, Up, Origin; }
+    struct Vars { public Matrix4x4 ViewProj, Unproject; public Vector4 Camera, Right, Up, Origin, Sky; }
 
     /// <summary>Distance up to which the lamps light the surfaces (m).</summary>
     public const float LitDistance = 300f;
@@ -40,7 +40,7 @@ public sealed class LampLightRenderer : IDisposable
         var bd = new BlendStateDescription();
         bd.RenderTarget[0] = new RenderTargetBlendDescription
         {
-            IsBlendEnabled = true, SourceBlend = BlendOption.DestinationColor, DestinationBlend = BlendOption.One, BlendOperation = BlendOperation.Add,
+            IsBlendEnabled = true, SourceBlend = BlendOption.One, DestinationBlend = BlendOption.One, BlendOperation = BlendOperation.Add,
             SourceAlphaBlend = BlendOption.Zero, DestinationAlphaBlend = BlendOption.One, AlphaBlendOperation = BlendOperation.Add, RenderTargetWriteMask = ColorWriteMaskFlags.All,
         };
         multiplyAdd = new BlendState(device, bd);
@@ -80,29 +80,30 @@ public sealed class LampLightRenderer : IDisposable
     }
 
     /// <summary>Lights the surfaces drawn so far into the bound image (no depth bound: <paramref name="depth"/> is a copy).
-    /// viewProj: the scene's; strength: 1 / the night's sky light, times how far into the night.</summary>
-    public void Draw(Matrix4x4 viewProj, Vector3 eye, Vector3 right, Vector3 up, int hour, float strength, ShaderResourceView depth, float x, float y, float w, float h)
+    /// viewProj: the scene's; strength: how far into the night, times the Lamp light setting; sky: the night's sky light the
+    /// surfaces were drawn under; scene: a copy of the image so far (what each surface looks like).</summary>
+    public void Draw(Matrix4x4 viewProj, Vector3 eye, Vector3 right, Vector3 up, int hour, float strength, Vector3 sky, ShaderResourceView scene, ShaderResourceView depth, float x, float y, float w, float h)
     {
-        if (lampsSrv == null || depth == null || strength <= 0) return;
+        if (lampsSrv == null || depth == null || scene == null || strength <= 0) return;
         var rel = Matrix4x4.CreateTranslation(eye) * viewProj;
         Matrix4x4.Invert(rel, out var unproject);
         var v = new Vars
         {
             ViewProj = rel, Unproject = unproject, Camera = new Vector4(eye, LitDistance), Right = new Vector4(right, strength),
-            Up = new Vector4(up, Math.Clamp(hour, 0, 23)), Origin = new Vector4(x, y, w, h),
+            Up = new Vector4(up, Math.Clamp(hour, 0, 23)), Origin = new Vector4(x, y, w, h), Sky = new Vector4(Vector3.Max(sky, new Vector3(0.02f)), 0),
         };
         ctx.UpdateSubresource(ref v, cb);
         ctx.InputAssembler.InputLayout = null; ctx.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleStrip;
         ctx.VertexShader.Set(vs); ctx.GeometryShader.Set(null); ctx.PixelShader.Set(ps);
         ctx.VertexShader.SetConstantBuffer(0, cb); ctx.PixelShader.SetConstantBuffer(0, cb);
-        ctx.VertexShader.SetShaderResource(0, lampsSrv); ctx.PixelShader.SetShaderResource(0, lampsSrv); ctx.PixelShader.SetShaderResource(1, depth);
+        ctx.VertexShader.SetShaderResource(0, lampsSrv); ctx.PixelShader.SetShaderResource(0, lampsSrv); ctx.PixelShader.SetShaderResource(1, depth); ctx.PixelShader.SetShaderResource(2, scene);
         ctx.OutputMerger.SetBlendState(multiplyAdd, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0), -1);
         ctx.OutputMerger.SetDepthStencilState(noDepth, 0);
         var prevRas = ctx.Rasterizer.State;
         ctx.Rasterizer.State = noCull;
         ctx.Rasterizer.SetScissorRectangle((int)x, (int)y, (int)(x + w), (int)(y + h));
         ctx.DrawInstanced(4, count, 0, 0);
-        ctx.VertexShader.SetShaderResource(0, null); ctx.PixelShader.SetShaderResource(0, null); ctx.PixelShader.SetShaderResource(1, null);
+        ctx.VertexShader.SetShaderResource(0, null); ctx.PixelShader.SetShaderResource(0, null); ctx.PixelShader.SetShaderResource(1, null); ctx.PixelShader.SetShaderResource(2, null);
         ctx.OutputMerger.SetBlendState(null, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0), -1);
         ctx.OutputMerger.SetDepthStencilState(null, 0);
         ctx.Rasterizer.State = prevRas; prevRas?.Dispose();

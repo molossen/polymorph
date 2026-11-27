@@ -65,21 +65,23 @@ public sealed partial class EditorApp
     }
 
     LampLightRenderer lampsR; bool lampsFailed;
+    /// <summary>Tuning of the lamps' light against the surfaces (tests may change it).</summary>
+    internal float LampGain = 1f;
     /// <summary>Night, HDR: the map's lamps light the surfaces around them (after the opaque map, before water and glows).</summary>
     void DrawMapLamps(Viewport vp, Matrix4x4 viewProj)
     {
         if (lampsR == null || !Settings.MapNightLights || !MapNrLookOn || !mapLight.IsHdr || hdrImage == null) return;
         float night = mapLight.NightLights;
         if (night <= 0.01f) return;
-        var depth = hdrImage.CopyDepth(gpu);
-        if (depth == null) return;
+        var (scene, depth) = hdrImage.Snapshot(gpu);
+        if (depth == null || scene == null) return;
         // the colour already drawn is the surface under the night's sky light: lamp / sky light gives surface x lamp
         var sky = (mapLight.SkyAmbient + mapLight.GroundAmbient) * 0.5f;
         float skyLum = MathF.Max(0.03f, Vector3.Dot(sky, new Vector3(0.2126f, 0.7152f, 0.0722f)));
-        float strength = night * Settings.MapLampLight / skyLum * 0.12f;
+        float strength = night * Settings.MapLampLight * 0.12f * LampGain;
         var cam = vp.Camera;
         hdrImage.BindColorOnly();
-        lampsR.Draw(viewProj, cam.Eye, cam.Right, Vector3.Normalize(Vector3.Cross(cam.Right, cam.Forward)), (int)MathF.Floor(Hour) % 24, strength, depth, vp.X, vp.Y, vp.W, vp.H);
+        lampsR.Draw(viewProj, cam.Eye, cam.Right, Vector3.Normalize(Vector3.Cross(cam.Right, cam.Forward)), (int)MathF.Floor(Hour) % 24, strength, sky * (skyLum / MathF.Max(1e-4f, Vector3.Dot(sky, new Vector3(0.2126f, 0.7152f, 0.0722f)))), scene, depth, vp.X, vp.Y, vp.W, vp.H);
         hdrImage.Rebind(gpu);
         renderer.RebindScene();
     }
