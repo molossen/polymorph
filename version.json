@@ -1,7 +1,7 @@
 {
-  "version": "2.0.0",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-2.0.0.exe",
-  "size": 70733593,
-  "sha256": "b94b2eac97257383c7790ce135d44a4dddf98af1c3cca92d66a36b73f6042e53",
-  "notes": "- Play mode: walk on the map at eye height (ZQSD / WASD, Shift run, Space jump, swim)\n- The game's sea: swell, waves along the shore, foam, sun glints; pools and rivers filled\n- Smooth streaming like the game: no holes or floating buildings while the city loads\n- Shadows up to 1 km, haze 12 km, view distance x2, anisotropic x16\n- File > Import map folder: open a whole FiveM map resource in MAP mode\n- Terrain layers paint on your own maps with big triangles\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "2.0.1",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-2.0.1.exe",
+  "size": 70735314,
+  "sha256": "6f06cf025cfd73dc1787c444b6db343465cc5d6d3de9729036d5d3dc1e12fb3d",
+  "notes": "- Add this model to my project: big button in MAP mode, your own copy of any map model, ready to edit, save and export\n- The same modeling tools in MAP as in MODEL mode (Modifiers, Material, Paint, Data)\n- 4-layer terrain paint works in MAP mode\n- Windows and neon lit only at night, like in game\n- Twice as smooth while the city loads, first models read twice as fast\n- Sun rays and a Sharpness slider (Look panel)\n- Optional Molo look (View menu): black, orange, green, soft animations\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
