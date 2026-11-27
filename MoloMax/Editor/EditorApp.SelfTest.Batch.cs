@@ -1267,7 +1267,7 @@ public sealed partial class EditorApp
                 while ((DateTime.Now - t0).TotalSeconds < sec) yield return Frames(1);
                 int s0 = stDts.Count; yield return Frames(20);
                 var dd = stDts.Skip(s0).Where(x => x > 0).OrderBy(x => x).ToList();
-                Note($"{name} +{sec} s: frame {(dd.Count > 0 ? dd[dd.Count / 2] * 1000 : 0):0.0} ms, models loading {archLoading}, textures waiting {renderer.Textures.Pending}, drawn {MapVisible:N0}; profile {ProfileText(7)}; draws {renderer.StatDraws:N0}, triangles {renderer.StatTris:N0}");
+                Note($"{name} +{sec} s: frame {(dd.Count > 0 ? dd[dd.Count / 2] * 1000 : 0):0.0} ms, models loading {archLoading}, textures waiting {renderer.Textures.Pending}, drawn {MapVisible:N0}; profile {ProfileText(7)}; draws {renderer.StatDraws:N0}, triangles {renderer.StatTris:N0}; memory: process {System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 / 1048576:N0} MB, managed {GC.GetTotalMemory(false) / 1048576:N0} MB, map engine on the card {MapEngineGpuBytes / 1048576:N0} MB, own textures {renderer.Textures.GpuBytes / 1048576:N0} MB, own meshes {renderer.MeshCount}");
                 yield return Shot($"cmp_{name}_{sec}s");
                 if (name == "sea_close" && sec == 30)
                 {
@@ -1287,6 +1287,7 @@ public sealed partial class EditorApp
                     Settings.MapWaterWaves = w0; cam.Pitch = p0; cam.Target = eye + cam.Forward * 20;
                 }
                 if (PlayOn) Note($"Play is on during the comparison (started by {playStartedBy})");
+                if (sec == 3) Expect(!gameWaterFailed, $"the water shader works (failed {gameWaterFailed}; status: {status})");
                 if (sec == 3) Note($"water: quads {gameWaterData?.Quads.Count}, drawn by the game water {gameWater != null}, failed {gameWaterFailed}, task {gameWaterTask?.Status}, look {MapNrLookOn}, HDR {mapLight.IsHdr}, image {hdrImage != null}, DX11 {gpu.FeatureLevel11}, water on {Settings.MapWater}; colour maps {gameWaterData?.ColorMaps.Count}, ocean waves {gameWaterData?.OceanWaves != null}, shore {gameWaterData?.ShoreWaves != null}, ripples {gameWaterData?.Ripples != null}, foam {gameWaterData?.Foam != null}, caustics {gameWaterData?.Caustics != null}, errors: {string.Join(" | ", gameWaterData?.Errors ?? new List<string>())}; {status}");
             }
             // what is where on screen (holes, odd surfaces): a grid of picks
@@ -1593,7 +1594,14 @@ public sealed partial class EditorApp
         Settings.MapViewDistance = vd; Settings.MapShadowDistance = sd;
     }
 
+    /// <summary>The MAP mode of Polymorph's own map path (level-of-detail world, editable copies around the camera): still what
+    /// draws the map in Play, without HDR, or in a build without the map engine. Run with the map engine off.</summary>
     IEnumerable<object> MapModeTest(string gtaFolder)
+    {
+        return OwnMapPath(MapModeOwnPathTest(gtaFolder));
+    }
+
+    IEnumerable<object> MapModeOwnPathTest(string gtaFolder)
     {
         Fresh();
         var modelCount = Scene.Objects.Count;

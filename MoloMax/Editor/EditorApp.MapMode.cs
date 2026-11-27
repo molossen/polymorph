@@ -42,6 +42,7 @@ public sealed partial class EditorApp
     /// <summary>HD around the camera loads by itself when the camera is close (like the game) and goes when it zooms out.
     /// Off: only a click on the far world loads an area.</summary>
     public bool MapStream = true;
+    Vector3 mapEyePrev; double mapEyeTime, mapFlyingUntil;
     /// <summary>Camera distance (zoom) under which the HD around it loads.</summary>
     public float MapHdZoom = 600f;
     readonly Queue<YmapInfo> mapStreamQueue = new();
@@ -124,6 +125,7 @@ public sealed partial class EditorApp
             var p = next.Cams[3];
             p.Target = new Vector3(195, -934, 30); p.Distance = 80;
         }
+        if (!on) { try { ReleaseWorldModels(true); } catch { } } // leaving MAP: the models read for the far world go
         otherMode = cur;
         MapMode = on;
         // map mode allocates a lot while streaming: avoid blocking full collections (hitches)
@@ -178,12 +180,20 @@ public sealed partial class EditorApp
         }
         PumpMapLoad(); Prof("map load");
         PumpWorldEntities(); TrimWorldModels();
+        renderer.Textures.Trim(MapTextureBudget());
         // the level-of-detail world replaces the far models (they are not even read while the world is being read)
         if (!Settings.MapLodTree) PumpBackdrop();
         else if (LodTreeOn && backdrop.Count > 0) { backdropCancel?.Cancel(); ClearBackdrop(); }
         Prof("map far");
         PumpArchetypes(); Prof("map models");
-        if (MapStream && world != null && ImGui.GetTime() - mapLastStream > 0.5) { mapLastStream = ImGui.GetTime(); StreamWorld(HdStreamingNow); }
+        // flying over the map: the editable copies of what is around the camera wait until it slows down (the map itself
+        // is drawn by its levels of detail; opening thousands of objects for editing every second made the flight jerk)
+        {
+            var eyeNow = Viewports[ActiveViewport].Camera.Eye; double tn = ImGui.GetTime();
+            float dtm = (float)(tn - mapEyeTime);
+            if (dtm > 0.05f) { if (dtm < 1 && Vector3.Distance(eyeNow, mapEyePrev) / dtm > 12f) mapFlyingUntil = tn + 0.7; mapEyePrev = eyeNow; mapEyeTime = tn; }
+        }
+        if (MapStream && !MapEngineOn && world != null && ImGui.GetTime() > mapFlyingUntil && ImGui.GetTime() - mapLastStream > 0.5) { mapLastStream = ImGui.GetTime(); StreamWorld(HdStreamingNow); }
         WorldSelectAfterLoad();
         PinPickedMaps();
         AutoInteriors();
@@ -444,9 +454,12 @@ public sealed partial class EditorApp
         var size = Vector3.Max(s.Max - s.Min, new Vector3(0.2f));
         m = Primitives.Box(size.X, size.Y, size.Z);
         m.Transform(Matrix4x4.CreateTranslation(new Vector3((s.Min.X + s.Max.X) * 0.5f, (s.Min.Y + s.Max.Y) * 0.5f, s.Min.Z)));
-        placeholders[s] = m;
+        placeholders[s] = m; placeholderOf[m] = s;
         return m;
     }
+    readonly Dictionary<PolyMesh, ArchSlot> placeholderOf = new();
+    /// <summary>The box standing for a model still being read (not one that could not be found: that box stays, something is there).</summary>
+    bool StillLoadingBox(PolyMesh m) => placeholderOf.TryGetValue(m, out var s) && s.State < 2;
 
     /// <summary>A Drawable / prop of the MODEL scene used as an archetype (its game meshes joined).</summary>
     PolyMesh ProjectModel(string name)
@@ -563,7 +576,7 @@ public sealed partial class EditorApp
             {
                 if (o.InstanceKey == null || !mapSlotOf.TryGetValue(o.InstanceKey, out var s) || s.State != 0) continue;
                 if (o.Id < 0 && (FarSteppedAside(o, eye) || !FarLodVisible(o, eye))) continue; // far model not shown at this distance
-                s.Priority = MathF.Min(s.Priority, Vector3.DistanceSquared(o.Position, eye));
+                s.Priority = MathF.Min(s.Priority, Vector3.DistanceSquared(o.Position, eye) / 100f); // like the world's: distance over size (about 10 m)
             }
             WorldPriorities(eye);
             archQueue.Clear(); archQueue.AddRange(archSlots.Values.Where(s => s.State == 0 && s.Priority < float.MaxValue).OrderBy(s => s.Priority));

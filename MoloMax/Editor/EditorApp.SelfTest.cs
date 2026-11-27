@@ -93,7 +93,10 @@ public sealed partial class EditorApp
 
     void EndTest()
     {
-        St.Done = true; St.Ms = stClock.ElapsedMilliseconds; stCur = null;
+        St.Done = true; St.Ms = stClock.ElapsedMilliseconds;
+        // a test cut short (timed out, exception) still runs its clean-up (settings put back): the next tests start as usual
+        try { (stCur as IDisposable)?.Dispose(); } catch { }
+        stCur = null;
         WriteSelfTestReport(false);
     }
 
@@ -204,9 +207,12 @@ public sealed partial class EditorApp
             T("MAP LOOK: the reference view (Tataviam, 13:00)", () => MapLookTest(gtaFolder));
             T("COMPARE: the reference spots, pictures after 3, 10 and 30 s", () => CompareTest(gtaFolder));
             T("PLAY: walk on the map (ground, steps, walls, jump, swim)", () => PlayTest(gtaFolder));
+            T("FLIGHT: the reference flight over Legion Square (filmed from outside), frame times", () => FlightTest(gtaFolder));
+            T("MAP ENGINE: the game's map by the map engine, click a model, night", () => EngineTest(gtaFolder));
+            if ((Environment.GetEnvironmentVariable("POLYMORPH_ST_ONLY") ?? "").Contains("MEMORY DIAG")) T("MEMORY DIAG: where the memory goes in MAP mode", () => MemoryDiag(gtaFolder));
             T("MAP image: sun rays and sharpness on and off (pictures, cost)", () => SunRaysTest(gtaFolder));
             T("LIBRARY BUILD: texture library from my own GTA V (every interior)", () => LibraryBuildTest(gtaFolder));
-            T("MAP modeling: build on the map, MLO rooms, edit a game model in place", () => MapBuildTest(gtaFolder));
+            T("MAP modeling: build on the map, MLO rooms, edit a game model in place", () => OwnMapPath(MapBuildTest(gtaFolder)));
             T("FORGE: weapon and vehicle from a model, game donors", () => ForgeTest(gtaFolder));
             T("PED FORGE: a model becomes a ped (deer + man donors)", () => PedForgeTest(gtaFolder));
             if (ytyp != null && File.Exists(ytyp)) T("MLO import with its models taken from the game", () => MloReal(ytyp));
@@ -223,6 +229,7 @@ public sealed partial class EditorApp
         Tools17Tests(T);
         Tutorials(T);
         var only = Environment.GetEnvironmentVariable("POLYMORPH_ST_ONLY");
+        if (Environment.GetEnvironmentVariable("POLYMORPH_ST_ENGINE") == "0") Settings.MapEngine = false; // the whole run on Polymorph's own map path
         // the tutorial videos are recorded only when asked for ("TUTO" in the filter)
         if (string.IsNullOrEmpty(only) || !only.Contains("TUTO", StringComparison.OrdinalIgnoreCase)) list.RemoveAll(t => t.Name.StartsWith("TUTO"));
         if (!string.IsNullOrEmpty(only))

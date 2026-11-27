@@ -3550,7 +3550,9 @@ room.Mesh.Faces.Count");
         yield return Frames(3);
     }
 
-    IEnumerable<object> MapHideSendTest()
+    IEnumerable<object> MapHideSendTest() => OwnMapPath(MapHideSendTestOwnPath());
+
+    IEnumerable<object> MapHideSendTestOwnPath()
     {
         var gtaFolder = SelfTestArgs.ElementAtOrDefault(0);
         Fresh();
@@ -4047,7 +4049,9 @@ room.Mesh.Faces.Count");
         UI.ImGuiBackend.SyntheticInput = false;
     }
 
-    IEnumerable<object> MapMloHideTest()
+    IEnumerable<object> MapMloHideTest() => OwnMapPath(MapMloHideTestOwnPath());
+
+    IEnumerable<object> MapMloHideTestOwnPath()
     {
         var gtaFolder = SelfTestArgs.ElementAtOrDefault(0);
         Fresh();
@@ -4220,7 +4224,22 @@ room.Mesh.Faces.Count");
         }
     }
 
+    /// <summary>Diagnostics of Polymorph's own map path (streamed editable copies, interiors): run with the map engine off.</summary>
     IEnumerable<object> MapDiag()
+    {
+        return OwnMapPath(MapDiagOwnPath());
+    }
+
+    /// <summary>Runs a test of Polymorph's own map path with the map engine off (POLYMORPH_ST_ENGINE=1 leaves it on, to look for trouble).</summary>
+    IEnumerable<object> OwnMapPath(IEnumerable<object> body)
+    {
+        bool engine0 = Settings.MapEngine;
+        Settings.MapEngine = engine0 && Environment.GetEnvironmentVariable("POLYMORPH_ST_ENGINE") == "1";
+        try { foreach (var x in body) yield return x; }
+        finally { Settings.MapEngine = engine0; }
+    }
+
+    IEnumerable<object> MapDiagOwnPath()
     {
         var gtaFolder = SelfTestArgs.ElementAtOrDefault(0);
         Fresh();

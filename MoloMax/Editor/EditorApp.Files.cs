@@ -248,6 +248,7 @@ public sealed partial class EditorApp
                 o.Name = UniqueImportName(im.Name, o);
                 o.GtaType = im.GtaType;
                 if (im.CollisionMaterial >= 0) o.Gta.CollisionMaterial = im.CollisionMaterial;
+                if (im.CollisionRoom > 0) o.Gta.RoomIdOverride = im.CollisionRoom; // the file's RoomID is kept (export writes it back)
                 if (!r.KeepFileOrigin) o.PivotToBase();           // origin at the bottom centre, like GTA props
                 subSel.Remove(o.Id);
                 created.Add(o);
@@ -299,6 +300,25 @@ public sealed partial class EditorApp
                     }
                     Scene.SetParent(o, node);
                     if (o.GtaType == GtaObjectType.Drawable && o.Name.Equals(model, StringComparison.OrdinalIgnoreCase)) o.Name = $"{model}_high_{hi++}";
+                }
+            }
+            // a collision file (.ybn) arrives as a collision group named after the file, its parts (one per material and
+            // RoomID) under it: found again at a glance in the Scene Explorer, like the collisions of a model
+            else if (created.Count > 0 && created.All(o => o.GtaType == GtaObjectType.Collision)
+                     && Path.GetExtension(ext == ".xml" ? Path.GetFileNameWithoutExtension(path) : path).Equals(".ybn", StringComparison.OrdinalIgnoreCase))
+            {
+                var model = Path.GetFileNameWithoutExtension(ext == ".xml" ? Path.GetFileNameWithoutExtension(path) : path);
+                node = Scene.Add(model, new PolyMesh(), target, GtaObjectType.CollisionGroup);
+                node.Name = model;
+                bool manyRooms = created.Select(o => o.Gta.RoomIdOverride).Distinct().Count() > 1;
+                var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase); int ci = 0;
+                foreach (var o in created)
+                {
+                    Scene.SetParent(o, node);
+                    string cm = MoloMax.Core.Gta.Export.CollisionMaterials.NameOf(o.Gta.CollisionMaterial).ToLowerInvariant();
+                    string nm = manyRooms ? $"{model}_{cm}_room{Math.Max(0, o.Gta.RoomIdOverride)}" : $"{model}_{cm}";
+                    if (!names.Add(nm)) { nm += "_" + ci; names.Add(nm); }
+                    ci++; o.Name = nm;
                 }
             }
             Selected.Clear();

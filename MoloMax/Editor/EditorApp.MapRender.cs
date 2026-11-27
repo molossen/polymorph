@@ -55,6 +55,8 @@ public sealed partial class EditorApp
         {
             var o = i < live.Count ? live[i] : backdrop[i - live.Count];
             if (o.Hidden || o.Mesh == null || o.Mesh.Faces.Count == 0) continue;
+            // a model still being read is not shown as a white box: it appears when it is there (selected: the box stays, to see where it is)
+            if (StillLoadingBox(o.Mesh) && !Selected.Contains(o.Id)) continue;
             if (o.Id < 0 && (FarSteppedAside(o, eye) || !FarLodVisible(o, eye))) continue; // far model: area loaded for editing, or another LOD level shows here
             if (i < live.Count && WorldHidesEditable(o)) continue; // level-of-detail world: another level of it shows here
             // time archetypes (night windows, glows): hidden outside their hours, unless selected (it stays reachable in the explorer)

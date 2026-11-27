@@ -93,6 +93,8 @@ public sealed class AppSettings
     public bool MapSky { get; set; } = true;
     /// <summary>MAP mode: the whole map read as light records and drawn along the game's level-of-detail tree.</summary>
     public bool MapLodTree { get; set; } = true;
+    /// <summary>MAP: the game's map read and drawn by the map engine (straight from the game's files to the graphics card).</summary>
+    public bool MapEngine { get; set; } = true;
     public bool MapFog { get; set; } = true;
     /// <summary>MAP: the game's water (sea, lakes, rivers) drawn.</summary>
     public bool MapWater { get; set; } = true;

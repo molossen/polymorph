@@ -233,6 +233,13 @@ public sealed partial class EditorApp
     /// <summary>Map mode click: on the far world it loads that area; on an editable entity the normal selection goes on.</summary>
     bool MapClick(Viewport hv)
     {
+        if (MapEngineOn && world != null)
+        {
+            // an object of the project under the mouse keeps the normal selection; else the game's model drawn by the map engine
+            var own = GpuPickMap(hv, Input.Mouse, o => o.Frozen);
+            if (own.HasValue && own.Value.Object.Id >= 0) return false;
+            return MapEngineClick(hv, Input.Mouse);
+        }
         if (world == null || backdrop.Count == 0 && !LodTreeOn) return false;
         // what is seen under the mouse (GPU): a far model loads its area, an editable one goes on to the selection
         var hit = GpuPickMap(hv, Input.Mouse, o => o.Frozen);

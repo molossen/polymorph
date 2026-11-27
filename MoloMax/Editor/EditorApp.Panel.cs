@@ -465,6 +465,20 @@ public sealed partial class EditorApp
         ImGui.SetNextWindowPos(new Vector2(explorerW + 40, menuH + toolbarH + 40), ImGuiCond.FirstUseEver);
         if (!ImGui.Begin("Material Editor - GTA Shaders", ref materialEditorOpen, ImGuiWindowFlags.NoSavedSettings)) { ImGui.End(); return; }
 
+        // a collision selected: what counts is its collision material and RoomID, not a shader
+        if (Current is { } colSel && colSel.GtaType is GtaObjectType.Collision or GtaObjectType.CollisionGroup)
+        {
+            var parts = colSel.GtaType == GtaObjectType.Collision ? new List<SceneObject> { colSel } : Scene.Objects.Where(x => x.ParentId == colSel.Id && x.GtaType == GtaObjectType.Collision).ToList();
+            if (parts.Count > 0)
+            {
+                Ui.Text(colSel.GtaType == GtaObjectType.Collision ? "Collision object" : $"Collision group, {parts.Count} part(s)");
+                foreach (var x in parts.Take(12))
+                    Ui.TextDisabled($"{x.Name}:  material {MoloMax.Core.Gta.Export.CollisionMaterials.NameOf(x.Gta.CollisionMaterial)},  RoomID {(x.Gta.RoomIdOverride < 0 ? "auto" : x.Gta.RoomIdOverride.ToString())}");
+                if (parts.Count > 12) Ui.TextDisabled($"... and {parts.Count - 12} more");
+                if (ImGui.Button("Collision settings (material, RoomID, flags)")) HubGo(HubPage.Collision);
+                ImGui.Separator();
+            }
+        }
         int gameMats = 0; foreach (var m in Scene.Materials) if (m.FromGame) gameMats++;
         // materials of the selection (the selected faces in Polygon mode): shown alone, the first one picked
         var used = MaterialsOfSelection();

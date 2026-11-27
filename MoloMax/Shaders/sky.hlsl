@@ -22,7 +22,7 @@ PS_IN VSMain(uint id : SV_VertexID)
 {
     PS_IN o;
     float2 p = float2((id << 1) & 2, id & 2) * 2.0 - 1.0;
-    o.pos = float4(p, 0.5, 1.0);
+    o.pos = float4(p, 1.0, 1.0); // the far end of the depth: drawn after the models, it only shows where nothing is
     o.ndc = p;
     return o;
 }

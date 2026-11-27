@@ -424,8 +424,17 @@ public sealed partial class EditorApp
     int nrCasterHash; double nrCasterCheck;
 
     double nrFarTime; bool nrFarPending; readonly double[] nrRetryAt = new double[MapShadowSlices.Count];
+    /// <summary>Parts of a frame that took long (hitch hunting): what, how long, when.</summary>
+    internal readonly List<string> SlowLog = new();
+    internal void Slow(string what, long t0, double over = 60)
+    {
+        double ms = System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+        if (ms > over && SlowLog.Count < 400) SlowLog.Add($"{ImGui.GetTime():0.0} s: {what} {ms:0} ms");
+    }
+
     void NrShadows(GtaGlobalLights gl)
     {
+        long sl0 = System.Diagnostics.Stopwatch.GetTimestamp();
         nrSlices ??= new MapShadowSlices(SceneRenderer.ShadowSize);
         var vp = Viewports[ActiveViewport]; var cam = vp.Camera;
         // something casting a shadow changed: other objects chosen, models arrived, editable objects moved
@@ -444,7 +453,9 @@ public sealed partial class EditorApp
         nrFarPending |= changed && !far;
         if (!changed && nrFarPending && ImGui.GetTime() - nrFarTime > 2.0) { changed = far = true; nrFarPending = false; nrFarTime = ImGui.GetTime(); }
         for (int i = 0; i < MapShadowSlices.Count; i++) if (nrRetryAt[i] > 0 && ImGui.GetTime() >= nrRetryAt[i]) { nrRetryAt[i] = 0; nrSlices.Unfinished(i); }
+        Slow("shadows: what changed", sl0, 20); sl0 = System.Diagnostics.Stopwatch.GetTimestamp();
         nrSlices.Update(cam.Eye, cam.Forward, cam.Right, cam.Fov, cam.Near, vp.Aspect, gl.LightDir, MathF.Max(50, Settings.MapShadowDistance), changed, far);
+        Slow("shadows: slices update", sl0, 20);
         for (int i = 0; i < MapShadowSlices.Count; i++)
         {
             if (!nrSlices.MustDraw(i)) continue;
@@ -452,6 +463,7 @@ public sealed partial class EditorApp
             // the wide images only take what is big enough to show at their resolution (a far slice covers kilometres:
             // benches and bins there are less than a texel and cost as much to draw as a building)
             float minR = i == 0 ? r / 300 : r / 90;
+            long s1 = System.Diagnostics.Stopwatch.GetTimestamp();
             var live = new List<SceneObject>();
             foreach (var o in MapLive())
             {
@@ -461,9 +473,12 @@ public sealed partial class EditorApp
                 if (i > 0 && (mx - mn).Length() * 0.5f < minR) continue;
                 live.Add(o);
             }
+            Slow($"shadows: slice {i} editable casters ({live.Count})", s1, 20); s1 = System.Diagnostics.Stopwatch.GetTimestamp();
             long ver = 0;
             var wl = WorldShadowCasters(c, r, ref ver, minR);
+            Slow($"shadows: slice {i} world casters ({wl.Count})", s1, 20); s1 = System.Diagnostics.Stopwatch.GetTimestamp();
             bool complete = renderer.RenderShadows(Scene, live, nrSlices.Cascades[i], gl, 8, wl, i, noDepthClip: true);
+            Slow($"shadows: slice {i} drawn (radius {r:0} m, {live.Count} + {wl.Count} casters, complete {complete})", s1, 20);
             // not every caster was on the graphics card yet: drawn again in a moment, not on the very next frame (while a
             // city streams in that redrew a whole shadow image every frame)
             if (!complete) nrRetryAt[i] = ImGui.GetTime() + (i == 0 ? 0.3 : 0.8);

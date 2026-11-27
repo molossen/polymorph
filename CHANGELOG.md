@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [2.1.0](#210) | Map engine: the city sharp at once and 60 frames a second while flying, click any map model, lighter memory, real water again |
 | [2.0.1](#201) | Model your map in MAP mode (Add model button, all tools), twice as smooth in the city, sun rays, optional Molo look |
 | [2.0.0](#200) | Play mode (walk on the map), the game's sea with waves, smooth streaming, import a whole map folder |
 | [1.9.0](#190) | New MAP mode: the whole game map with its levels of detail, new lighting, water, clouds |
@@ -49,6 +50,32 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 2.1.0
+
+**A new map engine: the whole city sharp at once, smooth while you fly.**
+
+- **Map engine** (MAP mode, on by default; World panel > **Map engine**): the game's map is drawn by a new engine built
+  for it. The city is sharp from the first second instead of coming in piece by piece, and a flight over Legion Square
+  holds 60 frames a second (it dropped to 3-9 before). Sky, clouds, sun shadows, haze, night lights and the sea go on
+  as before. It needs **HDR** and **New light**; without them, and in **Play**, Polymorph's own map drawing is used.
+- **Click any model of the map**: its map opens for editing and the model is selected, ready for the usual tools. The
+  maps you open are drawn by Polymorph and left out by the engine, so nothing is seen twice.
+- **Much lighter on memory**: the two ways of drawing the map no longer work at the same time, the models read for the
+  far map are let go when they are not needed and when you leave MAP mode, and textures nothing draws any more leave
+  the graphics card. A long MAP session levels off around 7 GB on the graphics card where it could climb to 20 GB.
+- **Collision files (.ybn)** arrive as a collision group named after the file, with one part per material and RoomID
+  under it. The RoomID of the file is kept and written back on export. With a collision selected, the Material Editor
+  shows its collision material and RoomID, and a button opens the collision settings.
+- **No more white boxes** in MAP mode while a model is being read: it appears when it is there (a model that cannot be
+  found keeps its box).
+- **Play**: no shortcut fires while you walk (the letters only move you); Esc leaves.
+- **Play on the beach**: you land on the sand, not on a far model above it.
+- Sea: far from the shore the foam shows in patches instead of long regular bands.
+- Models and textures come in by what looks biggest on screen (ground and buildings before benches); a texture still
+  on its way shows a neutral grey instead of white.
+- Decals laid on the ground no longer flicker in and out of it seen from afar.
+- Polymorph now runs on .NET 10 (nothing to install: it is inside the download).
 
 ## 2.0.1
 

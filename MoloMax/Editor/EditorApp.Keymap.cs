@@ -72,6 +72,7 @@ public sealed partial class EditorApp
         var io = ImGui.GetIO();
         if (keyCapture != null) { KeyCaptureFrame(); return; } // Preferences > Keymap: recording a key
         if (io.WantTextInput) return; // Standard shortcuts work before first-run mode choice.
+        if (PlayOn) return; // Play: the keys walk, run and jump; no shortcut fires (Esc leaves Play, handled there)
         if (FlyKeysActive) return; // right button held: the letters move the camera (game-style)
         if (ModalActive) { ModalKeys(); return; }
         if (transforming) { if (ImGui.IsKeyPressed(ImGuiKey.Escape, false)) CancelTransform(); return; }

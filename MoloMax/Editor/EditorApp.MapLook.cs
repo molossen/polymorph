@@ -157,7 +157,8 @@ public sealed partial class EditorApp
 
     bool MapSkyOn(Viewport vp) => MapMode && Settings.MapSky && !vp.Camera.Ortho && vp.Shading == ShadingMode.Realistic && !wireOnly(vp) && !InteriorLight;
 
-    void DrawMapSky(Matrix4x4 viewProj)
+    /// <summary><paramref name="behind"/>: drawn after the solid models, only where the depth is still empty.</summary>
+    void DrawMapSky(Matrix4x4 viewProj, bool behind = false)
     {
         sky ??= new SkyRenderer(gpu.Device);
         if (MapNrLookOn)
@@ -173,13 +174,13 @@ public sealed partial class EditorApp
                 {
                     clouds ??= new CloudRenderer(gpu.Device);
                     var weather = MoloMax.Core.Gta.Look.CloudWeather.For(Enum.TryParse<MoloMax.Core.Gta.Look.Weather>(Settings.MapWeather, out var wt) ? wt : MoloMax.Core.Gta.Look.Weather.Clear);
-                    cloudImg = clouds.Render(viewProj, dv.Camera.Eye, ml, weather, (int)dv.W, (int)dv.H, 1);
+                    cloudImg = clouds.Render(viewProj, dv.Camera.Eye, ml, weather, (int)dv.W, (int)dv.H, 1, behind && gpu.SampleCount > 1 ? gpu.DepthRead : null, dv.X, dv.Y);
                 }
                 catch { cloudsFailed = true; }
                 gpu.Context.Rasterizer.SetViewport(dv.X, dv.Y, dv.W, dv.H);
                 gpu.Context.Rasterizer.SetScissorRectangle((int)dv.X, (int)dv.Y, (int)(dv.X + dv.W), (int)(dv.Y + dv.H));
                 hdrImage?.Rebind(gpu);
-                gpu.Context.OutputMerger.SetDepthStencilState(renderer.DepthOff);
+                gpu.Context.OutputMerger.SetDepthStencilState(behind ? renderer.DepthRead : renderer.DepthOff);
                 gpu.Context.Rasterizer.State = renderer.CullNone;
             }
             sky.Draw(viewProj, ml.Zenith, ml.Horizon, ml.SunDirection, ml.SunDisc, ml.IsHdr, ml.PhysicalSky, ml.NightLights, ml.SunTint, ml.Sun, 0, cloudImg);
@@ -279,6 +280,12 @@ public sealed partial class EditorApp
         bool px = renderer.Parallax;
         if (ImGui.Checkbox("Relief##maplook", ref px)) renderer.Parallax = px;
         Theme.Tip("Parallax (PXM): ground, stones and walls that have a height map look raised up close, like in the game.");
+        if (MapEngineAvailable)
+        {
+            ImGui.SameLine(); bool me = Settings.MapEngine;
+            if (ImGui.Checkbox("Map engine##maplook", ref me)) { Settings.MapEngine = me; Settings.Save(); }
+            Theme.Tip("Draws the game's map with the fast map engine: the city is sharp at once and stays smooth while you fly. Needs HDR and New light. Off: Polymorph's own map drawing (always used in Play).");
+        }
         if (Settings.MapFog)
         {
             float d = Settings.MapFogDistance;

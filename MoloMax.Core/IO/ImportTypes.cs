@@ -36,6 +36,8 @@ public sealed class ImportedMesh
     public Scenes.GtaObjectType GtaType = Scenes.GtaObjectType.Drawable;
     /// <summary>Collision material index (materials.dat) for imported bounds.</summary>
     public int CollisionMaterial = -1;
+    /// <summary>RoomID of imported bounds (0: outside / none).</summary>
+    public int CollisionRoom;
     /// <summary>Drawable dictionaries (.ydd): name hash of the drawable this mesh comes from (its archetype).</summary>
     public uint DrawableHash;
 }

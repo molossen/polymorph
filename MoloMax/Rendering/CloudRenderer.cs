@@ -17,7 +17,7 @@ namespace MoloMax.Rendering;
 public sealed class CloudRenderer : IDisposable
 {
     [StructLayout(LayoutKind.Sequential)]
-    struct Constants { public Matrix4x4 InverseViewProjection; public Vector4 Eye, Layer, Look, Wind, SunDir, SunLight, SkyLight, GroundLight; }
+    struct Constants { public Matrix4x4 InverseViewProjection; public Vector4 Eye, Layer, Look, Wind, SunDir, SunLight, SkyLight, GroundLight, View; }
 
     static readonly (int Divider, int Steps, int LightSteps)[] Qualities = { (4, 24, 3), (2, 48, 5), (2, 72, 6) };
     const float WindPeriod = 168000f;
@@ -74,7 +74,7 @@ public sealed class CloudRenderer : IDisposable
 
     /// <summary>Draws the clouds of the view into their own image (binds it: bind the scene's image again after). Null:
     /// no clouds yet.</summary>
-    public ShaderResourceView Render(Matrix4x4 viewProjection, Vector3 camera, in MapLighting lighting, CloudWeather weather, int viewWidth, int viewHeight, int quality)
+    public ShaderResourceView Render(Matrix4x4 viewProjection, Vector3 camera, in MapLighting lighting, CloudWeather weather, int viewWidth, int viewHeight, int quality, ShaderResourceView sceneDepth = null, float viewX = 0, float viewY = 0)
     {
         double now = clock.Elapsed.TotalSeconds;
         float elapsed = (float)Math.Clamp(now - lastTime, 0.0, 0.25); lastTime = now;
@@ -95,7 +95,8 @@ public sealed class CloudRenderer : IDisposable
         {
             InverseViewProjection = inverse, Eye = new Vector4(camera, 0),
             Layer = new Vector4(weather.Base, weather.Thickness, Math.Clamp(weather.Coverage, 0f, 1f), weather.Density * 0.03f),
-            Look = new Vector4(weather.Heaps, weather.Dark, steps, lightSteps), Wind = new Vector4(drift, 0f),
+            Look = new Vector4(weather.Heaps, weather.Dark, steps, lightSteps), Wind = new Vector4(drift, sceneDepth != null ? 1f : 0f),
+            View = new Vector4(viewX, viewY, viewWidth, viewHeight),
             SunDir = new Vector4(sunDirection, 0f), SunLight = new Vector4(sunLight, 0f),
             SkyLight = new Vector4(lighting.SkyAmbient * (1f - 0.6f * night), 0f), GroundLight = new Vector4(lighting.GroundAmbient * (1f - 0.6f * night), 0f),
         };
@@ -106,12 +107,12 @@ public sealed class CloudRenderer : IDisposable
         ctx.InputAssembler.InputLayout = null; ctx.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
         ctx.VertexShader.Set(vs); ctx.VertexShader.SetConstantBuffer(0, cb);
         ctx.PixelShader.Set(ps); ctx.PixelShader.SetConstantBuffer(0, cb);
-        ctx.PixelShader.SetShaderResource(0, shapeSrv); ctx.PixelShader.SetShaderResource(1, weatherSrv);
+        ctx.PixelShader.SetShaderResource(0, shapeSrv); ctx.PixelShader.SetShaderResource(1, weatherSrv); ctx.PixelShader.SetShaderResource(2, sceneDepth);
         ctx.PixelShader.SetSampler(0, wrap);
         ctx.GeometryShader.Set(null);
         ctx.OutputMerger.SetBlendState(null, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0), -1);
         ctx.Draw(3, 0);
-        ctx.PixelShader.SetShaderResource(0, null); ctx.PixelShader.SetShaderResource(1, null);
+        ctx.PixelShader.SetShaderResource(0, null); ctx.PixelShader.SetShaderResource(1, null); ctx.PixelShader.SetShaderResource(2, null);
         return imageSrv;
     }
 

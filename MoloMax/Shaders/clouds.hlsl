@@ -7,14 +7,16 @@ cbuffer Constants : register(b0)
     float4 Eye;      // xyz: camera, w: frame (0: the same steps every frame)
     float4 Layer;    // x: base (m), y: thickness (m), z: coverage, w: density (per metre)
     float4 Look;     // x: heaps, y: dark, z: steps, w: steps towards the sun
-    float4 Wind;     // xyz: drift of the shapes (m)
+    float4 Wind;     // xyz: drift of the shapes (m), w = 1: SceneDepth bound (pixels hidden by the models are skipped)
     float4 SunDir;   // xyz: towards the light (sun or moon)
     float4 SunLight; // rgb: its colour
     float4 SkyLight; // rgb: light from the sky above
     float4 GroundLight; // rgb: light from below
+    float4 View;     // xy: top-left of the view in the scene's images (pixels), zw: its size
 };
 Texture3D<float2> Shape : register(t0);
 Texture2D<float2> WeatherMap : register(t1);
+Texture2DMS<float> SceneDepth : register(t2);
 SamplerState Wrap : register(s0);
 
 static const float Earth = 6360000.0f;
@@ -94,8 +96,26 @@ float SunScatter(float od, float mu)
     return sum;
 }
 
+// The models hide the sky all around this pixel of the small image (5 x 5 points over a wider square than the pixel, so
+// the blurred edge of the clouds never meets a skipped pixel).
+bool Hidden(float2 ndc)
+{
+    float2 uv = float2(ndc.x * 0.5f + 0.5f, 0.5f - ndc.y * 0.5f);
+    float2 centre = View.xy + uv * View.zw;
+    float2 reach = float2(5.0f, 5.0f); // pixels of the scene between two points (the small image has one pixel for 4 x 4 of them)
+    [loop] for (int y = -2; y <= 2; y++)
+        [loop] for (int x = -2; x <= 2; x++)
+        {
+            float2 p = clamp(centre + float2(x, y) * reach, View.xy, View.xy + View.zw - 1.0f);
+            if (SceneDepth.Load((int2)p, 0) >= 1.0f) return false;
+        }
+    return true;
+}
+
 float4 PS(PS_INPUT input) : SV_Target
 {
+    if (Wind.w > 0.5f && Hidden(input.ndc))
+        return float4(0.0f, 0.0f, 0.0f, 1.0f);
     float4 a = mul(float4(input.ndc, 0.0f, 1.0f), InverseViewProjection);
     float4 b = mul(float4(input.ndc, 1.0f, 1.0f), InverseViewProjection);
     float3 ray = normalize(b.xyz / b.w - a.xyz / a.w);

@@ -522,10 +522,11 @@ public static class GtaImporter
         {
             MeshOps.WeldByDistance(col.Mesh, 1e-5f);
             col.Mesh.CleanFaces();
-            c.Res.Meshes.Add(new ImportedMesh { Name = name, Mesh = col.Mesh, GtaType = GtaObjectType.Collision, CollisionMaterial = mats.Count > 0 ? mats[0] : 0 });
+            c.Res.Meshes.Add(new ImportedMesh { Name = name, Mesh = col.Mesh, GtaType = GtaObjectType.Collision, CollisionMaterial = mats.Count > 0 ? mats[0] & 0xFF : 0, CollisionRoom = mats.Count > 0 ? mats[0] >> 8 : 0 });
             return;
         }
-        // one collision object per material (like GIMS / Sollumz): each keeps its own material and colour, export writes them back
+        // one collision object per material and RoomID (like GIMS / Sollumz): each keeps its own material and colour, export writes them back
+        bool rooms = mats.Select(m => m >> 8).Distinct().Count() > 1;
         foreach (var m in mats)
         {
             var sub = new PolyMesh(); var remap = new Dictionary<int, int>();
@@ -544,8 +545,8 @@ public static class GtaImporter
             MeshOps.WeldByDistance(sub, 1e-5f);
             sub.CleanFaces();
             if (sub.Faces.Count == 0) continue;
-            string mn = MoloMax.Core.Gta.Export.CollisionMaterials.NameOf(m).ToLowerInvariant();
-            c.Res.Meshes.Add(new ImportedMesh { Name = $"{name}_{mn}", Mesh = sub, GtaType = GtaObjectType.Collision, CollisionMaterial = m });
+            string mn = MoloMax.Core.Gta.Export.CollisionMaterials.NameOf(m & 0xFF).ToLowerInvariant();
+            c.Res.Meshes.Add(new ImportedMesh { Name = rooms ? $"{name}_{mn}_room{m >> 8}" : $"{name}_{mn}", Mesh = sub, GtaType = GtaObjectType.Collision, CollisionMaterial = m & 0xFF, CollisionRoom = m >> 8 });
         }
     }
 
@@ -584,7 +585,7 @@ public static class GtaImporter
                         if (g.PolygonMaterialIndices != null && pi < g.PolygonMaterialIndices.Length && g.Materials != null)
                         {
                             int mi = g.PolygonMaterialIndices[pi];
-                            if (mi < g.Materials.Length) matIdx = (int)(g.Materials[mi].Data1 & 0xFF);
+                            if (mi < g.Materials.Length) matIdx = (int)(g.Materials[mi].Data1 & 0xFF) | (int)(g.Materials[mi].RoomId & 31) << 8; // material + RoomID
                         }
                         col.MatCount[matIdx] = col.MatCount.GetValueOrDefault(matIdx) + 1;
                         switch (p)
@@ -613,7 +614,7 @@ public static class GtaImporter
             default:
                 {
                     // primitive bounds: box, sphere, capsule, cylinder, disc
-                    int matIdx = b.MaterialIndex;
+                    int matIdx = b.MaterialIndex | (b.RoomId & 31) << 8;
                     col.MatCount[matIdx] = col.MatCount.GetValueOrDefault(matIdx) + 1;
                     var mn = V(b.BoxMin); var mx = V(b.BoxMax); var size = mx - mn; var cen = (mn + mx) * 0.5f;
                     switch (b.Type)

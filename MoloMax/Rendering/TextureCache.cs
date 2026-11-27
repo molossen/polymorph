@@ -21,6 +21,8 @@ public sealed class TextureCache : IDisposable
     public readonly List<string> Errors = new();
 
     public ShaderResourceView White { get; }
+    /// <summary>Stands in for a texture still on its way (MAP streaming): a neutral grey-brown, not a blinding white.</summary>
+    public ShaderResourceView Waiting { get; }
     public ShaderResourceView FlatNormal { get; }
     public ShaderResourceView DefaultSpec { get; }
 
@@ -31,6 +33,7 @@ public sealed class TextureCache : IDisposable
     {
         this.device = device;
         White = Solid(255, 255, 255, 255);
+        Waiting = Solid(118, 112, 104, 255);
         FlatNormal = Solid(128, 128, 255, 255);
         DefaultSpec = Solid(26, 26, 26, 26);
     }
@@ -226,7 +229,7 @@ public sealed class TextureCache : IDisposable
     public void Unload(IEnumerable<string> namesOrPaths)
     {
         bool any = false;
-        foreach (var n in namesOrPaths) { var p = Resolve(n); if (p != null && cache.Remove(p, out var s)) { s?.Dispose(); any = true; } }
+        foreach (var n in namesOrPaths) { var p = Resolve(n); if (p != null && cache.Remove(p, out var s)) { s?.Dispose(); Untrack(p); any = true; } }
         if (any) Epoch++;
     }
 
@@ -289,16 +292,43 @@ public sealed class TextureCache : IDisposable
     public int Pending { get; private set; }
     int pendingNow;
     readonly Dictionary<string, System.Threading.Tasks.Task<ShaderResourceView>> reads = new();
-    /// <summary>Background texture loads at once (disk + graphics card), leaving cores for drawing and the models.</summary>
-    static readonly System.Threading.SemaphoreSlim loadGate = new(Math.Clamp(Environment.ProcessorCount / 3, 2, 4));
     /// <summary>Textures that arrived from the background reads (MAP mode).</summary>
     public int Arrived;
-    ShaderResourceView LoadInBackground(string path)
+    // Background texture loads (disk + graphics card): a few threads of their own taking the newest request first (what
+    // the camera looks at now). They used to be thread-pool tasks each waiting for its turn: with hundreds of textures
+    // asked for at once the pool filled with waiting threads and the model readers behind them starved.
+    readonly System.Collections.Concurrent.ConcurrentStack<(string Path, System.Threading.Tasks.TaskCompletionSource<ShaderResourceView> Done)> loadStack = new();
+    readonly System.Collections.Concurrent.ConcurrentQueue<(string Path, System.Threading.Tasks.TaskCompletionSource<ShaderResourceView> Done)> loadLater = new();
+    readonly System.Threading.SemaphoreSlim loadSignal = new(0);
+    System.Threading.Thread[] loaders; volatile bool loadersStop;
+    System.Threading.Tasks.Task<ShaderResourceView> QueueLoad(string path)
     {
-        MoloMax.Core.IO.PendingFiles.Wait(path); // a texture of a model just read: its file may still be on its way to the disk
-        loadGate.Wait();
-        try { return LoadDds(File.ReadAllBytes(path)); }
-        finally { loadGate.Release(); }
+        var done = new System.Threading.Tasks.TaskCompletionSource<ShaderResourceView>(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+        loadStack.Push((path, done)); loadSignal.Release();
+        if (loaders == null)
+        {
+            loaders = new System.Threading.Thread[Math.Clamp(Environment.ProcessorCount / 3, 2, 4)];
+            for (int i = 0; i < loaders.Length; i++) { loaders[i] = new System.Threading.Thread(LoaderLoop) { IsBackground = true, Name = "textures", Priority = System.Threading.ThreadPriority.BelowNormal }; loaders[i].Start(); }
+        }
+        return done.Task;
+    }
+    void LoaderLoop()
+    {
+        while (!loadersStop)
+        {
+            loadSignal.Wait(200);
+            if (loadersStop) break;
+            if (!loadStack.TryPop(out var job) && !loadLater.TryDequeue(out job)) continue;
+            // a texture of a model just read: its file may still be on its way to the disk; the others go first meanwhile
+            if (MoloMax.Core.IO.PendingFiles.IsPending(job.Path))
+            {
+                loadLater.Enqueue(job); loadSignal.Release();
+                if (loadStack.IsEmpty) System.Threading.Thread.Sleep(3);
+                continue;
+            }
+            try { job.Done.TrySetResult(LoadDds(File.ReadAllBytes(job.Path))); }
+            catch (Exception e) { job.Done.TrySetException(e); }
+        }
     }
     readonly System.Diagnostics.Stopwatch loadSw = new();
     public void BeginFrame() { frameLoadMs = 0; Pending = pendingNow; pendingNow = 0; }
@@ -314,7 +344,7 @@ public sealed class TextureCache : IDisposable
         var path = Resolve(nameOrPath);
         frameLoadMs += LoadMs - r0;
         if (path == null) return null;
-        if (cache.TryGetValue(path, out var srv)) return srv;
+        if (cache.TryGetValue(path, out var srv)) { if (trimMarking) usedAt[path] = clock.Elapsed.TotalSeconds; return srv; }
         if (failed.Contains(path)) return null;
         bool dds = path.EndsWith(".dds", StringComparison.OrdinalIgnoreCase);
         byte[] bytes = null;
@@ -322,13 +352,13 @@ public sealed class TextureCache : IDisposable
         {
             // MAP mode: the file is read AND put on the graphics card by a background thread (creating a texture is
             // allowed from any thread in Direct3D 11); this thread only takes the finished one, so nothing waits on it
-            if (!reads.TryGetValue(path, out var t)) { var pth = path; reads[path] = System.Threading.Tasks.Task.Run(() => LoadInBackground(pth)); pendingNow++; LastGetPending = true; return null; }
+            if (!reads.TryGetValue(path, out var t)) { var pth = path; reads[path] = QueueLoad(pth); pendingNow++; LastGetPending = true; return null; }
             if (!t.IsCompleted) { pendingNow++; LastGetPending = true; return null; }
             reads.Remove(path);
             if (t.IsFaulted) { failed.Add(path); Epoch++; Errors.Add($"{Path.GetFileName(path)}: {t.Exception?.GetBaseException().Message}"); return null; }
             // no Epoch change here: only the materials still waiting for a texture look again (they do each frame); a change
             // of Epoch made every material of the map look up all its textures again each time one texture arrived
-            cache[path] = t.Result; Arrived++;
+            cache[path] = t.Result; Arrived++; Track(path, t.Result);
             return t.Result;
         }
         loadSw.Restart();
@@ -336,7 +366,7 @@ public sealed class TextureCache : IDisposable
         {
             MoloMax.Core.IO.PendingFiles.Wait(path);
             srv = dds ? LoadDds(bytes ?? File.ReadAllBytes(path)) : LoadBitmap(path);
-            cache[path] = srv; Epoch++;
+            cache[path] = srv; Epoch++; Track(path, srv);
             return srv;
         }
         catch (Exception e)
@@ -348,12 +378,63 @@ public sealed class TextureCache : IDisposable
         finally { double ms = loadSw.Elapsed.TotalMilliseconds; frameLoadMs += ms; LoadMs += ms; }
     }
 
+    // ---- memory: textures nothing has drawn for a while leave the graphics card (MAP mode: a tour of the map read every
+    // texture of every district and kept them all, 20 GB after six districts) ----
+    readonly Dictionary<string, long> sizes = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, double> usedAt = new(StringComparer.OrdinalIgnoreCase);
+    readonly System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
+    bool trimMarking; double trimMarkAt, trimLast = -100;
+    /// <summary>Bytes of the textures on the graphics card (those read from files).</summary>
+    public long GpuBytes { get; private set; }
+    /// <summary>Textures let go so far by <see cref="Trim"/>.</summary>
+    public int Trimmed { get; private set; }
+
+    void Track(string path, ShaderResourceView srv)
+    {
+        long n = 0;
+        try
+        {
+            using var res = srv.Resource; using var tex = res.QueryInterfaceOrNull<Texture2D>();
+            if (tex != null)
+            {
+                var d = tex.Description; long bits = SharpDX.DXGI.FormatHelper.SizeOfInBits(d.Format);
+                n = (long)d.Width * d.Height * bits / 8 * d.ArraySize; if (d.MipLevels != 1) n = n * 4 / 3;
+            }
+        }
+        catch { }
+        Untrack(path); sizes[path] = n; GpuBytes += n; usedAt[path] = clock.Elapsed.TotalSeconds;
+    }
+
+    void Untrack(string path) { if (sizes.Remove(path, out var n)) GpuBytes -= n; usedAt.Remove(path); }
+
+    /// <summary>Call once a frame. Over <paramref name="budget"/> bytes: every material is asked to look its textures up
+    /// again, and a few seconds later the .dds textures no material asked for are let go (read again from their file if
+    /// they come back in view). Under the budget nothing happens.</summary>
+    public void Trim(long budget)
+    {
+        double now = clock.Elapsed.TotalSeconds;
+        if (!trimMarking)
+        {
+            if (GpuBytes <= budget || now - trimLast < 20) return;
+            trimMarking = true; trimMarkAt = now; Epoch++;
+            return;
+        }
+        if (now - trimMarkAt < 5) return;
+        trimMarking = false; trimLast = now;
+        List<string> gone = null;
+        foreach (var kv in usedAt)
+            if (kv.Value < trimMarkAt && kv.Key.EndsWith(".dds", StringComparison.OrdinalIgnoreCase)) (gone ??= new()).Add(kv.Key);
+        if (gone == null) return;
+        foreach (var path in gone) { if (cache.Remove(path, out var srv)) { srv?.Dispose(); Trimmed++; } Untrack(path); }
+        Epoch++; // a material not drawn these seconds may still hold one of them: it looks again when it is drawn
+    }
+
     public void Reload(string nameOrPath)
     {
         resolved.Clear(); Epoch++;
         var path = Resolve(nameOrPath);
         if (path == null) return;
-        if (cache.Remove(path, out var old)) old.Dispose();
+        if (cache.Remove(path, out var old)) { old.Dispose(); Untrack(path); }
         failed.Remove(path);
         if (reads.Remove(path, out var pend)) pend.ContinueWith(x => { if (x.IsCompletedSuccessfully) x.Result.Dispose(); });
     }
@@ -453,8 +534,9 @@ public sealed class TextureCache : IDisposable
 
     public void Dispose()
     {
+        loadersStop = true;
         foreach (var s in cache.Values) s.Dispose();
         cache.Clear();
-        White.Dispose(); FlatNormal.Dispose(); DefaultSpec.Dispose();
+        White.Dispose(); Waiting.Dispose(); FlatNormal.Dispose(); DefaultSpec.Dispose();
     }
 }

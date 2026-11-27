@@ -105,6 +105,29 @@ public sealed partial class EditorApp
         renderer.KeepInstanceKeys = keep;
     }
 
+    /// <summary>Lets go of every model read for the level-of-detail world that no object of the map scene uses (the map
+    /// engine draws the game's map now, or MAP mode is left): thousands of models stayed in memory for nothing.</summary>
+    void ReleaseWorldModels(bool collect)
+    {
+        var sceneKeys = new HashSet<string>(Scene.Objects.Where(o => o.InstanceKey != null).Select(o => o.InstanceKey));
+        foreach (var o in backdrop) if (o.InstanceKey != null) sceneKeys.Add(o.InstanceKey);
+        int n = 0;
+        foreach (var s in archSlots.Values)
+        {
+            if (s.State != 2 || sceneKeys.Contains("map:" + s.Hash.ToString("X8"))) continue;
+            s.State = 0; s.Mesh = null; s.Ver = 0; s.GpuOnly = false; n++;
+            if (worldTpl.TryGetValue(s.Hash, out var t)) t.Mesh = null;
+        }
+        worldWanted.Clear();
+        renderer.KeepInstanceKeys = new HashSet<string>(backdrop.Select(o => o.InstanceKey));
+        if (n > 0 && collect)
+        {
+            System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+            GC.Collect();
+        }
+    }
+    double worldIdleSince = -1; bool worldReleased;
+
     SceneObject WorldTemplate(ArchSlot s)
     {
         if (s.GpuOnly && worldTpl.TryGetValue(s.Hash, out var g)) return g;
@@ -116,6 +139,20 @@ public sealed partial class EditorApp
         }
         else if (!ReferenceEquals(t.Mesh, s.Mesh)) { t.Mesh = s.Mesh; if (s.Ver != 0) t.Version = s.Ver; else { t.Touch(); s.Ver = t.Version; } }
         return t;
+    }
+
+    long videoMemory = -1;
+    /// <summary>Graphics memory the textures of Polymorph's own drawing may keep in MAP mode: a third of the card (between
+    /// 1.5 and 6 GB), half of that while the map engine draws the game's map (it keeps its own textures).</summary>
+    long MapTextureBudget()
+    {
+        if (videoMemory < 0)
+        {
+            try { using var dx = gpu.Device.QueryInterface<SharpDX.DXGI.Device>(); using var ad = dx.Adapter; videoMemory = (long)ad.Description.DedicatedVideoMemory; }
+            catch { videoMemory = 0; }
+        }
+        long b = Math.Clamp(videoMemory / 3, 1536L << 20, 6144L << 20);
+        return WorldDrawOff ? b / 2 : b;
     }
 
     /// <summary>World objects smaller than this many pixels on screen are not drawn.</summary>
@@ -135,7 +172,17 @@ public sealed partial class EditorApp
     /// A child whose model is not read yet leaves its LOD parent drawn instead, with its brothers, until all are ready.</summary>
     void GatherWorld(Vector4[] planes, Vector3 eye, float pix, float vr2)
     {
-        if (!LodTreeOn || WorldDrawOff) return;
+        // not drawn (the map engine draws the game's map): nothing is asked for either, else the models wanted last were
+        // read, let go 20 s later and read again, for as long as the map engine was on
+        if (!LodTreeOn || WorldDrawOff)
+        {
+            worldWanted.Clear();
+            // 20 s without drawing it: its models go (once)
+            if (worldIdleSince < 0) worldIdleSince = ImGui.GetTime();
+            if (LodTreeOn && !worldReleased && ImGui.GetTime() - worldIdleSince > 20) { worldReleased = true; ReleaseWorldModels(false); }
+            return;
+        }
+        worldIdleSince = -1; worldReleased = false;
         worldNow = ImGui.GetTime();
         worldWanted.Clear(); worldBlocked.Clear(); worldFallbackDrawn.Clear();
         var we = worldEnts;
@@ -152,7 +199,10 @@ public sealed partial class EditorApp
                 float d2 = Vector3.DistanceSquared(e.Pos, eye);
                 // off screen: asked for after what is in view
                 float rr = MathF.Max(game?.ArchetypeSize(e.Arch) ?? 20f, 5f) * MathF.Max(e.ScaleXY, e.ScaleZ);
-                foreach (var p in planes) if (p.X * e.Pos.X + p.Y * e.Pos.Y + p.Z * e.Pos.Z + p.W < -rr) { d2 = d2 * 4 + 1e6f; break; }
+                // what looks biggest first: the ground, the buildings and the far models of a district before the benches
+                // and the bins (read by distance alone, small props floated in an empty city while it came in)
+                d2 /= rr * rr;
+                foreach (var p in planes) if (p.X * e.Pos.X + p.Y * e.Pos.Y + p.Z * e.Pos.Z + p.W < -rr) { d2 = d2 * 4 + 1e4f; break; }
                 if (!worldWanted.TryGetValue(e.Arch, out var w0) || d2 < w0) worldWanted[e.Arch] = d2;
             }
             s.LastUsed = worldNow;
@@ -175,7 +225,7 @@ public sealed partial class EditorApp
                 ref var pe = ref we.E[p];
                 if (archSlots.TryGetValue(pe.Arch, out var ps) && WorldReady(ps)) break;
                 if (!archSlots.TryGetValue(pe.Arch, out ps)) ps = Slot(pe.Arch, null);
-                if (ps.State == 0) { float d2 = Vector3.DistanceSquared(pe.Pos, eye); if (!worldWanted.TryGetValue(pe.Arch, out var w0) || d2 < w0) worldWanted[pe.Arch] = d2; }
+                if (ps.State == 0) { float pr = MathF.Max(game?.ArchetypeSize(pe.Arch) ?? 20f, 5f) * MathF.Max(pe.ScaleXY, pe.ScaleZ); float d2 = Vector3.DistanceSquared(pe.Pos, eye) / (pr * pr); if (!worldWanted.TryGetValue(pe.Arch, out var w0) || d2 < w0) worldWanted[pe.Arch] = d2; }
                 p = pe.Parent;
             }
             if (p < 0 || !worldFallbackDrawn.Add(p)) continue;

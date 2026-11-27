@@ -1,5 +1,5 @@
 @echo off
-rem Polymorph build (needs the .NET 8 SDK: https://dotnet.microsoft.com/download/dotnet/8.0)
+rem Polymorph build (needs the .NET 10 SDK: https://dotnet.microsoft.com/download/dotnet/10.0)
 setlocal
 cd /d "%~dp0"
 rem the embedded Python (scripts and add-ons run inside Polymorph)

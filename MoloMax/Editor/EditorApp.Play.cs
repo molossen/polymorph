@@ -267,8 +267,12 @@ public sealed partial class EditorApp
             {
                 ref var e = ref we.E[i];
                 if (e.Mlo || e.Level >= 2 || worldOpenMaps.Contains(e.Ymap)) continue; // far district models (SLOD) are never walked on
-                if (MathF.Abs(e.Pos.X - p.X) > reach + 60 || MathF.Abs(e.Pos.Y - p.Y) > reach + 60) continue;
                 if (!archSlots.TryGetValue(e.Arch, out var s)) continue;
+                // near enough to matter: by the model's own size (a beach or a hill is one model hundreds of metres wide,
+                // its origin far from where the player stands)
+                float er = MathF.Max(60, (s.Max - s.Min).Length() * 0.5f * MathF.Max(e.ScaleXY, e.ScaleZ));
+                var ec = e.Pos + Vector3.Transform((s.Min + s.Max) * 0.5f * new Vector3(e.ScaleXY, e.ScaleXY, e.ScaleZ), e.Rot);
+                if (MathF.Abs(ec.X - p.X) > reach + er || MathF.Abs(ec.Y - p.Y) > reach + er) continue;
                 var sh = ShapeOfArch(e.Arch, s);
                 if (sh == null) { if (!playShapes.ContainsKey(e.Arch)) playCandMissing++; continue; }
                 if (sh.Tris.Length == 0) continue;
@@ -386,7 +390,7 @@ public sealed partial class EditorApp
             yield return Until(() => PlayGrounded || PlaySwimming, 400);
             var p0 = PlayPos;
             Note($"{name}: start {p0}, on the ground {PlayGrounded}, swimming {PlaySwimming}");
-            Expect(PlayGrounded || PlaySwimming, $"{name}: lands on the ground");
+            Expect(testWater ? PlayGrounded && p0.Z > 0.3f : PlayGrounded || PlaySwimming, $"{name}: lands on the ground" + (testWater ? $" (on the sand, not swimming under it: height {p0.Z:0.00})" : ""));
             yield return Shot($"play_{name}_start");
             // walk forward 3 s
             playTestWish = new Vector2(1, 0);

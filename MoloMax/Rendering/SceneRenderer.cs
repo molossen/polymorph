@@ -195,6 +195,8 @@ public sealed class SceneRenderer : IDisposable
     readonly SamplerState sampler;
     public readonly TextureCache Textures;
     readonly Dictionary<int, GpuMesh> meshes = new();
+    /// <summary>Meshes on the graphics card (own + shared by instances).</summary>
+    public int MeshCount => meshes.Count + instMeshes.Count;
 
     public readonly RasterizerState CullBack, CullNone, LinesState, CullFront;
     public readonly DepthStencilState DepthDefault, DepthRead, DepthOff;
@@ -701,7 +703,7 @@ public sealed class SceneRenderer : IDisposable
     sealed class MatTex
     {
         public int Epoch = -1; public bool Pending; public string D, B, S, T, Tn, Lk; public GtaShaderPreset P; public ShaderResourceView Diff, Bump, Spec, Det, Tint, Look;
-        public string LayerKey, Hk; public ShaderResourceView[] Lay = new ShaderResourceView[4], LayB = new ShaderResourceView[4], LayH = new ShaderResourceView[4]; public ShaderResourceView Hgt;
+        public string HgtN, Sh, NightD; public bool Terrain; public string[] LayN = new string[4], LayBN = new string[4], LayHN = new string[4]; public bool NightE, CpvOnly, Night; public ShaderResourceView[] Lay = new ShaderResourceView[4], LayB = new ShaderResourceView[4], LayH = new ShaderResourceView[4]; public ShaderResourceView Hgt;
     }
     readonly System.Runtime.CompilerServices.ConditionalWeakTable<GtaMaterial, MatTex> matTex = new();
 
@@ -722,10 +724,12 @@ public sealed class SceneRenderer : IDisposable
         if (ReferenceEquals(m, lastMat) && !mt.Pending && mt.Epoch == Textures.Epoch) return;
         lastMat = m;
         bool terrain = m.IsTerrain;
-        string lk = terrain ? string.Join("|", Enumerable.Range(0, 4).Select(i => m.Layer(i) + ">" + m.LayerBump(i))) : null;
-        string hk = m.HasParallax ? m.HeightTexture + "|" + string.Join("|", Enumerable.Range(0, 4).Select(m.LayerHeight)) : null;
+        // layers and height maps compared name by name (no text built at every draw)
+        bool layersSame = mt.Terrain == terrain && ReferenceEquals(mt.HgtN, m.HeightTexture);
+        for (int i = 0; i < 4 && layersSame; i++)
+            layersSame = ReferenceEquals(mt.LayN[i], terrain ? m.Layer(i) : null) && ReferenceEquals(mt.LayBN[i], terrain ? m.LayerBump(i) : null) && ReferenceEquals(mt.LayHN[i], m.LayerHeight(i));
         if (mt.Pending || mt.Epoch != Textures.Epoch || !ReferenceEquals(mt.P, p) || !ReferenceEquals(mt.D, m.DiffuseTexture) || !ReferenceEquals(mt.B, m.BumpTexture)
-            || !ReferenceEquals(mt.S, m.SpecTexture) || !ReferenceEquals(mt.T, m.DetailTexture) || !ReferenceEquals(mt.Tn, m.TintTexture) || !ReferenceEquals(mt.Lk, m.LookupTexture) || mt.LayerKey != lk || mt.Hk != hk)
+            || !ReferenceEquals(mt.S, m.SpecTexture) || !ReferenceEquals(mt.T, m.DetailTexture) || !ReferenceEquals(mt.Tn, m.TintTexture) || !ReferenceEquals(mt.Lk, m.LookupTexture) || !layersSame)
         {
             bool pending = false;
             mt.Diff = Tex(m.DiffuseTexture, ref pending);
@@ -734,7 +738,8 @@ public sealed class SceneRenderer : IDisposable
             mt.Det = p.Detail ? Tex(m.DetailTexture, ref pending) : null;
             mt.Tint = m.TintTexture != null ? Tex(m.TintTexture, ref pending) : null;
             mt.Look = terrain && m.LookupTexture != null ? Tex(m.LookupTexture, ref pending) : null;
-            mt.LayerKey = lk; mt.Hk = hk;
+            mt.Terrain = terrain; mt.HgtN = m.HeightTexture;
+            for (int i = 0; i < 4; i++) { mt.LayN[i] = terrain ? m.Layer(i) : null; mt.LayBN[i] = terrain ? m.LayerBump(i) : null; mt.LayHN[i] = m.LayerHeight(i); }
             mt.Hgt = m.HeightTexture != null ? Tex(m.HeightTexture, ref pending) : null;
             for (int i = 0; i < 4; i++) mt.LayH[i] = terrain && m.LayerHeight(i) != null ? Tex(m.LayerHeight(i), ref pending) : null;
             for (int i = 0; i < 4; i++)
@@ -745,10 +750,18 @@ public sealed class SceneRenderer : IDisposable
             mt.Pending = pending; mt.Epoch = Textures.Epoch; mt.P = p;
             mt.D = m.DiffuseTexture; mt.B = m.BumpTexture; mt.S = m.SpecTexture; mt.T = m.DetailTexture; mt.Tn = m.TintTexture; mt.Lk = m.LookupTexture;
         }
+        if (!ReferenceEquals(mt.Sh, m.Shader) || !ReferenceEquals(mt.NightD, m.DiffuseTexture) || mt.NightE != p.Emissive)
+        {
+            // worked out from the names once per material, not at every draw
+            mt.Sh = m.Shader; mt.NightD = m.DiffuseTexture; mt.NightE = p.Emissive;
+            mt.CpvOnly = string.Equals(m.Shader, "cpv_only", StringComparison.OrdinalIgnoreCase);
+            mt.Night = m.Shader != null && (m.Shader.Contains("night", StringComparison.OrdinalIgnoreCase)
+                || p.Emissive && m.DiffuseTexture != null && Path.GetFileNameWithoutExtension(m.DiffuseTexture).Contains("night", StringComparison.OrdinalIgnoreCase));
+        }
         var diff = mt.Diff; var bump = mt.Bump; var spec = mt.Spec; var det = mt.Det;
         var mv = new MaterialVarsCB
         {
-            EnableTexture = diff != null ? 1u : 0u,
+            EnableTexture = diff != null || mt.Pending && m.DiffuseTexture != null ? 1u : 0u,
             EnableNormalMap = bump != null ? 1u : 0u,
             EnableSpecMap = spec != null ? 1u : 0u,
             EnableDetailMap = det != null && bump != null ? 1u : 0u,
@@ -762,14 +775,13 @@ public sealed class SceneRenderer : IDisposable
             IsTerrain = terrain ? 1u : 0u,
             IsTint = mt.Tint != null && TintPalettes ? 1u : 0u,
             TerrainMode = terrain ? (uint)(mt.Look != null ? m.TerrainBlend + 1 : 1) : 0u,
-            VertexColoured = diff == null && string.Equals(m.Shader, "cpv_only", StringComparison.OrdinalIgnoreCase) ? 1u : 0u,
+            VertexColoured = diff == null && mt.CpvOnly ? 1u : 0u,
             // lit only at night: the emissivenight shaders, and emissive windows whose texture is a night texture (..._nightem, ..._night)
-            EmissiveNight = m.Shader != null && (m.Shader.Contains("night", StringComparison.OrdinalIgnoreCase)
-                || p.Emissive && m.DiffuseTexture != null && Path.GetFileNameWithoutExtension(m.DiffuseTexture).Contains("night", StringComparison.OrdinalIgnoreCase)) ? 1u : 0u,
+            EmissiveNight = mt.Night ? 1u : 0u,
         };
         if (terrain) { mv.EnableTexture = 1; mv.EnableNormalMap = 1; mv.EnableDetailMap = 0; }
         // parallax (PXM): the game's tessellation values are far bigger than what a parallax wants: brought to its range
-        if (Parallax && bump != null && (terrain ? mt.LayH.Any(t => t != null) : mt.Hgt != null))
+        if (Parallax && bump != null && (terrain ? mt.LayH[0] != null || mt.LayH[1] != null || mt.LayH[2] != null || mt.LayH[3] != null : mt.Hgt != null))
         {
             float hs = m.HeightScale, hb = m.HeightBias;
             if (MathF.Abs(hs) > 0.1f || hb < 0) { hs = MathF.Abs(hs) * 0.075f; hb = hs * 0.5f; }
@@ -780,20 +792,20 @@ public sealed class SceneRenderer : IDisposable
             var lb = m.LayerHeightBias; mv.LayerHeightBias = new Vector4(lb.X < 0 ? mv.LayerHeightScale.X * 0.5f : lb.X, lb.Y < 0 ? mv.LayerHeightScale.Y * 0.5f : lb.Y, lb.Z < 0 ? mv.LayerHeightScale.Z * 0.5f : lb.Z, lb.W < 0 ? mv.LayerHeightScale.W * 0.5f : lb.W);
         }
         ctx.UpdateSubresource(ref mv, materialCB);
+        // the textures in three calls (not nineteen): thousands of materials a frame in MAP mode
+        ctx.PixelShader.SetShaderResource(0, diff ?? (mt.Pending && m.DiffuseTexture != null ? Textures.Waiting : Textures.White));
+        srv3[0] = bump ?? Textures.FlatNormal; srv3[1] = spec ?? Textures.DefaultSpec; srv3[2] = det ?? Textures.FlatNormal;
+        ctx.PixelShader.SetShaderResources(2, srv3);
         for (int i = 0; i < 4; i++)
         {
-            ctx.PixelShader.SetShaderResource(6 + i, mt.Lay[i] ?? diff ?? Textures.White);
-            ctx.PixelShader.SetShaderResource(10 + i, mt.LayB[i] ?? Textures.FlatNormal);
+            srv15[i] = mt.Lay[i] ?? diff ?? (mt.Pending ? Textures.Waiting : Textures.White);
+            srv15[4 + i] = mt.LayB[i] ?? Textures.FlatNormal;
+            srv15[11 + i] = mt.LayH[i] ?? Textures.White;
         }
-        ctx.PixelShader.SetShaderResource(0, diff ?? Textures.White);
-        ctx.PixelShader.SetShaderResource(2, bump ?? Textures.FlatNormal);
-        ctx.PixelShader.SetShaderResource(3, spec ?? Textures.DefaultSpec);
-        ctx.PixelShader.SetShaderResource(4, det ?? Textures.FlatNormal);
-        ctx.PixelShader.SetShaderResource(14, mt.Tint ?? Textures.White);
-        ctx.PixelShader.SetShaderResource(15, mt.Look ?? Textures.White);
-        ctx.PixelShader.SetShaderResource(16, mt.Hgt ?? Textures.White);
-        for (int i = 0; i < 4; i++) ctx.PixelShader.SetShaderResource(17 + i, mt.LayH[i] ?? Textures.White);
+        srv15[8] = mt.Tint ?? Textures.White; srv15[9] = mt.Look ?? Textures.White; srv15[10] = mt.Hgt ?? Textures.White;
+        ctx.PixelShader.SetShaderResources(6, srv15);
     }
+    readonly ShaderResourceView[] srv3 = new ShaderResourceView[3], srv15 = new ShaderResourceView[15];
 
     /// <summary>Tint shaders take their colour from the palette (MAP mode: the game's buildings in their real colours).</summary>
     public bool TintPalettes = true;

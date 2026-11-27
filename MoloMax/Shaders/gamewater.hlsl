@@ -567,7 +567,10 @@ float4 PS(PS_INPUT input) : SV_Target
     else
         pattern = Noise(input.rest.xy * 0.9f + CameraTime.w * 0.15f) * 0.6f + Noise(input.rest.xy * 3.1f - CameraTime.w * 0.2f) * 0.4f;
     float foam = (1.0f - smoothstep(0.05f, 0.7f, vertical)) * edge * saturate(0.5f + 3.0f * (slope.x + slope.y)) * input.waves;
-    foam += saturate((0.6f - squeeze) * 3.0f) * saturate(pattern * 1.6f - 0.5f) * 0.7f;
+    // Over deep water the crests only whiten in patches (white horses), not along their whole length: no regular bands
+    // of foam across the open sea seen from above.
+    float offshore = smoothstep(2.0f, 12.0f, vertical);
+    foam += saturate((0.6f - squeeze) * 3.0f) * saturate(pattern * lerp(1.6f, 2.6f, offshore) - lerp(0.5f, 1.45f, offshore)) * lerp(0.7f, 0.5f, offshore);
     // The waves rolling in break into foam only where the water gets shallow.
     foam += shore * saturate(pattern * 2.0f - 0.5f) * (1.0f - smoothstep(1.0f, 6.0f, vertical));
     foam = saturate(foam) * saturate(1.0f - distance / 2500.0f);

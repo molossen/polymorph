@@ -118,7 +118,7 @@ public sealed partial class EditorApp : IDisposable
     void UpdateTitle()
     {
         var name = MapMode ? (MapWorkFile != null ? Path.GetFileName(MapWorkFile) + " (MAP)" : "MAP") : CurrentFile != null ? Path.GetFileName(CurrentFile) : "Untitled";
-        form.Text = $"{name}{(Dirty ? " *" : "")} - Polymorph";
+        form.Text = $"{name}{(Dirty ? " *" : "")} - Polymorph" + (SelfTestDir != null ? "   [AUTOMATIC TEST RUNNING - DO NOT TOUCH]" : "");
     }
 
     // ---------------------------------------------------------------- frame
@@ -212,11 +212,17 @@ public sealed partial class EditorApp : IDisposable
 
         var ctx = gpu.Context;
         PumpPreview();
+        long mf0 = System.Diagnostics.Stopwatch.GetTimestamp();
         MapFrame();          // MAP mode: streaming, model loads
+        Slow("map frame (streaming, model loads)", mf0, 60);
         Prof("map");
         RenderPreview(dt);   // game files viewer picture
         PumpThumbs();        // asset browser thumbnails, one at a time
+        long pl0 = System.Diagnostics.Stopwatch.GetTimestamp();
         PrepareLighting();   // scene lights + sun shadow map for the realistic view
+        Slow("lighting (all)", pl0, 100);
+        MapEngineUpdate();   // MAP: the game's map by the map engine (streaming, its sun shadows)
+        Prof("map engine");
         Prof("lighting");
         gpu.BindBackBuffer();
         ctx.ClearRenderTargetView(gpu.BackBufferView, new SharpDX.Mathematics.Interop.RawColor4(0.27f, 0.27f, 0.27f, 1));
@@ -365,7 +371,11 @@ public sealed partial class EditorApp : IDisposable
         bool skyView = MapSkyOn(vp);
         bool hdrView = skyView && MapNrLookOn && Settings.MapHdr;
         if (hdrView) { hdrImage ??= new HdrImage(gpu.Device); hdrImage.Begin(gpu); }
-        if (skyView) DrawMapSky(viewProj);
+        // MAP in HDR: the sky and its clouds are drawn after the solid models, only where nothing hides them (in a city
+        // most of the picture is buildings: the clouds are not worked out behind them)
+        bool skyLate = hdrView && MapMode && !wireOnly(vp);
+        if (skyView && !skyLate) DrawMapSky(viewProj);
+        else if (skyView) { }
         else
         {
             var (top, bot) = Theme.ViewportBackground(cam.Ortho);
@@ -420,10 +430,36 @@ public sealed partial class EditorApp : IDisposable
             renderer.DrawObject(Scene, o, false, hl, BackfaceCull);
         }
         VpProf("opaque models");
-        if (skyView && hdrView) DrawMapLamps(vp, viewProj);
-        ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1);
-        ctx.OutputMerger.SetDepthStencilState(renderer.DepthRead);
-        if (skyView) { ctx.Rasterizer.State = renderer.CullNone; DrawMapWater(vp, viewProj); }
+        // lamps, sky and water of the view: after the solid models (the map engine's too), before the see-through ones
+        void AfterSolid()
+        {
+            renderer.RebindScene();
+            ctx.Rasterizer.SetViewport(vp.X, vp.Y, vp.W, vp.H);
+            ctx.OutputMerger.SetBlendState(renderer.Opaque, blendCol, -1);
+            ctx.OutputMerger.SetDepthStencilState(renderer.DepthDefault);
+            if (skyView && hdrView) DrawMapLamps(vp, viewProj);
+            if (skyLate)
+            {
+                ctx.OutputMerger.SetBlendState(renderer.Opaque, blendCol, -1);
+                ctx.OutputMerger.SetDepthStencilState(renderer.DepthRead);
+                ctx.Rasterizer.State = renderer.CullNone;
+                DrawMapSky(viewProj, true);
+                renderer.RebindScene();
+            }
+            ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1);
+            ctx.OutputMerger.SetDepthStencilState(renderer.DepthRead);
+            if (skyView) { ctx.Rasterizer.State = renderer.CullNone; DrawMapWater(vp, viewProj); }
+        }
+        if (!(skyLate && MapEngineDraw(vp, viewProj, AfterSolid))) AfterSolid();
+        else
+        {
+            // back to this renderer's own state for the see-through pass of the project's objects
+            renderer.RebindScene();
+            ctx.Rasterizer.SetViewport(vp.X, vp.Y, vp.W, vp.H);
+            ctx.OutputMerger.SetBlendState(renderer.Alpha, blendCol, -1);
+            ctx.OutputMerger.SetDepthStencilState(renderer.DepthRead);
+            ctx.Rasterizer.State = renderer.CullNone;
+        }
         VpProf("lamps + water");
         if (MapMode && !wireOnly(vp)) MapDraw(true);
         else foreach (var o in drawList)
