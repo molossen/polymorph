@@ -763,7 +763,9 @@ public sealed class SceneRenderer : IDisposable
             IsTint = mt.Tint != null && TintPalettes ? 1u : 0u,
             TerrainMode = terrain ? (uint)(mt.Look != null ? m.TerrainBlend + 1 : 1) : 0u,
             VertexColoured = diff == null && string.Equals(m.Shader, "cpv_only", StringComparison.OrdinalIgnoreCase) ? 1u : 0u,
-            EmissiveNight = m.Shader != null && m.Shader.Contains("night", StringComparison.OrdinalIgnoreCase) ? 1u : 0u,
+            // lit only at night: the emissivenight shaders, and emissive windows whose texture is a night texture (..._nightem, ..._night)
+            EmissiveNight = m.Shader != null && (m.Shader.Contains("night", StringComparison.OrdinalIgnoreCase)
+                || p.Emissive && m.DiffuseTexture != null && Path.GetFileNameWithoutExtension(m.DiffuseTexture).Contains("night", StringComparison.OrdinalIgnoreCase)) ? 1u : 0u,
         };
         if (terrain) { mv.EnableTexture = 1; mv.EnableNormalMap = 1; mv.EnableDetailMap = 0; }
         // parallax (PXM): the game's tessellation values are far bigger than what a parallax wants: brought to its range
@@ -801,6 +803,8 @@ public sealed class SceneRenderer : IDisposable
     public bool HideNeverDrawn = true;
     /// <summary>MAP: the water_* shader meshes (sea foam, pools, rivers) are left to the water surface renderer.</summary>
     public bool HideWaterShaders;
+    /// <summary>MAP by day: the glow-only decals of the night (decal_emissive_only, decal_emissivenight_only) are not drawn.</summary>
+    public bool HideNightGlows;
     /// <summary>The hidden water_* parts met this frame (pools, fountains, rivers): drawn by the water surface renderer with their placement.</summary>
     public readonly List<(Buffer Vb, Buffer Ib, int Count, Matrix4x4 World)> WaterMeshes = new();
 
@@ -827,7 +831,7 @@ public sealed class SceneRenderer : IDisposable
         {
             var mat = scene.Material(g.MatId);
             if (HideWaterShaders && mat.IsWaterShader) { if (!alphaPass && !Picking) WaterMeshes.Add((g.Vb, g.Ib, g.Count, world)); continue; }
-            if (HideNeverDrawn && mat.NeverDrawn) continue;
+            if (HideNeverDrawn && mat.NeverDrawn || HideNightGlows && mat.IsNightGlow) continue;
             bool blended = mat.Preset.AlphaBlended || o.GtaType == GtaObjectType.Collision || o.GtaType == GtaObjectType.Portal;
             if (blended != alphaPass) continue;
             SetMaterial(mat);
@@ -893,7 +897,7 @@ public sealed class SceneRenderer : IDisposable
         {
             var mat = scene.Material(g.MatId);
             if (depthOnly && (mat.NeverDrawn && !ShadowProxy(mat) || proxy && mat.Preset.Cutout && !ShadowProxy(mat))) continue;
-            if (mat.Preset.AlphaBlended != alphaPass || HideNeverDrawn && mat.NeverDrawn && !depthOnly || HideWaterShaders && mat.IsWaterShader) continue;
+            if (mat.Preset.AlphaBlended != alphaPass || HideNeverDrawn && mat.NeverDrawn && !depthOnly || HideWaterShaders && mat.IsWaterShader || HideNightGlows && mat.IsNightGlow) continue;
             if (!depthOnly) SetMaterial(mat);
             instBindings[0] = new VertexBufferBinding(g.Vb, RenderVertex.SizeInBytes, 0);
             instBindings[1] = new VertexBufferBinding(instBuf, 64, instOff * 64);

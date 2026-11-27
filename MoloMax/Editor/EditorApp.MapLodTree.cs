@@ -184,11 +184,21 @@ public sealed partial class EditorApp
         }
     }
 
+    /// <summary>False for a time archetype outside its hours (the hour of the World panel).</summary>
+    bool ShownAtThisHour(uint arch)
+    {
+        uint hours = game?.ArchetypeHours(arch) ?? 0xFFFFFF;
+        if ((hours & 0xFFFFFF) == 0xFFFFFF) return true;
+        int h = ((int)MathF.Floor(Hour) % 24 + 24) % 24;
+        return (hours >> h & 1) != 0;
+    }
+
     void DrawWorldEntity(int i, Vector4[] planes, Vector3 eye, float pix, float vr2)
     {
         var we = worldEnts;
         ref var e = ref we.E[i];
         if (!archSlots.TryGetValue(e.Arch, out var s) || !WorldReady(s)) return;
+        if (!ShownAtThisHour(e.Arch)) return; // the game's time archetypes: lit windows and glows only at night
         float sc = MathF.Max(e.ScaleXY, e.ScaleZ);
         var lc = (s.Min + s.Max) * 0.5f;
         var c = e.Pos + Vector3.Transform(lc * new Vector3(e.ScaleXY, e.ScaleXY, e.ScaleZ), e.Rot);

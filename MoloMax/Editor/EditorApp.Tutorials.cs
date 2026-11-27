@@ -35,6 +35,7 @@ public sealed partial class EditorApp
     /// <summary>Remembers where an item was drawn (menus, buttons) so a tutorial can move the mouse onto it.</summary>
     void TutRect(string key) { if (SelfTestDir != null) tutRects[key] = (ImGui.GetItemRectMin(), ImGui.GetItemRectMax()); }
     Vector2 TutCentre(string key) => tutRects.TryGetValue(key, out var r) ? (r.Min + r.Max) * 0.5f : Input.Mouse;
+    bool TutHas(string key) => tutRects.ContainsKey(key);
 
     void RecordFrame()
     {
@@ -3698,11 +3699,18 @@ room.Mesh.Faces.Count");
         vp.Camera.Yaw = 0.6f; vp.Camera.Pitch = 1.1f; vp.Camera.Target = c; vp.Camera.Distance = MathF.Min(MathF.Max(ext * 0.35f, 20), 160);
         yield return Frames(10);
         Note($"selected {Current?.Name} (instance key {g.InstanceKey}, shared mesh users {MapLive().Count(o => o.InstanceKey == g.InstanceKey)}), paint set {g.Paint != null}, terrain material {TerrainMaterialOf(g)?.Name} ({TerrainMaterialOf(g)?.Shader}), level {Level}");
-        propTab = PropTab.Paint; ShowPanel = true; yield return Frames(25);
+        // the Paint tab reached the way a person does: its icon in the tab column (it must show for a model of a map file)
+        propTab = PropTab.Object; ShowPanel = true; tutRects.Remove("tab_Paint"); yield return Frames(10);
+        Expect(TutHas("tab_Paint"), "MAP mode: the Paint tab shows for a terrain model placed by a map file");
+        if (TutHas("tab_Paint")) { foreach (var x in ClickAt(TutCentre("tab_Paint"))) yield return x; } else propTab = PropTab.Paint;
+        yield return Frames(25);
+        Expect(propTab == PropTab.Paint, "a click on the tab icon opens Molo Paint");
         yield return Shot("map_paint_tab");
         foreach (var x in ClickAt(TutCentre("terrain_start"))) yield return x;
         yield return Frames(6);
         Note($"after PAINT TERRAIN LAYERS: paint mode {paintMode}, layer {terrainPaintLayer}, tool {paintTool}, brush {brush.Radius:0.00} m, current {Current?.Name}");
+        Expect(Current != null && MapEditable(Current), $"the model became my own copy, saved with the map ({Current?.Name} in '{Current?.Folder}')");
+        g = Current ?? g;
         Expect(paintMode && terrainPaintLayer >= 0, $"the button starts the terrain painting (paint mode {paintMode}, layer {terrainPaintLayer})");
         if (!(paintMode && terrainPaintLayer >= 0)) StartTerrainPaint(g);
         terrainPaintLayer = 2; brush.Strength = 1; brush.Hardness = 0.6f;

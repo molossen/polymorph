@@ -43,7 +43,9 @@ public sealed partial class EditorApp
         var eye = vp.Camera.Eye;
         float pix = vp.Camera.Ortho ? 0 : 1.6f / MathF.Max(vp.H, 1); // ~ angular size of one pixel at fov 60
         MapVisible = 0;
-        renderer.HideWaterShaders = Settings.MapWater; renderer.WaterMeshes.Clear(); // the game's water surface draws the sea, rivers and pools: their mesh copies (untextured) stay hidden
+        renderer.HideWaterShaders = Settings.MapWater; renderer.WaterMeshes.Clear();
+        // glow decals of the night (decal_emissive_only...): not drawn by day
+        renderer.HideNightGlows = MapNrLookOn && mapLight.NightLights < 0.05f; // the game's water surface draws the sea, rivers and pools: their mesh copies (untextured) stay hidden
         SyncInteriorHidden();
         UpdateHiddenClip(eye);
         var live = MapLive();
@@ -55,6 +57,8 @@ public sealed partial class EditorApp
             if (o.Hidden || o.Mesh == null || o.Mesh.Faces.Count == 0) continue;
             if (o.Id < 0 && (FarSteppedAside(o, eye) || !FarLodVisible(o, eye))) continue; // far model: area loaded for editing, or another LOD level shows here
             if (i < live.Count && WorldHidesEditable(o)) continue; // level-of-detail world: another level of it shows here
+            // time archetypes (night windows, glows): hidden outside their hours, unless selected (it stays reachable in the explorer)
+            if (o.Id >= 0 && entOf.TryGetValue(o.Id, out var te) && !Selected.Contains(o.Id) && !ShownAtThisHour(te.Ent.ArchetypeHash)) continue;
             var (mn, mx) = o.FastWorldBounds();
             // view radius: the game's far models (LOD / SLOD) go too, not only the editable entities
             if (vr2 > 0 && i >= live.Count && Vector3.DistanceSquared(Vector3.Clamp(eye, mn, mx), eye) > vr2) continue;

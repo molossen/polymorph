@@ -57,13 +57,14 @@ public sealed partial class EditorApp
         foreach (var (tab, tip, col) in PropTabs)
         {
             if (tab == PropTab.Addons && !AnyAddonPanels) continue; // only when an add-on adds a panel
-            if (MapMode ? tab is PropTab.Weapon or PropTab.Vehicle or PropTab.Ped || !MapEditable(Current) && tab is PropTab.Modifiers or PropTab.Data or PropTab.Paint or PropTab.Tripo or PropTab.Tool or PropTab.Material : tab == PropTab.Map) continue;
+            if (MapMode ? tab is PropTab.Weapon or PropTab.Vehicle or PropTab.Ped || !MapEditable(Current) && (tab is PropTab.Modifiers or PropTab.Data or PropTab.Tripo or PropTab.Tool || tab is PropTab.Paint or PropTab.Material && !MapGameModel(Current)) : tab == PropTab.Map) continue;
             if (tab == PropTab.Object || tab == PropTab.Gta) ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 6); // groups, like Blender
             var p = ImGui.GetCursorScreenPos() + new Vector2(3, 0);
             ImGui.SetCursorScreenPos(p);
             bool on = propTab == tab;
             ImGui.PushID((int)tab);
             if (ImGui.InvisibleButton("##t", new Vector2(24, 24))) propTab = tab;
+            TutRect("tab_" + tab);
             bool hov = ImGui.IsItemHovered();
             ImGui.PopID();
             if (on || hov) dl.AddRectFilled(p, p + new Vector2(24, 24), ImGui.ColorConvertFloat4ToU32(on ? Theme.Panel : Theme.Button), 4);
@@ -685,6 +686,7 @@ public sealed partial class EditorApp
     {
         var o = Current;
         if (o == null) { Ui.TextDisabled("No active object."); return; }
+        if (MapOwnCopyGate(o, "change its materials")) return;
         ObjectHeader(o, "Material");
         // slots: the materials this object uses, in first-use order
         var slots = new List<int>(UsedMaterials(o));

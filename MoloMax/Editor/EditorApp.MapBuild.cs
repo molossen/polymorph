@@ -22,6 +22,20 @@ public sealed partial class EditorApp
     /// <summary>An object made here in MAP mode (not a game entity): every modeling tool works on it.</summary>
     public bool MapEditable(SceneObject o) => o != null && o.Id >= 0 && o.Gta.MapArchetype == null && !entOf.ContainsKey(o.Id) && !intEntOf.ContainsKey(o.Id) && o.Id != placeGhost;
 
+    /// <summary>MAP: a model placed by a .ymap (read-only, shared by every placement) whose mesh is here: it can become your own copy.</summary>
+    public bool MapGameModel(SceneObject o) => MapMode && o != null && entOf.ContainsKey(o.Id) && o.Mesh != null && o.Mesh.Faces.Count > 0 && !ReferenceEquals(o.Mesh, GpuOnlyStub);
+
+    /// <summary>Panels of a .ymap model (Material, Paint): one button makes your own copy of it, then the full panel shows. True while the
+    /// model is still the shared one (the caller draws nothing more).</summary>
+    bool MapOwnCopyGate(SceneObject o, string what)
+    {
+        if (!MapGameModel(o)) return false;
+        Ui.TextWrapped($"{o.Name} is placed by a map file and shared by all its placements. To {what}, make your own copy: it is saved as a new model with the map.");
+        if (Theme.Toggle("EDIT THIS MODEL (MY OWN COPY)", true, new Vector2(-1, 36))) EditInPlace(o);
+        TutRect("map_own_copy");
+        return MapGameModel(o);
+    }
+
     /// <summary>The objects that will be written as new models when the map is saved.</summary>
     List<SceneObject> MapBuildObjects() => Scene.Objects.Where(o => MapEditable(o) && o.Gta.Role != GtaRole.Ignore && (o.Mesh.Faces.Count > 0 || o.GtaType is GtaObjectType.Light or GtaObjectType.Portal)).ToList();
 

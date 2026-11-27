@@ -67,6 +67,20 @@ public sealed partial class EditorApp
     {
         var o = Current;
         if (o == null) { Ui.TextDisabled("Select the object to paint."); return; }
+        if (MapGameModel(o))
+        {
+            // a model placed by a .ymap (the game's or the open map folder's): painting works on your own copy of it
+            if (TerrainMaterialOf(o) != null)
+            {
+                Ui.TextWrapped("This model uses a terrain material: paint where each of its 4 ground textures shows.");
+                bool startM = Theme.Toggle("PAINT TERRAIN LAYERS", true, new Vector2(-1, 40)); TutRect("terrain_start");
+                if (startM && EditInPlace(o)) { StartTerrainPaint(o); return; }
+                Ui.TextDisabled("Polymorph makes your own copy of the model first: it is saved as a new model with the map.");
+                ImGui.Separator();
+            }
+            MapOwnCopyGate(o, "paint it");
+            return;
+        }
         var doc = o.Paint;
         if (doc == null && paintMode && paintTool == PaintTool.VertexColour && terrainPaintLayer >= 0 && TerrainMaterialOf(o) is { } ttm)
         {

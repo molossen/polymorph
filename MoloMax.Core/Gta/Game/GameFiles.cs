@@ -249,6 +249,7 @@ public sealed class GameFiles
                                     var bb = a.BBMax - a.BBMin;
                                     sizeOfArchetype.TryAdd(k, Math.Max(bb.X, Math.Max(bb.Y, bb.Z)));
                                     lodDistOfArchetype.TryAdd(k, a.LodDist);
+                                    if (a is TimeArchetype ta) timeOfArchetype.TryAdd(k, ta.TimeFlags);
                                     if (a.DrawableDict.Hash != 0) yddOfArchetype.TryAdd(k, a.DrawableDict.Hash);
                                     if (a is MloArchetype) ytypOfMlo.TryAdd(k, fe);
                                 }
@@ -374,6 +375,10 @@ public sealed class GameFiles
     /// <summary>Draw distance the archetype gives its entities when they don't set one (0 = unknown).</summary>
     public float ArchetypeLodDist(uint hash) { BuildTypeIndex(); return lodDistOfArchetype.TryGetValue(hash, out var d) && float.IsFinite(d) ? d : 0; }
     readonly System.Collections.Concurrent.ConcurrentDictionary<uint, float> lodDistOfArchetype = new();
+    /// <summary>Hours an archetype shows (bit h = hour h, the game's time archetypes: lit windows and glows of the night, day-only
+    /// props); every hour for the others.</summary>
+    public uint ArchetypeHours(uint hash) { if (!TypesIndexed) return 0xFFFFFF; return timeOfArchetype.TryGetValue(hash, out var f) ? f : 0xFFFFFF; }
+    readonly System.Collections.Concurrent.ConcurrentDictionary<uint, uint> timeOfArchetype = new();
     public float ArchetypeSize(uint hash) { BuildTypeIndex(); return sizeOfArchetype.TryGetValue(hash, out var s) && float.IsFinite(s) ? s : -1; }
 
     /// <summary>A texture dictionary read straight from the archive.</summary>
