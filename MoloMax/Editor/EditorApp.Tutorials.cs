@@ -3651,6 +3651,30 @@ room.Mesh.Faces.Count");
         yield return Settle(() => archLoading == 0, 120);
         yield return Frames(20);
         yield return Shot("map_folder_imported");
+        // a model of the folder: the banner's big button takes it into my project, then every modeling tab is there
+        var ent = MapLive().Where(o => MapGameModel(o) && entOf.TryGetValue(o.Id, out var de) && stream.Contains(de.Doc.FilePath)).OrderByDescending(o => o.Mesh.Faces.Count).FirstOrDefault();
+        Expect(ent != null, "a model of the folder is on the map");
+        if (ent != null)
+        {
+            UI.ImGuiBackend.SyntheticInput = true;
+            Maximized = true; var vp = Viewports[ActiveViewport];
+            SelectOnly(ent); FrameSelection(); tutRects.Remove("map_add_model"); foreach (var k in new[] { "tab_Modifiers", "tab_Data", "tab_Tool", "tab_Material", "tab_Paint" }) tutRects.Remove(k);
+            ShowPanel = true; yield return Frames(15);
+            Expect(TutHas("map_add_model"), "the big ADD THIS MODEL TO MY PROJECT button shows over the view for a model of a map file");
+            Expect(TutHas("tab_Tool"), "the Create / Tool tab shows in MAP mode");
+            yield return Shot("map_add_model_button");
+            if (TutHas("map_add_model")) foreach (var x in ClickAt(TutCentre("map_add_model"))) yield return x;
+            yield return Frames(10);
+            Expect(Current != null && MapEditable(Current), $"one click: the model is mine ({Current?.Name}, folder '{Current?.Folder}')");
+            foreach (var k in new[] { "tab_Modifiers", "tab_Data", "tab_Material", "tab_Paint" }) tutRects.Remove(k);
+            yield return Frames(10);
+            Expect(new[] { "tab_Modifiers", "tab_Data", "tab_Tool", "tab_Material", "tab_Paint" }.All(TutHas), "every modeling tab is there for my model in MAP mode (Tool, Modifiers, Data, Material, Paint)");
+            SetLevel(SubObject.Polygon); yield return Frames(5);
+            Expect(Level == SubObject.Polygon, "polygon editing works on it");
+            SetLevel(SubObject.Object);
+            yield return Shot("map_my_model");
+            UI.ImGuiBackend.SyntheticInput = false;
+        }
         SetMapMode(false);
     }
 
