@@ -112,6 +112,7 @@ public sealed class MainForm : Form
     {
         if (app != null && !app.ClosingForUpdate && !app.ConfirmDiscard()) { e.Cancel = true; return; }
         app?.EndSession();
+        MoloMax.Core.IO.PendingFiles.WaitAll(8000); // textures of models just read: on the disk before leaving
         base.OnFormClosing(e);
     }
 

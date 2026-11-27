@@ -438,8 +438,9 @@ public sealed class GameFiles
             if (ee is RpfResourceFileEntry rr) y.Load(raw, rr); else y.Load(raw);
             return y;
         }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication));
-        // keep the memory in check (big dictionaries): the oldest are dropped past 12
-        while (ytdParsed.Count > 12 && ytdOrder.TryDequeue(out var old)) ytdParsed.TryRemove(old, out _);
+        // keep the memory in check (big dictionaries): the oldest are dropped past 40 (several reading threads share them:
+        // with 12 the same district dictionaries were parsed again and again)
+        while (ytdParsed.Count > 40 && ytdOrder.TryDequeue(out var old)) ytdParsed.TryRemove(old, out _);
         try { return lz.Value; } catch { return null; }
     }
 

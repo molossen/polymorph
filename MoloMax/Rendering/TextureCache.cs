@@ -121,7 +121,7 @@ public sealed class TextureCache : IDisposable
 
     string ResolveUncached(string nameOrPath)
     {
-        if (File.Exists(nameOrPath)) return Path.GetFullPath(nameOrPath);
+        if (File.Exists(nameOrPath) || MoloMax.Core.IO.PendingFiles.IsPending(nameOrPath)) return Path.GetFullPath(nameOrPath);
         bool bare = nameOrPath.IndexOfAny(new[] { '/', '\\', ':' }) < 0;
         if (bare)
         {
@@ -293,6 +293,7 @@ public sealed class TextureCache : IDisposable
     static readonly System.Threading.SemaphoreSlim loadGate = new(Math.Clamp(Environment.ProcessorCount / 3, 2, 4));
     ShaderResourceView LoadInBackground(string path)
     {
+        MoloMax.Core.IO.PendingFiles.Wait(path); // a texture of a model just read: its file may still be on its way to the disk
         loadGate.Wait();
         try { return LoadDds(File.ReadAllBytes(path)); }
         finally { loadGate.Release(); }
@@ -329,6 +330,7 @@ public sealed class TextureCache : IDisposable
         loadSw.Restart();
         try
         {
+            MoloMax.Core.IO.PendingFiles.Wait(path);
             srv = dds ? LoadDds(bytes ?? File.ReadAllBytes(path)) : LoadBitmap(path);
             cache[path] = srv; Epoch++;
             return srv;

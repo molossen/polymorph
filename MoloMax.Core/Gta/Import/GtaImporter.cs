@@ -240,7 +240,12 @@ public static class GtaImporter
             {
                 Directory.CreateDirectory(c.TexDir);
                 var file = Path.Combine(c.TexDir, ModelImporter.SafeName(pt.Name, "texture") + ".dds");
-                if (!(c.SkipExisting && File.Exists(file))) File.WriteAllBytes(file, CodeWalker.Utils.DDSIO.GetDDSFile(pt));
+                if (!(c.SkipExisting && (File.Exists(file) || MoloMax.Core.IO.PendingFiles.IsPending(file))))
+                {
+                    // MAP mode: the file is written in the background, the model does not wait for its textures
+                    if (c.Lazy) { var tex = pt; MoloMax.Core.IO.PendingFiles.Queue(file, () => CodeWalker.Utils.DDSIO.GetDDSFile(tex)); }
+                    else File.WriteAllBytes(file, CodeWalker.Utils.DDSIO.GetDDSFile(pt));
+                }
                 System.Threading.Interlocked.Add(ref Prof[2], Now - tt);
                 c.TextureFiles[pt.Name] = file; c.Res.TexturesWritten.Add(file);
                 return file;
