@@ -1,7 +1,7 @@
 {
-  "version": "1.9.0",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-1.9.0.exe",
-  "size": 70706037,
-  "sha256": "4c6c4319fe39e80286a3a294795dd6cbb3df86626e43efb5d7711efb47bb60f1",
-  "notes": "- MAP mode rebuilt: the whole GTA V map with its levels of detail, typically 60 FPS\n- Read only until you click: a click opens the .ymap for editing\n- New lighting, HDR image, sky from the air, clouds in volume\n- Sun shadows up to 800 m\n- The game's water: waves, foam, reflections\n- City lights at night, relief (PXM) on the ground\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "2.0.0",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-2.0.0.exe",
+  "size": 70733593,
+  "sha256": "b94b2eac97257383c7790ce135d44a4dddf98af1c3cca92d66a36b73f6042e53",
+  "notes": "- Play mode: walk on the map at eye height (ZQSD / WASD, Shift run, Space jump, swim)\n- The game's sea: swell, waves along the shore, foam, sun glints; pools and rivers filled\n- Smooth streaming like the game: no holes or floating buildings while the city loads\n- Shadows up to 1 km, haze 12 km, view distance x2, anisotropic x16\n- File > Import map folder: open a whole FiveM map resource in MAP mode\n- Terrain layers paint on your own maps with big triangles\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
