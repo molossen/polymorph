@@ -291,6 +291,8 @@ public sealed class TextureCache : IDisposable
     readonly Dictionary<string, System.Threading.Tasks.Task<ShaderResourceView>> reads = new();
     /// <summary>Background texture loads at once (disk + graphics card), leaving cores for drawing and the models.</summary>
     static readonly System.Threading.SemaphoreSlim loadGate = new(Math.Clamp(Environment.ProcessorCount / 3, 2, 4));
+    /// <summary>Textures that arrived from the background reads (MAP mode).</summary>
+    public int Arrived;
     ShaderResourceView LoadInBackground(string path)
     {
         MoloMax.Core.IO.PendingFiles.Wait(path); // a texture of a model just read: its file may still be on its way to the disk
@@ -324,7 +326,9 @@ public sealed class TextureCache : IDisposable
             if (!t.IsCompleted) { pendingNow++; LastGetPending = true; return null; }
             reads.Remove(path);
             if (t.IsFaulted) { failed.Add(path); Epoch++; Errors.Add($"{Path.GetFileName(path)}: {t.Exception?.GetBaseException().Message}"); return null; }
-            cache[path] = t.Result; Epoch++;
+            // no Epoch change here: only the materials still waiting for a texture look again (they do each frame); a change
+            // of Epoch made every material of the map look up all its textures again each time one texture arrived
+            cache[path] = t.Result; Arrived++;
             return t.Result;
         }
         loadSw.Restart();

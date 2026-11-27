@@ -423,14 +423,14 @@ public sealed partial class EditorApp
     MoloMax.Core.Gta.Look.MapLighting mapLightBase; float mapLightHour = float.NaN; (bool, bool) mapLightHdr;
     int nrCasterHash; double nrCasterCheck;
 
-    double nrFarTime; bool nrFarPending;
+    double nrFarTime; bool nrFarPending; readonly double[] nrRetryAt = new double[MapShadowSlices.Count];
     void NrShadows(GtaGlobalLights gl)
     {
         nrSlices ??= new MapShadowSlices(SceneRenderer.ShadowSize);
         var vp = Viewports[ActiveViewport]; var cam = vp.Camera;
         // something casting a shadow changed: other objects chosen, models arrived, editable objects moved
         bool changed = false;
-        if (ImGui.GetTime() - nrCasterCheck > 0.25)
+        if (ImGui.GetTime() - nrCasterCheck > (archLoading > 0 ? 0.6 : 0.25)) // models still arriving: the near image follows them a little less often
         {
             nrCasterCheck = ImGui.GetTime();
             var h = new HashCode(); h.Add(worldSel.Count); h.Add(worldSelGen); h.Add(archReady);
@@ -443,6 +443,7 @@ public sealed partial class EditorApp
         if (far) nrFarTime = ImGui.GetTime();
         nrFarPending |= changed && !far;
         if (!changed && nrFarPending && ImGui.GetTime() - nrFarTime > 2.0) { changed = far = true; nrFarPending = false; nrFarTime = ImGui.GetTime(); }
+        for (int i = 0; i < MapShadowSlices.Count; i++) if (nrRetryAt[i] > 0 && ImGui.GetTime() >= nrRetryAt[i]) { nrRetryAt[i] = 0; nrSlices.Unfinished(i); }
         nrSlices.Update(cam.Eye, cam.Forward, cam.Right, cam.Fov, cam.Near, vp.Aspect, gl.LightDir, MathF.Max(50, Settings.MapShadowDistance), changed, far);
         for (int i = 0; i < MapShadowSlices.Count; i++)
         {
@@ -463,7 +464,9 @@ public sealed partial class EditorApp
             long ver = 0;
             var wl = WorldShadowCasters(c, r, ref ver, minR);
             bool complete = renderer.RenderShadows(Scene, live, nrSlices.Cascades[i], gl, 8, wl, i, noDepthClip: true);
-            if (!complete) nrSlices.Unfinished(i);
+            // not every caster was on the graphics card yet: drawn again in a moment, not on the very next frame (while a
+            // city streams in that redrew a whole shadow image every frame)
+            if (!complete) nrRetryAt[i] = ImGui.GetTime() + (i == 0 ? 0.3 : 0.8);
         }
         renderer.SetMapShadows(nrSlices, true);
     }
