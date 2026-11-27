@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [2.0.1](#201) | Model your map in MAP mode (Add model button, all tools), twice as smooth in the city, sun rays, optional Molo look |
 | [2.0.0](#200) | Play mode (walk on the map), the game's sea with waves, smooth streaming, import a whole map folder |
 | [1.9.0](#190) | New MAP mode: the whole game map with its levels of detail, new lighting, water, clouds |
 | [1.8.9](#189) | My own shortcuts (any command, export / import), Ctrl+X cut |
@@ -48,6 +49,29 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 2.0.1
+
+**Model directly on the map, a much smoother city, a nicer image.**
+
+- **Add this model to my project** (big orange button over the view, MAP mode): click any model of the game map, press
+  the button and you get your own copy in your project, ready to edit, save and export. A green **MY MODEL** badge shows
+  the ones that are yours.
+- **The same modeling tools in MAP as in MODEL mode**: Modifiers, Material, Paint, Data tabs all work on a map model;
+  the first change makes your own copy, the game's files are never touched.
+- **4-layer terrain paint in MAP mode**: Paint tab > **Paint terrain layers** on a game terrain makes your copy and
+  starts painting. The brush also reaches the nearest corners when it falls between them.
+- **Windows and neon only at night**: emissive-only glows (lit windows, signs) and the models the game shows at certain
+  hours follow the Sun hour, like in game.
+- **Twice as smooth while the city loads**: a texture arriving no longer makes every material look its textures up
+  again, far shadows follow new models every 2 seconds instead of every frame, small objects are left out of the wide
+  shadow images. Legion Square: 42-48 ms a frame down to 20-22 ms. The first models of a place are read about twice as
+  fast, and files being written in the background are finished before the app closes.
+- **Sun rays and sharpness** (Look panel, HDR): the sun's light spills between buildings, palms and hills when you look
+  towards it; the Sharpness slider brings out the fine detail of the textures.
+- **Molo look** (View menu, optional): black, orange and green like the logo, round corners, soft animations (glow on
+  hover, sliding tab marker). Same layout, same keys, no slower.
+- Frame profile: the parts of a 3D view (choosing, opaque, lamps + water, see-through, image) are timed separately.
 
 ## 2.0.0
 

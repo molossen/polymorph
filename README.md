@@ -33,6 +33,7 @@ then export a FiveM resource that is ready to `ensure` — in one free program, 
 
 ## What's new
 
+- **2.0.1 — Model on the map**: Add this model to my project button, all modeling tabs and 4-layer paint in MAP mode, windows lit only at night, twice as smooth in the city, sun rays, optional Molo look.
 - **2.0.0 — Play mode and the real sea**: walk on your map at eye height (jump, swim), the game's open sea with waves and foam, pools and rivers filled, smooth streaming (no holes while the city loads), File > Import map folder for a whole FiveM resource.
 - **1.9.0 — New MAP mode**: the whole game map at once with its levels of detail (about 800,000 objects, 60 FPS), a click opens any object's .ymap for editing; new lighting of the hour, HDR image (glow, ambient occlusion), sky worked out from the air, clouds in volume with weather presets, sun shadows up to 800 m, the game's water (waves, foam, reflections), city lights at night, PXM relief.
 - **1.8.9 — My own shortcuts**: give any command your own key (Preferences > Keymap, or right-click it in the search), replace or free the keymap's keys, export / import your keymap as a .json to share it. **Ctrl+X** cuts objects.
