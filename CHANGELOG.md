@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [2.1.1](#211) | Night: street lamps light the ground without blinding halos |
 | [2.1.0](#210) | Map engine: the city sharp at once and 60 frames a second while flying, click any map model, lighter memory, real water again |
 | [2.0.1](#201) | Model your map in MAP mode (Add model button, all tools), twice as smooth in the city, sun rays, optional Molo look |
 | [2.0.0](#200) | Play mode (walk on the map), the game's sea with waves, smooth streaming, import a whole map folder |
@@ -50,6 +51,14 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 2.1.1
+
+**Night lights that look right.**
+
+- **Street lamps at night** (MAP mode, HDR): a lamp now adds its light on the surface's own colour instead of
+  multiplying what is on screen. Bulbs, lit signs and windows next to a lamp no longer blow up into big yellow-green
+  halos; the ground shows soft pools of light, and the lamps keep their own colour.
 
 ## 2.1.0
 
