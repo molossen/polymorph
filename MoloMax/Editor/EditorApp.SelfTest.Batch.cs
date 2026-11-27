@@ -1055,7 +1055,8 @@ public sealed partial class EditorApp
         GoTo(legion); var cam = Viewports[ActiveViewport].Camera; cam.Distance = 70; cam.Pitch = 0.6f;
         LoadAreaAt(legion);
         yield return Until(() => mapLoadQueue.Count == 0 && mapLoadTask == null && entOf.Count > 100 && archSlots.Values.Count(a => a.State == 2) > 60, 240);
-        yield return Until(() => archLoading == 0, 60);
+        // the world keeps streaming in around (view distance x2): waiting for every read to end is not needed here
+        yield return Settle(() => archLoading == 0, 60);
         // 1. a box on the ground, edited like in MODEL mode
         AddPrimitive(CreateKind.Box);
         var box = Current;
