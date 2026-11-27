@@ -1,7 +1,7 @@
 {
-  "version": "2.1.0",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-2.1.0.exe",
-  "size": 64351229,
-  "sha256": "7df0d68b5542727b2ca0e723ef83105c51311f5669ebecf1214fc3b0db398ef0",
-  "notes": "- New map engine (MAP mode): the whole city sharp at once, 60 frames a second while flying\n- Click any model of the map: its map opens for editing\n- Much lighter on memory in long MAP sessions\n- Collision files (.ybn) arrive as a group, one part per material and RoomID, RoomID kept\n- No more white boxes while a model is read\n- Play: no shortcut fires while you walk\n- The sea: foam in patches offshore; decals steady from afar\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "2.1.1",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-2.1.1.exe",
+  "size": 64360478,
+  "sha256": "b57da8fd241651016158c25c52afadf515950adee64b7ffdd7a5814f69c62eb8",
+  "notes": "- Night: street lamps light the ground softly, no more blinding halos\n- New map engine (MAP mode): the whole city sharp at once, 60 frames a second while flying\n- Click any model of the map: its map opens for editing\n- Much lighter on memory in long MAP sessions\n- Collision files (.ybn) arrive as a group, one part per material and RoomID, RoomID kept\n- No more white boxes while a model is read\n- Play: no shortcut fires while you walk\n- The sea: foam in patches offshore; decals steady from afar\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
