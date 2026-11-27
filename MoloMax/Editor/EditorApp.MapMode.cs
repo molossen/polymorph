@@ -617,9 +617,12 @@ public sealed partial class EditorApp
             if (a != null)
             {
                 var r = ReadGameModel(g, a, hash, opt);
+                long tm = System.Diagnostics.Stopwatch.GetTimestamp();
                 var parts = r.Meshes.Where(m => m.GtaType != GtaObjectType.Collision).ToList();
                 ld = Merge(r, parts);
+                long tsv = System.Diagnostics.Stopwatch.GetTimestamp(); System.Threading.Interlocked.Add(ref LoadMergeTicks, tsv - tm);
                 if (ld.Mesh.Faces.Count > 0) try { MapMeshCache.Save(MeshCachePath(hash), ld.Mesh, ld.R.Materials); } catch { }
+                System.Threading.Interlocked.Add(ref LoadSaveTicks, System.Diagnostics.Stopwatch.GetTimestamp() - tsv);
             }
             else
             {
@@ -675,11 +678,13 @@ public sealed partial class EditorApp
     readonly HashSet<string> mapTexFolders = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Where the time of the model reads goes (ms summed over the reading threads, and counts): self tests print it.</summary>
-    public static long LoadCacheTicks, LoadImportTicks, LoadBuildTicks, LoadGpuTicks; public static int LoadCached, LoadImported;
+    public static long LoadCacheTicks, LoadImportTicks, LoadBuildTicks, LoadGpuTicks, LoadMergeTicks, LoadSaveTicks; public static int LoadCached, LoadImported;
     static string LoadTimesText()
     {
         double f = 1000.0 / System.Diagnostics.Stopwatch.Frequency; int n = Math.Max(1, LoadCached + LoadImported);
-        return $"{LoadCached} from the cache ({LoadCacheTicks * f / Math.Max(1, LoadCached):0.0} ms each), {LoadImported} read from the game ({LoadImportTicks * f / Math.Max(1, LoadImported):0.0} ms each), render mesh {LoadBuildTicks * f / n:0.0} ms each, graphics card buffers {LoadGpuTicks * f / n:0.0} ms each";
+        var ip = MoloMax.Core.Gta.Import.GtaImporter.Prof; int ni = Math.Max(1, LoadImported);
+        string imp = $" [game read split, ms each: archive + texture dictionaries {MoloMax.Core.Gta.Game.GameFiles.ReadModelTicks * f / ni:0}, parse {ip[0] * f / ni:0}, convert {ip[1] * f / ni:0} (of which texture files {ip[2] * f / ni:0}), finish {ip[3] * f / ni:0}, merge {LoadMergeTicks * f / ni:0}, cache write {LoadSaveTicks * f / ni:0}]";
+        return imp + $" {LoadCached} from the cache ({LoadCacheTicks * f / Math.Max(1, LoadCached):0.0} ms each), {LoadImported} read from the game ({LoadImportTicks * f / Math.Max(1, LoadImported):0.0} ms each), render mesh {LoadBuildTicks * f / n:0.0} ms each, graphics card buffers {LoadGpuTicks * f / n:0.0} ms each";
     }
 
     static ArchLoad FromCache(uint hash)

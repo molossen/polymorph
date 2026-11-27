@@ -454,10 +454,15 @@ public sealed class GameFiles
         return (raw, rr, tex);
     }
 
+    /// <summary>Profiling: ticks spent taking models and their texture dictionaries out of the archives.</summary>
+    public static long ReadModelTicks;
+
     /// <summary>Imports a game model in memory (textures the materials use are written under <paramref name="folder"/>). Null when it can't.</summary>
     public MoloMax.Core.IO.ImportResult ImportInMemory(GameAsset a, uint archetypeHash, string folder, MoloMax.Core.IO.ImportOptions opt)
     {
+        long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
         var (raw, entry, tex) = ReadModel(a, archetypeHash);
+        System.Threading.Interlocked.Add(ref ReadModelTicks, System.Diagnostics.Stopwatch.GetTimestamp() - t0);
         if (raw == null) return null;
         return MoloMax.Core.Gta.Import.GtaImporter.ImportResource(a.Name, a.Ext, raw, entry, tex, folder, opt);
     }

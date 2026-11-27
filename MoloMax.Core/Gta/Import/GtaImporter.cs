@@ -146,6 +146,10 @@ public static class GtaImporter
     /// decompressed resource, <paramref name="textures"/> its texture dictionary then the parent ones (already parsed,
     /// shared between models). Textures the materials use are written into <paramref name="folder"/>/name_textures.
     /// </summary>
+    /// <summary>Profiling of in-memory imports (ticks summed over threads): 0 parse, 1 convert, 2 texture files, 3 finish.</summary>
+    public static readonly long[] Prof = new long[4];
+    static long Now => System.Diagnostics.Stopwatch.GetTimestamp();
+
     public static ImportResult ImportResource(string name, string ext, byte[] raw, Cw.RpfResourceFileEntry entry, IList<Cw.YtdFile> textures, string folder, ImportOptions opt = null)
     {
         opt ??= new ImportOptions();
@@ -168,12 +172,13 @@ public static class GtaImporter
             }
         switch (ext.ToLowerInvariant())
         {
-            case ".ydr": { var y = new Cw.YdrFile(); y.Load(raw, entry); DoYdr(c, y); break; }
-            case ".ydd": { var y = new Cw.YddFile(); y.Load(raw, entry); DoYdd(c, y); break; }
-            case ".yft": { var y = new Cw.YftFile(); y.Load(raw, entry); DoYft(c, y); break; }
+            case ".ydr": { long t0 = Now; var y = new Cw.YdrFile(); y.Load(raw, entry); long t1 = Now; DoYdr(c, y); System.Threading.Interlocked.Add(ref Prof[0], t1 - t0); System.Threading.Interlocked.Add(ref Prof[1], Now - t1); break; }
+            case ".ydd": { long t0 = Now; var y = new Cw.YddFile(); y.Load(raw, entry); long t1 = Now; DoYdd(c, y); System.Threading.Interlocked.Add(ref Prof[0], t1 - t0); System.Threading.Interlocked.Add(ref Prof[1], Now - t1); break; }
+            case ".yft": { long t0 = Now; var y = new Cw.YftFile(); y.Load(raw, entry); long t1 = Now; DoYft(c, y); System.Threading.Interlocked.Add(ref Prof[0], t1 - t0); System.Threading.Interlocked.Add(ref Prof[1], Now - t1); break; }
             default: throw new NotSupportedException($"{ext} is not a GTA model file.");
         }
-        return Finish(c);
+        long tf = Now; var res = Finish(c); System.Threading.Interlocked.Add(ref Prof[3], Now - tf);
+        return res;
     }
 
     static XmlDocument LoadXml(string path) { var d = new XmlDocument(); d.Load(path); return d; }
@@ -230,11 +235,13 @@ public static class GtaImporter
         // a texture of a parent dictionary: written now that a material needs it
         if (c.Pending.TryGetValue(tb.Name, out var pt))
         {
+            long tt = Now;
             try
             {
                 Directory.CreateDirectory(c.TexDir);
                 var file = Path.Combine(c.TexDir, ModelImporter.SafeName(pt.Name, "texture") + ".dds");
                 if (!(c.SkipExisting && File.Exists(file))) File.WriteAllBytes(file, CodeWalker.Utils.DDSIO.GetDDSFile(pt));
+                System.Threading.Interlocked.Add(ref Prof[2], Now - tt);
                 c.TextureFiles[pt.Name] = file; c.Res.TexturesWritten.Add(file);
                 return file;
             }
