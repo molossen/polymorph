@@ -57,7 +57,7 @@ public sealed partial class EditorApp
         foreach (var (tab, tip, col) in PropTabs)
         {
             if (tab == PropTab.Addons && !AnyAddonPanels) continue; // only when an add-on adds a panel
-            if (MapMode ? tab is PropTab.Weapon or PropTab.Vehicle or PropTab.Ped || !MapEditable(Current) && (tab is PropTab.Modifiers or PropTab.Data or PropTab.Tripo or PropTab.Tool || tab is PropTab.Paint or PropTab.Material && !MapGameModel(Current)) : tab == PropTab.Map) continue;
+            if (MapMode ? tab is PropTab.Weapon or PropTab.Vehicle or PropTab.Ped || !MapEditable(Current) && (tab is PropTab.Tripo || tab is PropTab.Modifiers or PropTab.Data or PropTab.Paint or PropTab.Material && !MapGameModel(Current)) : tab == PropTab.Map) continue;
             if (tab == PropTab.Object || tab == PropTab.Gta) ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 6); // groups, like Blender
             var p = ImGui.GetCursorScreenPos() + new Vector2(3, 0);
             ImGui.SetCursorScreenPos(p);
@@ -310,6 +310,7 @@ public sealed partial class EditorApp
     {
         var o = Current;
         if (o == null) { Ui.TextDisabled("No active object."); return; }
+        if (MapOwnCopyGate(o, "add modifiers to it")) return;
         ObjectHeader(o, "Modifiers");
         if (ImGui.Button("Add Modifier  v", new Vector2(-1, 24))) ImGui.OpenPopup("addmod");
         if (ImGui.BeginPopup("addmod"))
@@ -566,6 +567,7 @@ public sealed partial class EditorApp
     {
         var o = Current;
         if (o == null) { Ui.TextDisabled("No active object."); return; }
+        if (MapOwnCopyGate(o, "edit its mesh data")) return;
         ObjectHeader(o, "Data");
         var ev = o.Evaluated();
         // counts cached per version: walking 500k polygons every frame cost ~10 ms

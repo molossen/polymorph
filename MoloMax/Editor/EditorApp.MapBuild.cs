@@ -376,3 +376,45 @@ public sealed partial class EditorApp
         planOpen = true;
     }
 }
+
+public sealed partial class EditorApp
+{
+    /// <summary>
+    /// MAP mode, over the active view: what the selected object is, and for a model placed by a map file one big button that
+    /// takes it into your project (your own copy: every modeling tool works on it, it is saved and exported with the map).
+    /// </summary>
+    void MapModelBanner()
+    {
+        if (!MapMode || PlayOn || paintMode || SculptMode || transforming || ModalActive) return;
+        var o = Current; if (o == null) return;
+        bool game = MapGameModel(o), mine = MapEditable(o) && o.Mesh != null && o.Mesh.Faces.Count > 0;
+        if (!game && !mine) return;
+        var vp = Viewports[ActiveViewport];
+        var orange = new Vector4(0.95f, 0.42f, 0.11f, 1f); var green = new Vector4(0.36f, 0.78f, 0.36f, 1f);
+        string label = "+  ADD THIS MODEL TO MY PROJECT";
+        float bw = ImGui.CalcTextSize(label).X + 44;
+        ImGui.SetNextWindowPos(new Vector2(vp.X + vp.W * 0.5f, vp.Y + 34), ImGuiCond.Always, new Vector2(0.5f, 0));
+        ImGui.SetNextWindowBgAlpha(0.82f);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 8); ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(10, 8));
+        ImGui.Begin("##mapmodelbanner", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoSavedSettings
+                   | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoNav | ImGuiWindowFlags.NoMove);
+        if (game)
+        {
+            Ui.TextColored(new Vector4(0.75f, 0.78f, 0.82f, 1), $"{o.Name}  ·  model of a map file (read only)");
+            ImGui.PushStyleColor(ImGuiCol.Button, orange); ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(1f, 0.52f, 0.2f, 1f));
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.85f, 0.36f, 0.08f, 1f)); ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.06f, 0.06f, 0.07f, 1f));
+            ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 6);
+            bool add = ImGui.Button(label, new Vector2(bw, 34)); TutRect("map_add_model");
+            ImGui.PopStyleVar(); ImGui.PopStyleColor(4);
+            if (add) EditInPlace(o);
+            Ui.TextDisabled("Your own copy: every modeling tool, saved and exported with the map.");
+        }
+        else
+        {
+            Ui.TextColored(green, $"{o.Name}  ·  MY MODEL");
+            ImGui.SameLine(); Ui.TextDisabled("every tool works on it  ·  saved and exported with the map (Ctrl+S)");
+        }
+        ImGui.End();
+        ImGui.PopStyleVar(2);
+    }
+}

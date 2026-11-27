@@ -158,6 +158,7 @@ public sealed partial class EditorApp : IDisposable
             DrawHub();
             LayoutViewports();
             DrawViewportLabels();
+            MapModelBanner();
             LoadAddons();
             DrawLibraryWindow();
             DrawPreferences();
