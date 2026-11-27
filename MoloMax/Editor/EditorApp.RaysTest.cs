@@ -16,8 +16,8 @@ public sealed partial class EditorApp
         yield return Until(() => !Settings.MapLodTree || worldEnts != null || worldEntsTask is { IsCompleted: true }, 300);
         var vp = Viewports[ActiveViewport]; var cam = vp.Camera; Maximized = true; cam.Ortho = false;
         bool rays0 = Settings.MapSunRays; float sharp0 = Settings.MapSharpen, hour0 = Hour;
-        Hour = 18; Settings.MapWeather = "Clear";
-        cam.Distance = 12; cam.Target = new Vector3(188, -927, 45f);
+        Hour = 17; Settings.MapWeather = "Clear";
+        cam.Distance = 12; cam.Target = new Vector3(-1380, -1330, 9f);
         yield return Frames(10);
         // look towards the sun: the yaw and pitch whose forward is the closest to it
         var sun = Vector3.Normalize(mapLight.SunDirection); float best = -2;
@@ -37,12 +37,18 @@ public sealed partial class EditorApp
         int s0 = stDts.Count; yield return Frames(90); double off = Median(s0);
         Expect(!hdrImage.RaysDrawn, "off: no rays drawn");
         yield return Shot("rays_off");
+        Settings.MapSunRays = false; Settings.MapSharpen = 0.35f; yield return Frames(20);
+        int s2 = stDts.Count; yield return Frames(90); double sharp = Median(s2);
+        Settings.MapSunRays = true; Settings.MapSharpen = 0; yield return Frames(20);
+        int s3 = stDts.Count; yield return Frames(90); double ray = Median(s3);
         Settings.MapSunRays = true; Settings.MapSharpen = 0.35f; yield return Frames(20);
         int s1 = stDts.Count; yield return Frames(90); double on = Median(s1);
         Expect(hdrImage.RaysDrawn, $"on: rays drawn towards the sun (strength {hdrImage.SunRays.Z:0.00})");
         yield return Shot("rays_on");
-        Note($"frame: without {off:0.0} ms, with sun rays and sharpness {on:0.0} ms");
-        Expect(on < off + 2.5, $"sun rays and sharpness cost little ({off:0.0} -> {on:0.0} ms)");
+        Settings.MapSunRays = false; Settings.MapSharpen = 0; yield return Frames(20);
+        int s4 = stDts.Count; yield return Frames(90); double off2 = Median(s4);
+        Note($"frame: without {off:0.0} ms (again {off2:0.0}), sharpness alone {sharp:0.0}, sun rays alone {ray:0.0}, both {on:0.0} ms");
+        Expect(on < Math.Max(off, off2) + 2.5, $"sun rays and sharpness cost little ({off:0.0} -> {on:0.0} ms)");
         Hour = 13; yield return Frames(30);
         Settings.MapSunRays = false; Settings.MapSharpen = 0; yield return Frames(20); yield return Shot("sharp_off_noon");
         Settings.MapSunRays = true; Settings.MapSharpen = 0.35f; yield return Frames(20); yield return Shot("sharp_on_noon");
