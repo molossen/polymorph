@@ -238,6 +238,7 @@ public sealed partial class EditorApp
         T("SHAPES CLEANUP: arch door, round window, segments, clean up (photos)", TutShapesCleanup);
         T("GAME UVTEST: a cube whose texture slides (timeline UV keys), exported as a FiveM resource", GameUvTest);
         T("TUTO 99 trailer preview", TutTrailerPreview);
+        T("TUTO 31 what is new in 2.1", TutNew210);
         T("TUTO 98 lot finder", TutLotTest);
         T("MAP diag: duplicates", MapDiag);
         T("MAP terrain: 4-layer ground", MapTerrainTest);

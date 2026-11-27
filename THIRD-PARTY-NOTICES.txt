@@ -181,3 +181,14 @@ documentation would be appreciated but is not required.
 Altered source versions must be plainly marked as such, and must not be misrepresented as being
 the original software.
 This notice may not be removed or altered from any source distribution.
+
+----------------------------------------------------------------------
+Vortice.Windows (Direct3D 11 / DXGI bindings used by the map engine) - MIT License
+Copyright (c) Amer Koleci and Contributors.
+SharpGen.Runtime - MIT License
+Copyright (c) 2010-2014 SharpDX - Alexandre Mutel; Copyright (c) 2017-2021 SharpGenTools contributors.
+
+----------------------------------------------------------------------
+Map engine (the libraries that draw the game's map in MAP mode)
+Included in compiled form with the permission of its author, who keeps all rights on it.
+It is not covered by Polymorph's license and its source is not part of Polymorph's repository.

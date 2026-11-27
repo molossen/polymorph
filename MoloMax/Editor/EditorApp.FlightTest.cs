@@ -176,4 +176,56 @@ public sealed partial class EditorApp
         Hour = hour0;
         SetMapMode(false);
     }
+
+    /// <summary>Short film of what is new in 2.1: the map engine over Legion Square, a flight, a click on a model, the
+    /// sea, the night. Run with the filter "TUTO 31" (frames in the test folder, video/31_new_210).</summary>
+    IEnumerable<object> TutNew210()
+    {
+        var gtaFolder = SelfTestArgs.ElementAtOrDefault(0);
+        Fresh();
+        bool exp0 = ShowExplorer, stats0 = ShowStats, panel0 = ShowPanel;
+        Maximized = true; var vp = Viewports[ActiveViewport]; vp.Camera.Ortho = false; vp.Shading = MoloMax.Rendering.ShadingMode.Realistic;
+        SetMapMode(true); ClearMapBuild();
+        if (game == null && !string.IsNullOrEmpty(gtaFolder)) { Settings.GtaFolder = gtaFolder; if (gameTask == null || gameTask.IsCompleted) StartGameLoad(gtaFolder); }
+        yield return Until(() => game != null || gameError != null, 400);
+        yield return Until(() => world != null, 600);
+        if (mapDocs.Count > 0) { mapPinned.Clear(); UnloadMapDocs(mapDocs.Values.ToList()); yield return Frames(5); }
+        var cam = vp.Camera; float hour0 = Hour; Hour = 13; Settings.MapWeather = "Clear";
+        ShowExplorer = false; ShowPanel = false; ShowStats = false; tutHideCursor = true;
+        cam.Yaw = 2.2f + MathF.PI; cam.Pitch = 0.5f; cam.Distance = 160; cam.Target = new Vector3(188, -927, 30.7f);
+        yield return Until(() => !MapEngineOn || MapEngineReady, 600);
+        { var t = DateTime.Now; while ((DateTime.Now - t).TotalSeconds < 12) yield return Frames(1); }
+        foreach (var x in StartFilm("31_new_210", 5)) yield return x;
+        ShowPanel = false; tutHideCursor = true;
+        // 1. the city, sharp at once
+        tutStep = 1; tutCaption = "Polymorph 2.1  -  a new map engine"; tutSub = "The whole city, sharp from the first second";
+        for (int i = 0; i < 300; i++) { cam.Orbit(0.25f, 0); yield return Frames(1); }
+        // 2. a flight
+        tutStep = 2; tutCaption = "Smooth while you fly"; tutSub = "60 frames a second over Legion Square";
+        cam.Distance = 40; cam.Pitch = 0.25f;
+        var from = new Vector3(60, -1100, 60); var to = new Vector3(330, -700, 75);
+        for (int i = 0; i < 420; i++) { float k = Ease(i / 419f); cam.Target = Vector3.Lerp(from, to, k); cam.Orbit(0.08f, 0); yield return Frames(1); }
+        // 3. click a model
+        cam.Yaw = 2.2f + MathF.PI; cam.Pitch = 0.45f; cam.Distance = 60; cam.Target = new Vector3(188, -927, 30.7f);
+        tutStep = 3; tutCaption = "Click any model of the map"; tutSub = "Its map opens for editing, the model is selected";
+        yield return Frames(90);
+        MapEngineClick(vp, new Vector2(vp.X + vp.W / 2, vp.Y + vp.H / 2));
+        { var t = DateTime.Now; while (Selected.Count == 0 && (DateTime.Now - t).TotalSeconds < 40) yield return Frames(1); }
+        for (int i = 0; i < 180; i++) { cam.Orbit(0.15f, 0); yield return Frames(1); }
+        Selected.Clear(); SelectionChanged();
+        // 4. the sea
+        tutStep = 4; tutCaption = "The sea, the sky, the light"; tutSub = "Waves, foam, clouds and sun shadows as before";
+        cam.Target = new Vector3(-1792, -1572, 6); cam.Distance = 30; cam.Pitch = 0.12f; cam.Yaw = 0.6f;
+        { var t = DateTime.Now; while ((DateTime.Now - t).TotalSeconds < 5) yield return Frames(1); }
+        for (int i = 0; i < 300; i++) { cam.Orbit(0.1f, 0); yield return Frames(1); }
+        // 5. the night
+        tutStep = 5; tutCaption = "Day and night"; tutSub = "Free download: molossen.github.io/polymorph";
+        cam.Yaw = 2.2f + MathF.PI; cam.Pitch = 0.35f; cam.Distance = 90; cam.Target = new Vector3(188, -927, 30.7f);
+        { var t = DateTime.Now; while ((DateTime.Now - t).TotalSeconds < 5) yield return Frames(1); }
+        for (int i = 0; i < 240; i++) { Hour = 17 + i / 240f * 6; cam.Orbit(0.2f, 0); yield return Frames(1); }
+        for (int i = 0; i < 120; i++) { cam.Orbit(0.2f, 0); yield return Frames(1); }
+        foreach (var x in EndFilm()) yield return x;
+        Hour = hour0; ShowExplorer = exp0; ShowStats = stats0; ShowPanel = panel0; tutHideCursor = false; Maximized = false;
+        SetMapMode(false);
+    }
 }
