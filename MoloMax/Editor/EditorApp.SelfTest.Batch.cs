@@ -1304,6 +1304,7 @@ public sealed partial class EditorApp
                         mats = "cached: " + string.Join("/", fc.R.Materials.Take(3).Select(m => m.Shader + ":" + Path.GetFileName(m.DiffuseTexture ?? "-") + (m.Layer(1) != null ? "+layers" : "")));
                     seen.Add($"({gx},{gy}) {o.Name} {hh.Distance:0} m [{mats}]");
                 }
+            Note($"{name}: model reads so far: {LoadTimesText()}");
             int slots0 = archSlots.Values.Count(x => x.State == 0), slots1 = archSlots.Values.Count(x => x.State == 1), slots2 = archSlots.Values.Count(x => x.State == 2 || x.GpuOnly), slots3 = archSlots.Values.Count(x => x.State == 3);
             Note($"{name}: models waiting {slots0}, reading {slots1}, ready {slots2}, failed {slots3}; chosen {worldSel.Count}, families waiting for their detail {worldBlocked.Count}, parents standing in {worldFallbacks}, wanted {worldWanted.Count}");
             Note($"{name} picks: " + string.Join(" | ", seen));

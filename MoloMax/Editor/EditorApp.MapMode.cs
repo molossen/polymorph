@@ -606,7 +606,10 @@ public sealed partial class EditorApp
             a ??= g.FindModel(hash);
         }
         uint asset = g?.AssetOf(hash) ?? hash; // several archetypes can draw one model (named differently)
+        long tc = System.Diagnostics.Stopwatch.GetTimestamp();
         var ld = FromCache(hash) ?? (asset != hash ? FromCache(asset) : null) ?? new ArchLoad();
+        if (ld.Mesh != null) { System.Threading.Interlocked.Add(ref LoadCacheTicks, System.Diagnostics.Stopwatch.GetTimestamp() - tc); System.Threading.Interlocked.Increment(ref LoadCached); }
+        long ti = System.Diagnostics.Stopwatch.GetTimestamp(); bool imported = ld.Mesh == null;
         if (ld.Mesh == null)
         {
             var opt = new MoloMax.Core.IO.ImportOptions { Scale = 1, AutoSmoothAngle = 0, SkipExistingTextures = true, OnlyUsedTextures = true };
@@ -642,11 +645,15 @@ public sealed partial class EditorApp
                 }
             }
         }
+        if (imported) { System.Threading.Interlocked.Add(ref LoadImportTicks, System.Diagnostics.Stopwatch.GetTimestamp() - ti); System.Threading.Interlocked.Increment(ref LoadImported); }
         // GPU triangles built here, not on the UI thread
         if (ld.Mesh != null && ld.Mesh.Faces.Count > 0)
         {
+            long tb = System.Diagnostics.Stopwatch.GetTimestamp();
             (ld.Min, ld.Max) = ld.Mesh.Bounds(); ld.Groups = MoloMax.Core.Mesh.RenderMeshBuilder.Build(ld.Mesh);
+            long tg = System.Diagnostics.Stopwatch.GetTimestamp(); System.Threading.Interlocked.Add(ref LoadBuildTicks, tg - tb);
             try { ld.Gpu = MoloMax.Rendering.SceneRenderer.MakeBuffers(ld.Groups); } catch { ld.Gpu = null; } // and on the graphics card, here too
+            System.Threading.Interlocked.Add(ref LoadGpuTicks, System.Diagnostics.Stopwatch.GetTimestamp() - tg);
         }
         return ld;
     }
@@ -666,6 +673,14 @@ public sealed partial class EditorApp
 
     /// <summary>Texture folders of the map models already in the search list (thousands: a list lookup per texture was slow).</summary>
     readonly HashSet<string> mapTexFolders = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Where the time of the model reads goes (ms summed over the reading threads, and counts): self tests print it.</summary>
+    public static long LoadCacheTicks, LoadImportTicks, LoadBuildTicks, LoadGpuTicks; public static int LoadCached, LoadImported;
+    static string LoadTimesText()
+    {
+        double f = 1000.0 / System.Diagnostics.Stopwatch.Frequency; int n = Math.Max(1, LoadCached + LoadImported);
+        return $"{LoadCached} from the cache ({LoadCacheTicks * f / Math.Max(1, LoadCached):0.0} ms each), {LoadImported} read from the game ({LoadImportTicks * f / Math.Max(1, LoadImported):0.0} ms each), render mesh {LoadBuildTicks * f / n:0.0} ms each, graphics card buffers {LoadGpuTicks * f / n:0.0} ms each";
+    }
 
     static ArchLoad FromCache(uint hash)
     {
