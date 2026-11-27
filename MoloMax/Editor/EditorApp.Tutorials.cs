@@ -245,6 +245,7 @@ public sealed partial class EditorApp
         T("TRIPO diag: textures of the downloaded models", TripoDiag);
         T("MAP hide + send to MODEL", MapHideSendTest);
         T("MAP MLO hide: hiding an interior hides what is inside, and it stays hidden", MapMloHideTest);
+        T("MOLO LOOK: the optional look (black, orange, green, animations) on and off, same layout, no slower", MoloLookTest);
         T("CLASSIC: Classic is only a look (4 views, colours), keys and timeline unchanged, back to Standard", ClassicModeTest);
         T("UNDO: move then Ctrl+Z, in MODEL and on a MAP ground", UndoMoveTest);
         T("ANIM: timeline, I key, auto key, play, UV keys, camera, .ycd out and in, your .ycd files", AnimTest);
@@ -3939,6 +3940,28 @@ room.Mesh.Faces.Count");
         }
         UI.ImGuiBackend.SyntheticInput = false;
         if (TimelineOpen) ToggleTimeline();
+    }
+
+    IEnumerable<object> MoloLookTest()
+    {
+        Fresh();
+        bool look0 = Settings.MoloLook; var keys0 = Settings.Keymap; bool max0 = Maximized;
+        SetMoloLook(false);
+        var b = Prim(CreateKind.Box, Vector3.Zero); Prim(CreateKind.Sphere, new Vector3(3, 0, 0)); SelectOnly(b); FrameSelection();
+        propTab = PropTab.Tool; ShowPanel = true; yield return Frames(20);
+        double Median(int n0) { var d = stDts.Skip(n0).Where(x => x > 0).OrderBy(x => x).ToList(); return d.Count > 0 ? d[d.Count / 2] * 1000 : 0; }
+        int s0 = stDts.Count; yield return Frames(90); double plainCpu = LastFrameCpuMs, plain = Median(s0);
+        yield return Shot("look_standard");
+        SetMoloLook(true); yield return Frames(20);
+        int s1 = stDts.Count; yield return Frames(90); double moloCpu = LastFrameCpuMs, molo = Median(s1);
+        yield return Shot("look_molo");
+        propTab = PropTab.Material; yield return Frames(30); yield return Shot("look_molo_material");
+        Note($"frame: standard {plain:0.0} ms (processor {plainCpu:0.0}), Molo look {molo:0.0} ms (processor {moloCpu:0.0})");
+        Expect(Theme.Neon && Settings.Keymap == keys0 && Maximized == max0, "the Molo look changes colours only: same keys, same layout");
+        Expect(moloCpu < plainCpu + 1.5, $"the animations cost nothing that shows (processor time {plainCpu:0.0} -> {moloCpu:0.0} ms per frame)");
+        SetMoloLook(false); yield return Frames(5);
+        Expect(!Theme.Neon, "off again: the standard look is back");
+        SetMoloLook(look0);
     }
 
     IEnumerable<object> ClassicModeTest()
