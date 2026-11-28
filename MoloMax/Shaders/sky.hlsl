@@ -11,6 +11,12 @@ cbuffer SkyVars : register(b0)
     float4 Tint;       // colour of the sun through the air (table)
     float4 TrueSun;    // direction of the sun, even below the horizon; w 1 = clouds over the sky
 };
+
+// Depth mode of the view (see DepthMode.cs): x = 1 when the depth is reversed (1 near, 0 far).
+cbuffer DepthModeVars : register(b13) { float4 DepthModeV; };
+float StdDepth(float d) { return DepthModeV.x > 0.5 ? 1.0 - d : d; } // a depth value as standard depth (0 near, 1 far)
+float NdcFar() { return DepthModeV.x > 0.5 ? 0.0 : 1.0; }             // depth of the far plane
+
 static const float LowestSky = 0.07f;
 Texture2D Table : register(t0);
 Texture2D Clouds : register(t1); // rgb their light, a how much of the sky shows through
@@ -22,7 +28,7 @@ PS_IN VSMain(uint id : SV_VertexID)
 {
     PS_IN o;
     float2 p = float2((id << 1) & 2, id & 2) * 2.0 - 1.0;
-    o.pos = float4(p, 1.0, 1.0); // the far end of the depth: drawn after the models, it only shows where nothing is
+    o.pos = float4(p, NdcFar(), 1.0); // the far end of the depth: drawn after the models, it only shows where nothing is
     o.ndc = p;
     return o;
 }
@@ -39,8 +45,8 @@ float3 WithClouds(float3 color, float2 ndc)
 
 float4 PSMain(PS_IN i) : SV_TARGET
 {
-    float4 a = mul(float4(i.ndc, 0.0, 1.0), InvViewProj);
-    float4 b = mul(float4(i.ndc, 1.0, 1.0), InvViewProj);
+    float4 a = mul(float4(i.ndc, 1.0 - NdcFar(), 1.0), InvViewProj);
+    float4 b = mul(float4(i.ndc, NdcFar(), 1.0), InvViewProj);
     float3 ray = normalize(b.xyz / b.w - a.xyz / a.w);
     float up = ray.z;
     float3 horizon = Horizon.rgb, zenith = Zenith.rgb;

@@ -357,11 +357,12 @@ public sealed partial class EditorApp : IDisposable
         var ctx = gpu.Context;
         ctx.Rasterizer.SetViewport(vp.X, vp.Y, vp.W, vp.H);
         ctx.Rasterizer.SetScissorRectangle((int)vp.X, (int)vp.Y, (int)(vp.X + vp.W), (int)(vp.Y + vp.H));
-        ctx.ClearDepthStencilView(gpu.DepthView, SharpDX.Direct3D11.DepthStencilClearFlags.Depth, 1f, 0);
         var cam = vp.Camera;
+        MoloMax.Rendering.DepthMode.Set(ctx, cam.ReverseZ);
+        ctx.ClearDepthStencilView(gpu.DepthView, SharpDX.Direct3D11.DepthStencilClearFlags.Depth, MoloMax.Rendering.DepthMode.Far, 0);
         drawCam = cam; drawViewport = vp;
         var viewProj = cam.ViewProj(vp.Aspect);
-        lines.SetView(cam.Ortho, cam.Near, cam.Far, cam.OrthoHeight);
+        lines.SetView(cam.Ortho, cam.Near, cam.Far, cam.OrthoHeight, cam.ReverseZ);
         var blendCol = new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0);
 
         // background (3ds Max 2016: gradient in perspective, flat grey in orthographic views)
@@ -585,6 +586,7 @@ public sealed partial class EditorApp : IDisposable
         PaintCursorLines();
         SculptCursorLines(); SnapMarkerLines(); ShelfDropPreviewLines();
         lines.Flush(viewProj, 0.0004f);
+        MoloMax.Rendering.DepthMode.Set(ctx, false); // previews, thumbnails and shadow maps draw with standard depth
     }
 
     static bool wireOnly(Viewport vp) => vp.WireframeOnly;

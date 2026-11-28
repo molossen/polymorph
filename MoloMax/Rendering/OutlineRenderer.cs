@@ -28,7 +28,7 @@ public sealed class OutlineRenderer : IDisposable
     readonly PixelShader ps;
     readonly InputLayout layout;
     readonly Buffer cb;
-    readonly DepthStencilState stamp, ring;
+    readonly DepthStencilState stamp, ringStd, ringRev;
     readonly BlendState noColour, alpha;
     readonly RasterizerState noCull;
     readonly Dictionary<int, Mesh> meshes = new();
@@ -56,9 +56,15 @@ public sealed class OutlineRenderer : IDisposable
             IsStencilEnabled = true, StencilReadMask = 0xFF, StencilWriteMask = 0xFF,
             FrontFace = Op(Comparison.Always, StencilOperation.Replace), BackFace = Op(Comparison.Always, StencilOperation.Replace),
         });
-        ring = new DepthStencilState(device, new DepthStencilStateDescription
+        ringStd = new DepthStencilState(device, new DepthStencilStateDescription
         {
             IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.Zero, DepthComparison = Comparison.LessEqual,
+            IsStencilEnabled = true, StencilReadMask = 0xFF, StencilWriteMask = 0x00,
+            FrontFace = Op(Comparison.NotEqual, StencilOperation.Keep), BackFace = Op(Comparison.NotEqual, StencilOperation.Keep),
+        });
+        ringRev = new DepthStencilState(device, new DepthStencilStateDescription
+        {
+            IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.Zero, DepthComparison = Comparison.GreaterEqual,
             IsStencilEnabled = true, StencilReadMask = 0xFF, StencilWriteMask = 0x00,
             FrontFace = Op(Comparison.NotEqual, StencilOperation.Keep), BackFace = Op(Comparison.NotEqual, StencilOperation.Keep),
         });
@@ -132,7 +138,7 @@ public sealed class OutlineRenderer : IDisposable
         ctx.OutputMerger.SetBlendState(noColour, blendCol, -1);
         foreach (var (it, m) in list) Submit(it, m, viewProj, vpW, vpH, 0);
         // pass 2: ring outside the stamp
-        ctx.OutputMerger.SetDepthStencilState(ring, 1);
+        ctx.OutputMerger.SetDepthStencilState(DepthMode.Reversed ? ringRev : ringStd, 1);
         ctx.OutputMerger.SetBlendState(alpha, blendCol, -1);
         foreach (var (it, m) in list) Submit(it, m, viewProj, vpW, vpH, widthPx);
     }
@@ -151,6 +157,6 @@ public sealed class OutlineRenderer : IDisposable
         foreach (var m in meshes.Values) m.Dispose();
         meshes.Clear();
         vs.Dispose(); ps.Dispose(); layout.Dispose(); cb.Dispose();
-        stamp.Dispose(); ring.Dispose(); noColour.Dispose(); alpha.Dispose(); noCull.Dispose();
+        stamp.Dispose(); ringStd.Dispose(); ringRev.Dispose(); noColour.Dispose(); alpha.Dispose(); noCull.Dispose();
     }
 }

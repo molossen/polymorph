@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [2.1.3](#213) | No more flickering far away: decals, night windows and props laid on other surfaces stay steady |
 | [2.1.2](#212) | A map resource opened in MAP mode shows its textures (no more white models); steadier clouds |
 | [2.1.1](#211) | Night: street lamps light the ground without blinding halos |
 | [2.1.0](#210) | Map engine: the city sharp at once and 60 frames a second while flying, click any map model, lighter memory, real water again |
@@ -52,6 +53,16 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 2.1.3
+
+**No more flickering far away.**
+
+- MAP views now keep their depth like the game does (reversed, 32-bit float): it stays precise to millimetres kilometres
+  away. Surfaces laid a few centimetres over others - decals, road markings, dirt, the windows lit at night, props
+  placed on other props - no longer flicker through each other when seen from a few hundred metres.
+- The water, clouds, sky, street lamps, contact shadows, sun rays, the selection outline and clicking a model all
+  follow the new depth.
 
 ## 2.1.2
 

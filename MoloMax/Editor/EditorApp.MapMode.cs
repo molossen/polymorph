@@ -165,8 +165,10 @@ public sealed partial class EditorApp
 
     void MapFrame()
     {
+        // MAP views draw with reversed float depth (see DepthMode): precise to millimetres kilometres away
+        foreach (var v in Viewports) v.Camera.ReverseZ = MapMode;
         if (!MapMode) return;
-        // the whole map is ~8 km wide: far clip plane past it, near plane following the zoom (depth precision)
+        // the whole map is ~8 km wide: far clip plane past it, near plane following the zoom
         foreach (var v in Viewports) { v.Camera.Far = 16000; v.Camera.Near = Math.Clamp(v.Camera.Distance * 0.002f, 0.05f, 4f); }
         // world index once the game is loaded
         if (game != null && world == null && worldTask == null)

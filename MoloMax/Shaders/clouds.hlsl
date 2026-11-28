@@ -14,6 +14,12 @@ cbuffer Constants : register(b0)
     float4 GroundLight; // rgb: light from below
     float4 View;     // xy: top-left of the view in the scene's images (pixels), zw: its size
 };
+
+// Depth mode of the view (see DepthMode.cs): x = 1 when the depth is reversed (1 near, 0 far).
+cbuffer DepthModeVars : register(b13) { float4 DepthModeV; };
+float StdDepth(float d) { return DepthModeV.x > 0.5 ? 1.0 - d : d; } // a depth value as standard depth (0 near, 1 far)
+float NdcFar() { return DepthModeV.x > 0.5 ? 0.0 : 1.0; }             // depth of the far plane
+
 Texture3D<float2> Shape : register(t0);
 Texture2D<float2> WeatherMap : register(t1);
 Texture2DMS<float> SceneDepth : register(t2);
@@ -107,7 +113,7 @@ bool Hidden(float2 ndc)
         [loop] for (int x = -2; x <= 2; x++)
         {
             float2 p = clamp(centre + float2(x, y) * reach, View.xy, View.xy + View.zw - 1.0f);
-            if (SceneDepth.Load((int2)p, 0) >= 1.0f) return false;
+            if (StdDepth(SceneDepth.Load((int2)p, 0)) >= 1.0f) return false;
         }
     return true;
 }
@@ -116,8 +122,8 @@ float4 PS(PS_INPUT input) : SV_Target
 {
     if (Wind.w > 0.5f && Hidden(input.ndc))
         return float4(0.0f, 0.0f, 0.0f, 1.0f);
-    float4 a = mul(float4(input.ndc, 0.0f, 1.0f), InverseViewProjection);
-    float4 b = mul(float4(input.ndc, 1.0f, 1.0f), InverseViewProjection);
+    float4 a = mul(float4(input.ndc, 1.0f - NdcFar(), 1.0f), InverseViewProjection);
+    float4 b = mul(float4(input.ndc, NdcFar(), 1.0f), InverseViewProjection);
     float3 ray = normalize(b.xyz / b.w - a.xyz / a.w);
 
     float height = Earth + max(Eye.z, 1.0f);

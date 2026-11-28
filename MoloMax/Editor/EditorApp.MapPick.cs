@@ -33,6 +33,7 @@ public sealed partial class EditorApp
         if (!(ReferenceEquals(gatherVp, vp) && gatherViewProj == viewProj && ImGuiNET.ImGui.GetFrameCount() - gatherFrame <= 1)) MapGatherDraws(vp, viewProj);
         pickIds.Clear(); pickEnts.Clear(); lastPickEnt = -1;
         int draws0 = renderer.StatDraws;
+        MoloMax.Rendering.DepthMode.Set(gpu.Context, cam.ReverseZ);
         renderer.BeginPick((int)vp.W, (int)vp.H, (int)local.X, (int)local.Y);
         renderer.BeginScene(viewProj, cam.Eye, Lights, ShadingMode.Realistic, 1, 0);
         foreach (var g in instGroups.Values)
@@ -61,10 +62,11 @@ public sealed partial class EditorApp
         }
         renderer.SetClip(null);
         var (id, depth) = renderer.EndPick();
+        MoloMax.Rendering.DepthMode.Set(gpu.Context, false);
         gpu.BindBackBuffer();
         LastGpuPickMs = System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
         LastGpuPickInfo = $"id {id} depth {depth:0.0000}, {pickIds.Count} objects, {renderer.StatDraws - draws0} draws, groups {instGroups.Values.Count(g => g.Count > 0)}, singles {mapSingles.Count}, pixel {local.X:0},{local.Y:0} of {vp.W:0}x{vp.H:0}";
-        if (id == 0 || id > pickIds.Count || depth >= 1f) return null;
+        if (id == 0 || id > pickIds.Count || (cam.ReverseZ ? depth <= 0f : depth >= 1f)) return null;
         var obj = pickIds[(int)id - 1]; lastPickEnt = pickEnts[(int)id - 1];
         // the point from the depth under the pixel
         Matrix4x4.Invert(viewProj, out var inv);

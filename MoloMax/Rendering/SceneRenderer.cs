@@ -108,8 +108,9 @@ public sealed class SceneRenderer : IDisposable
         pickX = Math.Clamp(x, 0, pickW - 1); pickY = Math.Clamp(y, 0, pickH - 1);
         ctx.OutputMerger.SetRenderTargets(pickDsv, pickRtv, pickZRtv);
         ctx.ClearRenderTargetView(pickRtv, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0));
-        ctx.ClearRenderTargetView(pickZRtv, new SharpDX.Mathematics.Interop.RawColor4(1, 1, 1, 1));
-        ctx.ClearDepthStencilView(pickDsv, DepthStencilClearFlags.Depth, 1f, 0);
+        float far = DepthMode.Far; // reversed views: 0 is the far end
+        ctx.ClearRenderTargetView(pickZRtv, new SharpDX.Mathematics.Interop.RawColor4(far, far, far, far));
+        ctx.ClearDepthStencilView(pickDsv, DepthStencilClearFlags.Depth, far, 0);
         ctx.Rasterizer.SetViewport(0, 0, pickW, pickH);
         ctx.Rasterizer.SetScissorRectangle(pickX, pickY, pickX + 1, pickY + 1);
         Picking = true;
@@ -199,7 +200,11 @@ public sealed class SceneRenderer : IDisposable
     public int MeshCount => meshes.Count + instMeshes.Count;
 
     public readonly RasterizerState CullBack, CullNone, LinesState, CullFront;
-    public readonly DepthStencilState DepthDefault, DepthRead, DepthOff;
+    /// <summary>Depth test and write / test only: the reversed-depth versions while DepthMode.Reversed is set.</summary>
+    public DepthStencilState DepthDefault => DepthMode.Reversed ? depthDefaultRev : depthDefaultStd;
+    public DepthStencilState DepthRead => DepthMode.Reversed ? depthReadRev : depthReadStd;
+    public readonly DepthStencilState DepthOff;
+    readonly DepthStencilState depthDefaultStd, depthReadStd, depthDefaultRev, depthReadRev;
     public readonly BlendState Opaque, Alpha;
 
     public SceneRenderer(Device device)
@@ -280,8 +285,10 @@ public sealed class SceneRenderer : IDisposable
             IsMultisampleEnabled = true, IsAntialiasedLineEnabled = lines, IsScissorEnabled = true,
         });
         CullBack = Ras(CullMode.Back); CullNone = Ras(CullMode.None); LinesState = Ras(CullMode.None, true); CullFront = Ras(CullMode.Front);
-        DepthDefault = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.All, DepthComparison = Comparison.LessEqual });
-        DepthRead = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.Zero, DepthComparison = Comparison.LessEqual });
+        depthDefaultStd = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.All, DepthComparison = Comparison.LessEqual });
+        depthReadStd = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.Zero, DepthComparison = Comparison.LessEqual });
+        depthDefaultRev = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.All, DepthComparison = Comparison.GreaterEqual });
+        depthReadRev = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.Zero, DepthComparison = Comparison.GreaterEqual });
         DepthOff = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = false, DepthWriteMask = DepthWriteMask.Zero, DepthComparison = Comparison.Always });
         Opaque = new BlendState(device, BlendStateDescription.Default());
         var bd = BlendStateDescription.Default();
@@ -672,7 +679,7 @@ public sealed class SceneRenderer : IDisposable
         ctx.PixelShader.SetShaderResource(5, null);
         ctx.PixelShader.Set(null);
         ctx.Rasterizer.State = noDepthClip ? shadowRasClamp : shadowRas;
-        ctx.OutputMerger.SetDepthStencilState(DepthDefault);
+        ctx.OutputMerger.SetDepthStencilState(depthDefaultStd); // shadow maps: always standard depth
         foreach (var o in casters)
         {
             if (UploadMs - up0 > uploadBudgetMs && NeedsUpload(o)) { complete = false; continue; } // sent over the next frames
@@ -931,7 +938,7 @@ public sealed class SceneRenderer : IDisposable
         instBuf?.Dispose(); layoutInst.Dispose(); vsInst.Dispose();
         Textures.Dispose();
         CullBack.Dispose(); CullNone.Dispose(); LinesState.Dispose();
-        DepthDefault.Dispose(); DepthRead.Dispose(); DepthOff.Dispose(); Opaque.Dispose(); Alpha.Dispose();
+        depthDefaultStd.Dispose(); depthReadStd.Dispose(); depthDefaultRev.Dispose(); depthReadRev.Dispose(); DepthOff.Dispose(); Opaque.Dispose(); Alpha.Dispose();
         foreach (var d in shadowSrvs) d?.Dispose(); foreach (var d in shadowSlices) d?.Dispose(); foreach (var d in shadowTexs) d?.Dispose(); cascadeCB?.Dispose(); mapLookCB?.Dispose(); nrShadowCB?.Dispose(); shadowRasClamp?.Dispose(); shadowSampler.Dispose(); shadowRas.Dispose(); lightCB.Dispose(); clipCB.Dispose(); fogCB.Dispose(); pickCB.Dispose(); psPick.Dispose(); pickRtv?.Dispose(); pickTex?.Dispose(); pickZRtv?.Dispose(); pickZTex?.Dispose(); pickDsv?.Dispose(); pickDepth?.Dispose(); pickStage?.Dispose(); pickZStage?.Dispose();
         sampler.Dispose(); sceneCB.Dispose(); objectCB.Dispose(); materialCB.Dispose();
         layout.Dispose(); ps.Dispose(); vs.Dispose();

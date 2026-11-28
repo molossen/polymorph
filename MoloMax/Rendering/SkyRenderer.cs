@@ -62,6 +62,7 @@ public sealed class SkyRenderer : IDisposable
 
     public void Draw(Matrix4x4 viewProj, Vector3 zenith, Vector3 horizon, Vector3 sunDir, float disc, bool hdr, bool physical, float night, Vector3 tint, Vector3 trueSun, float grey, ShaderResourceView clouds = null)
     {
+        DepthMode.Rebind(ctx);
         Matrix4x4.Invert(viewProj, out var inv);
         var v = new SkyVars
         {

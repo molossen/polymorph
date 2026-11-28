@@ -76,6 +76,7 @@ public sealed class CloudRenderer : IDisposable
     /// no clouds yet.</summary>
     public ShaderResourceView Render(Matrix4x4 viewProjection, Vector3 camera, in MapLighting lighting, CloudWeather weather, int viewWidth, int viewHeight, int quality, ShaderResourceView sceneDepth = null, float viewX = 0, float viewY = 0)
     {
+        DepthMode.Rebind(ctx);
         double now = clock.Elapsed.TotalSeconds;
         float elapsed = (float)Math.Clamp(now - lastTime, 0.0, 0.25); lastTime = now;
         var windDirection = Vector3.Normalize(new Vector3(1f, 0.35f, 0.04f));

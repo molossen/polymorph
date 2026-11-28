@@ -39,7 +39,7 @@ public sealed class GameWaterRenderer : IDisposable
     readonly Device device; readonly DeviceContext ctx;
     readonly VertexShader vs, gridVs, meshVs; readonly InputLayout meshLayout; readonly PixelShader ps; readonly InputLayout layout, gridLayout;
     readonly Buffer gridVb, gridIb; readonly int gridCount;
-    readonly Buffer cb, meshCb; readonly RasterizerState ras; readonly DepthStencilState depth; readonly BlendState blend;
+    readonly Buffer cb, meshCb; readonly RasterizerState ras; readonly DepthStencilState depthStd, depthRev; DepthStencilState depth => DepthMode.Reversed ? depthRev : depthStd; readonly BlendState blend;
     readonly SamplerState linearClamp, linearWrap;
     Constants c;
     (Buffer Buf, int Count) allSurfaces, inlandSurfaces;
@@ -74,7 +74,8 @@ public sealed class GameWaterRenderer : IDisposable
         // seen from above and from below (under water)
         ras = new RasterizerState(device, new RasterizerStateDescription { FillMode = FillMode.Solid, CullMode = CullMode.None, IsDepthClipEnabled = true, IsMultisampleEnabled = true, IsScissorEnabled = false });
         // standard depth, strictly in front: where two surfaces overlap at the same height, only the first is drawn
-        depth = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.All, DepthComparison = Comparison.Less });
+        depthStd = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.All, DepthComparison = Comparison.Less });
+        depthRev = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.All, DepthComparison = Comparison.Greater });
         var bd = new BlendStateDescription();
         bd.RenderTarget[0] = new RenderTargetBlendDescription
         {
@@ -325,6 +326,7 @@ public sealed class GameWaterRenderer : IDisposable
     public void Draw(Matrix4x4 viewProj, Vector3 eye, float near, float far, float time, Light l, ShaderResourceView sceneDepth, ShaderResourceView sceneColor, Vector4 viewport, bool waves = true,
         IReadOnlyList<(Buffer Vb, Buffer Ib, int Count, Matrix4x4 World)> meshes = null)
     {
+        DepthMode.Rebind(ctx);
         if (!HasSurfaces) return;
         waves3D = waves && openWater && patterns != null;
         var center = new Vector2(MathF.Round(eye.X * 4f) / 4f, MathF.Round(eye.Y * 4f) / 4f);
@@ -415,6 +417,6 @@ public sealed class GameWaterRenderer : IDisposable
     {
         DisposeSurfaces();
         linearClamp.Dispose(); linearWrap.Dispose(); gridVb.Dispose(); gridIb.Dispose(); gridLayout.Dispose(); gridVs.Dispose();
-        blend.Dispose(); depth.Dispose(); ras.Dispose(); cb.Dispose(); meshCb.Dispose(); layout.Dispose(); ps.Dispose(); vs.Dispose(); meshVs.Dispose(); meshLayout.Dispose();
+        blend.Dispose(); depthStd.Dispose(); depthRev.Dispose(); ras.Dispose(); cb.Dispose(); meshCb.Dispose(); layout.Dispose(); ps.Dispose(); vs.Dispose(); meshVs.Dispose(); meshLayout.Dispose();
     }
 }

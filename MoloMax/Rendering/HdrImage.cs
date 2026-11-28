@@ -56,6 +56,7 @@ public sealed class HdrImage : IDisposable
     /// proj: the view's projection; near / far planes.</summary>
     bool Occlusion(GpuDevice gpu, float x, float y, float w, float h, System.Numerics.Matrix4x4 proj, float near, float far)
     {
+        DepthMode.Rebind(gpu.Context);
         if (aoFailed || gpu.SampleCount < 2 || gpu.DepthRead == null) return false;
         int width = Math.Max(1, (int)(w / 2)), height = Math.Max(1, (int)(h / 2));
         EnsureAo(width, height);
@@ -196,6 +197,7 @@ public sealed class HdrImage : IDisposable
 
     bool Rays(GpuDevice gpu, float exposure, float x, float y, float w, float h)
     {
+        DepthMode.Rebind(gpu.Context);
         if (raysFailed || SunRays.Z <= 0 || gpu.SampleCount < 2 || gpu.DepthRead == null || w < 32 || h < 32) return false;
         if (rayPs == null)
         {
@@ -259,10 +261,10 @@ public sealed class HdrImage : IDisposable
             depthCopySrv?.Dispose(); depthCopy?.Dispose();
             depthCopy = new Texture2D(device, new Texture2DDescription
             {
-                Width = dd.Width, Height = dd.Height, MipLevels = 1, ArraySize = 1, Format = Format.R24G8_Typeless, SampleDescription = dd.SampleDescription,
+                Width = dd.Width, Height = dd.Height, MipLevels = 1, ArraySize = 1, Format = dd.Format, SampleDescription = dd.SampleDescription,
                 Usage = ResourceUsage.Default, BindFlags = BindFlags.ShaderResource,
             });
-            depthCopySrv = new ShaderResourceView(device, depthCopy, new ShaderResourceViewDescription { Format = Format.R24_UNorm_X8_Typeless, Dimension = ShaderResourceViewDimension.Texture2DMultisampled });
+            depthCopySrv = new ShaderResourceView(device, depthCopy, new ShaderResourceViewDescription { Format = dd.Format == Format.R32G8X24_Typeless ? Format.R32_Float_X8X24_Typeless : Format.R24_UNorm_X8_Typeless, Dimension = ShaderResourceViewDimension.Texture2DMultisampled });
         }
         ctx.CopyResource(gpu.DepthTexture, depthCopy);
         return depthCopySrv;

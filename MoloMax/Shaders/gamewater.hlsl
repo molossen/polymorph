@@ -25,6 +25,12 @@ cbuffer Constants : register(b0)
     float4 Caustics;     // x = 1: light pattern on the bottom available, y: pixels of the view per pixel of the ray images, z: near plane, w: far plane.
     float4 Patterns;     // x = 1: the game's wave patterns (swell, waves along the shore, ripples, foam) available.
 };
+
+// Depth mode of the view (see DepthMode.cs): x = 1 when the depth is reversed (1 near, 0 far).
+cbuffer DepthModeVars : register(b13) { float4 DepthModeV; };
+float StdDepth(float d) { return DepthModeV.x > 0.5 ? 1.0 - d : d; } // a depth value as standard depth (0 near, 1 far)
+float NdcFar() { return DepthModeV.x > 0.5 ? 0.0 : 1.0; }             // depth of the far plane
+
 // Water meshes of the models (pools, fountains, streams): placement and wave strength of the model drawn.
 cbuffer MeshConstants : register(b1)
 {
@@ -352,7 +358,7 @@ float Behind(float3 p, out int2 pixel, out float2 ndc)
     if (abs(ndc.x) >= 1.0f || abs(ndc.y) >= 1.0f)
         return -1e9f;
     pixel = int2(Viewport.xy + (ndc * float2(0.5f, -0.5f) + 0.5f) * Viewport.zw);
-    float depth = SceneDepth.Load(pixel, 0);
+    float depth = StdDepth(SceneDepth.Load(pixel, 0));
     return depth < 1.0f ? clip.w - ViewDepth(depth) : -1e9f;
 }
 
@@ -455,7 +461,7 @@ RAY_STARTS PSRays(PS_INPUT input)
     if (input.kind.x > 0.5f && !IsOpenWater(input.rest.xy))
         discard;
     // Hidden behind something drawn (reversed Z), or seen from below.
-    if (SceneDepth.Load(int2(input.pos.xy * Caustics.y), 0) <= input.pos.z)
+    if (StdDepth(SceneDepth.Load(int2(input.pos.xy * Caustics.y), 0)) <= StdDepth(input.pos.z))
         discard;
     float3 toCamera = CameraTime.xyz - input.world;
     float3 up = SurfaceUp(input);
@@ -520,8 +526,8 @@ float4 PS(PS_INPUT input) : SV_Target
     float behindRatio = 1e4f; // Distance to what is behind the water, over the distance to the water.
     if (Settings.z > 0.5f)
     {
-        float sceneDepth = SceneDepth.Load(int2(input.pos.xy), 0);
-        float waterView = ViewDepth(input.pos.z);
+        float sceneDepth = StdDepth(SceneDepth.Load(int2(input.pos.xy), 0));
+        float waterView = ViewDepth(StdDepth(input.pos.z));
         float sceneView = sceneDepth < 1.0f ? ViewDepth(sceneDepth) : 1e7f;
         behindRatio = sceneView / max(waterView, 0.001f);
         thickness = max(sceneView - waterView, 0.0f) * distance / max(waterView, 0.001f);
@@ -588,8 +594,8 @@ float4 PS(PS_INPUT input) : SV_Target
     {
         float2 bend = slope * float2(1.0f, -1.0f) * min(thickness, 4.0f) * Viewport.w * 0.012f / max(distance * 0.05f, 1.0f);
         int2 pixel = int2(input.pos.xy + bend);
-        float waterDepth = input.pos.z;
-        if (SceneDepth.Load(pixel, 0) <= waterDepth)
+        float waterDepth = StdDepth(input.pos.z);
+        if (StdDepth(SceneDepth.Load(pixel, 0)) <= waterDepth)
             pixel = int2(input.pos.xy);
         float3 bottom = SceneColor.Load(int3(pixel, 0)).rgb;
         if (Caustics.x > 0.5f && behindRatio < 1e3f)

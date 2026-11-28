@@ -58,18 +58,18 @@ public sealed class GpuDevice : IDisposable
         depthTex = new Texture2D(Device, new Texture2DDescription
         {
             Width = Width, Height = Height, MipLevels = 1, ArraySize = 1,
-            Format = Format.R24G8_Typeless,
+            Format = Format.R32G8X24_Typeless, // 32-bit float depth (reversed in MAP views, see DepthMode) + stencil
             SampleDescription = new SampleDescription(SampleCount, 0),
             Usage = ResourceUsage.Default, BindFlags = BindFlags.DepthStencil | BindFlags.ShaderResource,
         });
         DepthView = new DepthStencilView(Device, depthTex, new DepthStencilViewDescription
         {
-            Format = Format.D24_UNorm_S8_UInt, Dimension = SampleCount > 1 ? DepthStencilViewDimension.Texture2DMultisampled : DepthStencilViewDimension.Texture2D,
+            Format = Format.D32_Float_S8X24_UInt, Dimension = SampleCount > 1 ? DepthStencilViewDimension.Texture2DMultisampled : DepthStencilViewDimension.Texture2D,
         });
         // readable by the MAP effects (ambient occlusion), when not bound as the depth buffer
         DepthRead = new ShaderResourceView(Device, depthTex, new ShaderResourceViewDescription
         {
-            Format = Format.R24_UNorm_X8_Typeless, Dimension = SampleCount > 1 ? ShaderResourceViewDimension.Texture2DMultisampled : ShaderResourceViewDimension.Texture2D,
+            Format = Format.R32_Float_X8X24_Typeless, Dimension = SampleCount > 1 ? ShaderResourceViewDimension.Texture2DMultisampled : ShaderResourceViewDimension.Texture2D,
             Texture2D = new ShaderResourceViewDescription.Texture2DResource { MipLevels = 1 },
         });
     }

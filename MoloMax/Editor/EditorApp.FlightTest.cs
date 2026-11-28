@@ -287,4 +287,43 @@ public sealed partial class EditorApp
         }
         CloseStreamFolder(); SetMapMode(false);
     }
+
+    // Decals seen from far away: the same view four times with a hair of camera turn, with and without the pull towards
+    // the eye. Photos only: they are compared outside.
+    IEnumerable<object> DecalFarDiag(string gtaFolder)
+    {
+#if MAP_ENGINE
+        Fresh();
+        SetMapMode(true); ClearMapBuild();
+        if (game == null) { Settings.GtaFolder = gtaFolder; if (gameTask == null || gameTask.IsCompleted) StartGameLoad(gtaFolder); }
+        yield return Until(() => game != null || gameError != null, 400);
+        yield return Until(() => world != null, 600);
+        var vp = Viewports[ActiveViewport]; Maximized = true; vp.Camera.Ortho = false; vp.Shading = MoloMax.Rendering.ShadingMode.Realistic; Hour = 13;
+        Settings.MapEngine = true;
+        var cam = vp.Camera;
+        IEnumerable<object> Wait(double sec) { var t = DateTime.Now; while ((DateTime.Now - t).TotalSeconds < sec) yield return Frames(1); }
+        int view = 0;
+        foreach (var (dist, pitch) in new[] { (260f, 0.75f), (600f, 0.6f) })
+        {
+            cam.Target = new Vector3(215, -900, 30); cam.Distance = dist; cam.Pitch = pitch; cam.Yaw = 0.6f;
+            foreach (var x in Wait(view == 0 ? 60 : 25)) yield return x;
+            foreach (var on in new[] { false, true })
+            {
+                Polymorph.MapEngine.MapEngineHost.DecalOffset = on;
+                for (int i = 0; i < 4; i++)
+                {
+                    cam.Yaw = 0.6f + i * 0.0004f;
+                    yield return Frames(4);
+                    yield return Shot($"decal_v{view}_{(on ? "on" : "off")}_{i}");
+                }
+            }
+            view++;
+        }
+        Polymorph.MapEngine.MapEngineHost.DecalOffset = true;
+        Note($"map engine on {MapEngineOn}");
+        SetMapMode(false);
+#else
+        yield break;
+#endif
+    }
 }

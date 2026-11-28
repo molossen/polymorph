@@ -50,6 +50,7 @@ public sealed class NrWaterRenderer : IDisposable
 
     public void Draw(in Vars v, ShaderResourceView color, ShaderResourceView depth)
     {
+        DepthMode.Rebind(ctx);
         if (vb == null) return;
         var x = v; ctx.UpdateSubresource(ref x, cb);
         ctx.OutputMerger.SetBlendState(premul, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0), -1);

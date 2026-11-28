@@ -30,7 +30,7 @@ public sealed class SplatRenderer : IDisposable
     readonly InputLayout layout;
     readonly Buffer cb;
     readonly BlendState blend;
-    readonly DepthStencilState depthRead;
+    readonly DepthStencilState depthReadStd, depthReadRev; DepthStencilState depthRead => DepthMode.Reversed ? depthReadRev : depthReadStd;
     readonly RasterizerState noCull;
 
     sealed class View
@@ -70,7 +70,8 @@ public sealed class SplatRenderer : IDisposable
             RenderTargetWriteMask = ColorWriteMaskFlags.All,
         };
         blend = new BlendState(device, bd);
-        depthRead = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.Zero, DepthComparison = Comparison.LessEqual });
+        depthReadStd = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.Zero, DepthComparison = Comparison.LessEqual });
+        depthReadRev = new DepthStencilState(device, new DepthStencilStateDescription { IsDepthEnabled = true, DepthWriteMask = DepthWriteMask.Zero, DepthComparison = Comparison.GreaterEqual });
         noCull = new RasterizerState(device, new RasterizerStateDescription { CullMode = CullMode.None, FillMode = FillMode.Solid, IsDepthClipEnabled = true, IsScissorEnabled = true });
     }
 
@@ -205,6 +206,6 @@ public sealed class SplatRenderer : IDisposable
     {
         foreach (var g in clouds.Values) Free(g);
         clouds.Clear();
-        vs.Dispose(); ps.Dispose(); layout.Dispose(); cb.Dispose(); blend.Dispose(); depthRead.Dispose(); noCull.Dispose();
+        vs.Dispose(); ps.Dispose(); layout.Dispose(); cb.Dispose(); blend.Dispose(); depthReadStd.Dispose(); depthReadRev.Dispose(); noCull.Dispose();
     }
 }

@@ -75,12 +75,13 @@ public sealed class LineBatch : IDisposable
     /// through); now it is a fixed fraction of the distance, like 3ds Max.</summary>
     public Vector3 View;
 
-    public void SetView(bool ortho, float near, float far, float orthoHeight)
+    public void SetView(bool ortho, float near, float far, float orthoHeight, bool reversed = false)
     {
         const float k = 20f; // bias 0.0004 = 0.8 % of the distance (of the view height in orthographic views)
+        // reversed depth (see DepthMode): the constant z term changes sign, and "towards the eye" is a growing depth
         View = ortho
-            ? new Vector3(0, 0, k * MathF.Max(orthoHeight, 0.1f) / far) // the orthographic depth range is "far" metres
-            : new Vector3(k, near * far / (near - far), 0);
+            ? new Vector3(0, 0, (reversed ? -1 : 1) * k * MathF.Max(orthoHeight, 0.1f) / far) // the orthographic depth range is "far" metres
+            : new Vector3(k, (reversed ? -1 : 1) * near * far / (near - far), 0);
     }
 
     Vector4 Bias(float b) => new(b, View.X, View.Y, View.Z);

@@ -14,6 +14,12 @@ cbuffer LampVars : register(b0)
     float4 Origin;   // xy top-left of the view in the image (pixels), zw its size
     float4 Sky;      // rgb the night's sky light the surfaces were drawn under
 };
+
+// Depth mode of the view (see DepthMode.cs): x = 1 when the depth is reversed (1 near, 0 far).
+cbuffer DepthModeVars : register(b13) { float4 DepthModeV; };
+float StdDepth(float d) { return DepthModeV.x > 0.5 ? 1.0 - d : d; } // a depth value as standard depth (0 near, 1 far)
+float NdcFar() { return DepthModeV.x > 0.5 ? 0.0 : 1.0; }             // depth of the far plane
+
 struct Lamp
 {
     float3 Position; float Reach; float3 Color; float Corona; float3 Direction; float CosOuter; float CosInner; uint Hours; float2 Spare;
@@ -55,7 +61,7 @@ float4 PSLamp(LAMP_OUT i) : SV_Target
 {
     int2 px = int2(i.pos.xy);
     float d = Depth.Load(px, 0);
-    if (d >= 1) discard;
+    if (StdDepth(d) >= 1) discard;
     float3 p = PointAt(px);
     Lamp lamp = Lamps[i.id];
     float3 toLamp = (lamp.Position - Camera.xyz) - p;

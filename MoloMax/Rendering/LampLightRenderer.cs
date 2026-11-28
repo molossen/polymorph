@@ -84,6 +84,7 @@ public sealed class LampLightRenderer : IDisposable
     /// surfaces were drawn under; scene: a copy of the image so far (what each surface looks like).</summary>
     public void Draw(Matrix4x4 viewProj, Vector3 eye, Vector3 right, Vector3 up, int hour, float strength, Vector3 sky, ShaderResourceView scene, ShaderResourceView depth, float x, float y, float w, float h)
     {
+        DepthMode.Rebind(ctx);
         if (lampsSrv == null || depth == null || scene == null || strength <= 0) return;
         var rel = Matrix4x4.CreateTranslation(eye) * viewProj;
         Matrix4x4.Invert(rel, out var unproject);

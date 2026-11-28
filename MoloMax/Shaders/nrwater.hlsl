@@ -15,6 +15,12 @@ cbuffer Constants : register(b0)
     float4 Viewport;     // xy top-left pixel of the view, zw its size
     float4 Options;      // x 1 = HDR (linear colours)
 };
+
+// Depth mode of the view (see DepthMode.cs): x = 1 when the depth is reversed (1 near, 0 far).
+cbuffer DepthModeVars : register(b13) { float4 DepthModeV; };
+float StdDepth(float d) { return DepthModeV.x > 0.5 ? 1.0 - d : d; } // a depth value as standard depth (0 near, 1 far)
+float NdcFar() { return DepthModeV.x > 0.5 ? 0.0 : 1.0; }             // depth of the far plane
+
 Texture2DMS<float> SceneDepth : register(t0);
 Texture2D SceneColor : register(t1);
 
@@ -108,7 +114,7 @@ float Behind(float3 p, out int2 pixel, out float2 ndc)
     ndc = clip.xy / clip.w;
     if (abs(ndc.x) >= 1 || abs(ndc.y) >= 1) return -1e9;
     pixel = int2(Viewport.xy + (ndc * float2(0.5, -0.5) + 0.5) * Viewport.zw);
-    float depth = SceneDepth.Load(pixel, 0);
+    float depth = StdDepth(SceneDepth.Load(pixel, 0));
     return depth < 1.0 ? clip.w - ViewDistance(depth) : -1e9;
 }
 
@@ -170,8 +176,8 @@ float4 PSMain(PS_IN input) : SV_Target
     bool detailed = Settings.z > 0.5;
     if (detailed)
     {
-        float sceneDepth = SceneDepth.Load(int2(input.pos.xy), 0);
-        float waterView = ViewDistance(input.pos.z);
+        float sceneDepth = StdDepth(SceneDepth.Load(int2(input.pos.xy), 0));
+        float waterView = ViewDistance(StdDepth(input.pos.z));
         float sceneView = ViewDistance(sceneDepth);
         behindRatio = sceneView / max(waterView, 0.001);
         thickness = max(sceneView - waterView, 0) * distance / max(waterView, 0.001);
@@ -206,7 +212,7 @@ float4 PSMain(PS_IN input) : SV_Target
     {
         float2 bend = slope * float2(1, -1) * min(thickness, 4) * Viewport.w * 0.012 / max(distance * 0.05, 1);
         int2 pixel = int2(input.pos.xy + bend);
-        if (SceneDepth.Load(pixel, 0) <= input.pos.z) pixel = int2(input.pos.xy);
+        if (StdDepth(SceneDepth.Load(pixel, 0)) <= StdDepth(input.pos.z)) pixel = int2(input.pos.xy);
         float3 bottom = SceneColor.Load(int3(pixel, 0)).rgb;
         color += bottom * transmit * (1 - fresnel) * (1 - foam);
         alpha = 1;

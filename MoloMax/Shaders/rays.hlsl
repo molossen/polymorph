@@ -6,6 +6,12 @@ cbuffer RayVars : register(b0)
     float4 Origin;      // xy top-left of the view in the scene images (pixels), zw size of the view
     float4 Window;      // xy 1 / size of the scene images
 };
+
+// Depth mode of the view (see DepthMode.cs): x = 1 when the depth is reversed (1 near, 0 far).
+cbuffer DepthModeVars : register(b13) { float4 DepthModeV; };
+float StdDepth(float d) { return DepthModeV.x > 0.5 ? 1.0 - d : d; } // a depth value as standard depth (0 near, 1 far)
+float NdcFar() { return DepthModeV.x > 0.5 ? 0.0 : 1.0; }             // depth of the far plane
+
 Texture2D Scene : register(t0);
 Texture2DMS<float> Depth : register(t1);
 Texture2D Mask : register(t2);
@@ -25,7 +31,7 @@ VS_OUTPUT VSFull(uint id : SV_VertexID)
 float4 PSMask(VS_OUTPUT input) : SV_Target
 {
     float2 px = clamp(Origin.xy + input.uv * Origin.zw, Origin.xy, Origin.xy + Origin.zw - 1);
-    if (Depth.Load((int2)px, 0) < 1.0) return 0;
+    if (StdDepth(Depth.Load((int2)px, 0)) < 1.0) return 0;
     float3 color = min(max(Scene.SampleLevel(LinearClamp, px * Window.xy, 0).rgb, 0) * SunPosition.z, 4.0);
     float2 offset = (input.uv - SunPosition.xy) * float2(SunPosition.w, 1.0);
     float near = saturate(1.0 - length(offset) / 0.7);

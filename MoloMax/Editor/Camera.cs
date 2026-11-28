@@ -17,6 +17,8 @@ public sealed class Camera
     public float OrthoHeight = 14f;
     public ViewKind Kind = ViewKind.Perspective;
     public float Near = 0.05f, Far = 20000f;
+    /// <summary>Reversed depth (MAP views, see DepthMode): 1 at the near plane, 0 at the far one.</summary>
+    public bool ReverseZ;
 
     public Vector3 Forward
     {
@@ -38,19 +40,20 @@ public sealed class Camera
 
     public Matrix4x4 Projection(float aspect)
     {
-        if (Ortho) return Matrix4x4.CreateOrthographic(OrthoHeight * aspect, OrthoHeight, -Far * 0.5f, Far * 0.5f);
-        return Matrix4x4.CreatePerspectiveFieldOfView(Fov, MathF.Max(aspect, 1e-3f), Near, Far);
+        var p = Ortho ? Matrix4x4.CreateOrthographic(OrthoHeight * aspect, OrthoHeight, -Far * 0.5f, Far * 0.5f)
+            : Matrix4x4.CreatePerspectiveFieldOfView(Fov, MathF.Max(aspect, 1e-3f), Near, Far);
+        return ReverseZ ? MoloMax.Rendering.DepthMode.Reverse(p) : p;
     }
 
     public Matrix4x4 ViewProj(float aspect)
     {
         // cached: Project() runs for thousands of points per frame and rebuilding the matrix each time cost more than the projection
-        var k = (Target, Distance, Yaw, Pitch, Fov, Ortho, OrthoHeight, Near, Far, aspect);
+        var k = (Target, Distance, Yaw, Pitch, Fov, Ortho, OrthoHeight, Near, Far, aspect, ReverseZ);
         if (vpKey.Equals(k) && vpValid) return vpCache;
         vpCache = View * Projection(aspect); vpKey = k; vpValid = true;
         return vpCache;
     }
-    (Vector3, float, float, float, float, bool, float, float, float, float) vpKey; Matrix4x4 vpCache; bool vpValid;
+    (Vector3, float, float, float, float, bool, float, float, float, float, bool) vpKey; Matrix4x4 vpCache; bool vpValid;
 
     /// <summary>World → viewport-local pixel with a matrix computed once (loops over many points: pass World * ViewProj and object-space points).</summary>
     public static bool Project(in Matrix4x4 m, Vector3 p, float w, float h, out Vector2 screen)
@@ -124,8 +127,9 @@ public sealed class Camera
         var vp = ViewProj(w / h);
         Matrix4x4.Invert(vp, out var inv);
         float nx = x / w * 2 - 1, ny = 1 - y / h * 2;
-        var a = Vector4.Transform(new Vector4(nx, ny, 0, 1), inv);
-        var b = Vector4.Transform(new Vector4(nx, ny, 1, 1), inv);
+        float zNear = ReverseZ ? 1 : 0; // reversed depth: 1 at the near plane
+        var a = Vector4.Transform(new Vector4(nx, ny, zNear, 1), inv);
+        var b = Vector4.Transform(new Vector4(nx, ny, 1 - zNear, 1), inv);
         var p0 = new Vector3(a.X, a.Y, a.Z) / a.W; var p1 = new Vector3(b.X, b.Y, b.Z) / b.W;
         return new Ray(p0, Vector3.Normalize(p1 - p0));
     }
