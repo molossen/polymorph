@@ -524,7 +524,7 @@ public sealed partial class EditorApp
             if (!s.Task.IsCompleted) continue;
             archInFlight.RemoveAt(fi);
             archLoading--;
-            if (s.Task.IsFaulted || s.Task.Result?.R == null) { s.State = 3; s.Error = s.Task.Exception?.GetBaseException().Message ?? s.Task.Result?.Why; s.Task = null; continue; }
+            if (s.Task.IsFaulted || s.Task.Result?.R == null) { s.State = 3; s.Error = (s.Task.Exception?.GetBaseException() is { } be ? be.Message + (be.StackTrace?.Split('\n').FirstOrDefault() is { } fr ? " (" + fr.Trim() + ")" : "") : null) ?? s.Task.Result?.Why; s.Task = null; continue; }
             var ld = s.Task.Result; var r = ld.R; s.Task = null;
             var sf = renderer.Textures.SearchFolders;
             if (sf.Count < mapTexFolders.Count) { mapTexFolders.Clear(); mapTexFolders.UnionWith(sf); } // the list was reset (a file opened)
@@ -612,7 +612,9 @@ public sealed partial class EditorApp
             // its textures are written in Polymorph's own folder (never a "_textures" folder inside the resource)
             var lo = new MoloMax.Core.IO.ImportOptions { Scale = 1, AutoSmoothAngle = 0, TextureFolder = Path.Combine(MapModelsDir, "stream", Path.GetFileNameWithoutExtension(local) + "_" + ((uint)Path.GetDirectoryName(Path.GetFullPath(local)).ToLowerInvariant().GetHashCode(StringComparison.Ordinal)).ToString("X8") + "_textures") };
             try { lo.ExtraDictionaries = streamTextures?.Invoke(); } catch { }
-            var lr = MoloMax.Core.IO.ModelImporter.Import(local, lo);
+            MoloMax.Core.IO.ImportResult lr;
+            try { lr = MoloMax.Core.IO.ModelImporter.Import(local, lo); }
+            catch when (lo.ExtraDictionaries != null) { lo.ExtraDictionaries = null; lr = MoloMax.Core.IO.ModelImporter.Import(local, lo); } // the model alone, as before
             bool dict = local.EndsWith(".ydd", StringComparison.OrdinalIgnoreCase);
             var lp = lr.Meshes.Where(m => m.GtaType != GtaObjectType.Collision && (!dict || m.DrawableHash == hash)).ToList();
             var lld = Merge(lr, lp);
