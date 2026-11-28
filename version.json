@@ -1,7 +1,7 @@
 {
-  "version": "2.1.2",
-  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-2.1.2.exe",
-  "size": 64370894,
-  "sha256": "d768134b7225f8ff94ab140aa1091bc16c8ec8a871adf51d403a07faafffa359",
-  "notes": "- A map resource opened in MAP mode shows its textures (no more white models)\n- North Yankton is no longer drawn over add-on islands\n- Clouds no longer tremble while walking\n- Night: street lamps light the ground softly, no more blinding halos\n- New map engine (MAP mode): the whole city sharp at once, 60 frames a second while flying\n- Click any model of the map: its map opens for editing\n- Much lighter on memory in long MAP sessions\n- Collision files (.ybn) arrive as a group, one part per material and RoomID, RoomID kept\n- No more white boxes while a model is read\n- Play: no shortcut fires while you walk\n- The sea: foam in patches offshore; decals steady from afar\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
+  "version": "2.1.3",
+  "setup": "https://molossen.github.io/polymorph/Polymorph-Setup-2.1.3.exe",
+  "size": 64378603,
+  "sha256": "681bae679682f3945d66e2d9bf38568390334e52060a315871792a6b0c85c58e",
+  "notes": "- No more flickering far away: decals, road markings, night windows and props laid on other surfaces stay steady (depth like the game)\n- A map resource opened in MAP mode shows its textures (no more white models)\n- North Yankton is no longer drawn over add-on islands\n- Clouds no longer tremble while walking\n- Night: street lamps light the ground softly, no more blinding halos\n- New map engine (MAP mode): the whole city sharp at once, 60 frames a second while flying\n- Click any model of the map: its map opens for editing\n- Much lighter on memory in long MAP sessions\n- Collision files (.ybn) arrive as a group, one part per material and RoomID, RoomID kept\n- No more white boxes while a model is read\n- Play: no shortcut fires while you walk\n- The sea: foam in patches offshore\n- Polymorph Discord: https://discord.gg/RWB28mvJU9"
 }
