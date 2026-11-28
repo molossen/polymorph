@@ -210,6 +210,7 @@ public sealed partial class EditorApp
             T("FLIGHT: the reference flight over Legion Square (filmed from outside), frame times", () => FlightTest(gtaFolder));
             T("MAP ENGINE: the game's map by the map engine, click a model, night", () => EngineTest(gtaFolder));
             if ((Environment.GetEnvironmentVariable("POLYMORPH_ST_ONLY") ?? "").Contains("STREAM TEX DIAG")) T("STREAM TEX DIAG: the textures of a stream folder", () => StreamTexDiag(gtaFolder));
+            if ((Environment.GetEnvironmentVariable("POLYMORPH_ST_ONLY") ?? "").Contains("MAP DRAG")) T("MAP DRAG: move and click with reversed depth", () => MapDragDiag(gtaFolder));
             if ((Environment.GetEnvironmentVariable("POLYMORPH_ST_ONLY") ?? "").Contains("DECAL FAR")) T("DECAL FAR: decals seen from far away", () => DecalFarDiag(gtaFolder));
             if ((Environment.GetEnvironmentVariable("POLYMORPH_ST_ONLY") ?? "").Contains("MEMORY DIAG")) T("MEMORY DIAG: where the memory goes in MAP mode", () => MemoryDiag(gtaFolder));
             T("MAP image: sun rays and sharpness on and off (pictures, cost)", () => SunRaysTest(gtaFolder));

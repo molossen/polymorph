@@ -326,4 +326,43 @@ public sealed partial class EditorApp
         yield break;
 #endif
     }
+
+    // Reversed depth in MAP views: a box on the map is moved with the gizmo, then clicked on the screen (selection),
+    // and a click on the map picks a map model with a point on its surface.
+    IEnumerable<object> MapDragDiag(string gtaFolder)
+    {
+        Fresh();
+        UI.ImGuiBackend.SyntheticInput = true;
+        SetMapMode(true); ClearMapBuild();
+        if (game == null) { Settings.GtaFolder = gtaFolder; if (gameTask == null || gameTask.IsCompleted) StartGameLoad(gtaFolder); }
+        yield return Until(() => game != null || gameError != null, 400);
+        yield return Until(() => world != null, 600);
+        Settings.MapEngine = true;
+        var vp = Viewports[ActiveViewport]; Maximized = true; vp.Camera.Ortho = false; vp.Shading = MoloMax.Rendering.ShadingMode.Realistic; Hour = 13;
+        var spot = new Vector3(200, -930, 30.5f);
+        GoTo(spot); vp.Camera.Distance = 25; vp.Camera.Pitch = 0.5f;
+        IEnumerable<object> Wait(double sec) { var t = DateTime.Now; while ((DateTime.Now - t).TotalSeconds < sec) yield return Frames(1); }
+        foreach (var x in Wait(25)) yield return x;
+        Note($"reversed depth {vp.Camera.ReverseZ}, map engine on {MapEngineOn}");
+        var box = Prim(CreateKind.Box, spot + new Vector3(0, 0, 2));
+        SelectOnly(box); Tool = Tool.Move; yield return Frames(5);
+        SelectionPivot(out var piv, out _); vp.Camera.Target = piv; vp.Camera.Distance = 20; yield return Frames(10);
+        var p0 = box.Position; var c = GizmoGrip(vp, GizmoHandle.X);
+        var dir = Vector2.Normalize(ScreenOf(vp, piv + Vector3.UnitX) - ScreenOf(vp, piv));
+        foreach (var x in DragTo(c, c + dir * 140)) yield return x;
+        var p1 = box.Position;
+        Expect(Vector3.Distance(p0, p1) > 0.1f, $"box on the map moved with the gizmo: {p0} -> {p1}");
+        yield return Shot("map_drag");
+        // click on the box: selected
+        SelectNone(); yield return Frames(3);
+        var bc = ScreenOf(vp, box.Position + new Vector3(0, 0, 0.5f));
+        foreach (var x in ClickAt(bc)) yield return x;
+        yield return Frames(6);
+        Expect(Selected.Contains(box.Id), $"click on the box selects it (selected: {string.Join(",", Selected)})");
+        // a click on the map beside it: a map model with a point on its surface, near the ground height
+        var hit = GpuPickMap(vp, ScreenOf(vp, spot + new Vector3(6, 6, -2)), _ => false);
+        Note($"map pick beside the box: {hit?.Object?.Name} at {hit?.Point}, info {LastGpuPickInfo}");
+        UI.ImGuiBackend.SyntheticInput = false;
+        SetMapMode(false);
+    }
 }
