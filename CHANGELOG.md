@@ -6,6 +6,7 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 
 | Version | Highlights |
 |---|---|
+| [2.1.2](#212) | A map resource opened in MAP mode shows its textures (no more white models); steadier clouds |
 | [2.1.1](#211) | Night: street lamps light the ground without blinding halos |
 | [2.1.0](#210) | Map engine: the city sharp at once and 60 frames a second while flying, click any map model, lighter memory, real water again |
 | [2.0.1](#201) | Model your map in MAP mode (Add model button, all tools), twice as smooth in the city, sun rays, optional Molo look |
@@ -51,6 +52,19 @@ Download the latest version from the [website](https://molossen.github.io/polymo
 | [1.0.0](#100) | First public release |
 
 ---
+
+## 2.1.2
+
+**A map resource opened in MAP mode shows all its textures.**
+
+- **Stream folder / Import map folder**: a model now finds the textures it does not carry itself: in the `.ytd` its
+  `.ytyp` names (`textureDictionary`), in the game's own dictionaries, and in the other `.ytd` of the folder. On a
+  large island resource the materials shown white went from about 480 to 38.
+- **Small plain textures** (8-bit grey or alpha masks, 16-bit and 24-bit) are read; they showed white. A block texture
+  whose header names two channels over one-channel data is read as what the data is.
+- Polymorph no longer writes `..._textures` folders inside the resource: the textures it takes out of your models go to
+  its own folder.
+- **Clouds** no longer tremble when the camera moves far from the middle of the map (walking in Play on the coast).
 
 ## 2.1.1
 
