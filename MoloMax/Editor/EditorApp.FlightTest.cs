@@ -228,4 +228,45 @@ public sealed partial class EditorApp
         Hour = hour0; ShowExplorer = exp0; ShowStats = stats0; ShowPanel = panel0; tutHideCursor = false; Maximized = false;
         SetMapMode(false);
     }
+
+    /// <summary>Opens the stream folder named by POLYMORPH_STREAM_DIR in MAP mode and says which textures do not show
+    /// (not found, failed, let go), with the map engine on then off.</summary>
+    IEnumerable<object> StreamTexDiag(string gtaFolder)
+    {
+        var dir = Environment.GetEnvironmentVariable("POLYMORPH_STREAM_DIR");
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) { Expect(false, "POLYMORPH_STREAM_DIR names a folder"); yield break; }
+        Fresh();
+        SetMapMode(true); ClearMapBuild();
+        if (game == null) { Settings.GtaFolder = gtaFolder; if (gameTask == null || gameTask.IsCompleted) StartGameLoad(gtaFolder); }
+        yield return Until(() => game != null || gameError != null, 400);
+        yield return Until(() => world != null, 600);
+        var vp = Viewports[ActiveViewport]; Maximized = true; vp.Camera.Ortho = false; vp.Shading = MoloMax.Rendering.ShadingMode.Realistic; Hour = 13;
+        OpenStreamFolder(dir);
+        IEnumerable<object> Wait(double sec) { var t = DateTime.Now; while ((DateTime.Now - t).TotalSeconds < sec) yield return Frames(1); }
+        void Report(string what)
+        {
+            var objs = MapLive().Where(o => o.Mesh != null && o.Mesh.Faces.Count > 0).ToList();
+            var mats = objs.SelectMany(o => o.Mesh.Faces.Select(f => f.MatId)).Distinct().Select(id => Scene.Material(id)).Where(m => m != null).ToList();
+            int with = 0, shown = 0; var bad = new List<string>();
+            foreach (var m in mats)
+            {
+                if (string.IsNullOrEmpty(m.DiffuseTexture)) continue;
+                with++;
+                var path = renderer.Textures.Resolve(m.DiffuseTexture);
+                bool ok = renderer.Textures.Get(m.DiffuseTexture) != null;
+                if (ok) shown++; else if (bad.Count < 14) bad.Add($"{m.Name}: {m.DiffuseTexture} -> {(path == null ? "NOT FOUND" : Path.GetFileName(path) + (File.Exists(path) ? " (file there, " + new FileInfo(path).Length + " bytes)" : " (no file)"))}");
+            }
+            Note($"{what}: map engine on {MapEngineOn}; {objs.Count} objects with a mesh ({MapLive().Count()} in all, {placeholderOf.Count} boxes made), {mats.Count} materials, {with} with a diffuse texture, {shown} shown, {with - shown} NOT shown; textures waiting {renderer.Textures.Pending}, let go {renderer.Textures.Trimmed}, on the card {renderer.Textures.GpuBytes / 1048576:N0} MB (budget {MapTextureBudget() / 1048576:N0} MB); errors: {string.Join(" | ", renderer.Textures.Errors.TakeLast(6))}");
+            foreach (var b in bad) Note("   " + b);
+        }
+        foreach (var x in Wait(45)) yield return x;
+        Report("map engine on, 45 s"); yield return Shot("stream_engine_on");
+        foreach (var x in Wait(40)) yield return x;
+        Report("map engine on, 85 s"); yield return Shot("stream_engine_on_later");
+        Settings.MapEngine = false;
+        foreach (var x in Wait(45)) yield return x;
+        Report("map engine off, 45 s"); yield return Shot("stream_engine_off");
+        Settings.MapEngine = true;
+        CloseStreamFolder(); SetMapMode(false);
+    }
 }

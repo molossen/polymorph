@@ -81,7 +81,9 @@ public sealed class CloudRenderer : IDisposable
         var windDirection = Vector3.Normalize(new Vector3(1f, 0.35f, 0.04f));
         drift += windDirection * weather.Wind * elapsed;
         drift = new Vector3(drift.X % WindPeriod, drift.Y % WindPeriod, drift.Z % WindPeriod);
-        if (!EnsureNoise() || !Matrix4x4.Invert(viewProjection, out var inverse)) return null;
+        // rays from a camera-relative matrix: far from the map's origin the plain inverse loses digits, and the clouds
+        // trembled with every small move of the camera (walking in Play)
+        if (!EnsureNoise() || !Matrix4x4.Invert(Matrix4x4.CreateTranslation(camera) * viewProjection, out var inverse)) return null;
         var (divider, steps, lightSteps) = Qualities[Math.Clamp(quality, 1, Qualities.Length) - 1];
         EnsureImage(Math.Max(1, viewWidth / divider), Math.Max(1, viewHeight / divider));
         frame = (frame + 1) % 64;
