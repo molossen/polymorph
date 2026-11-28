@@ -331,6 +331,20 @@ public sealed class GameFiles
         return res;
     }
 
+    /// <summary>A texture dictionary of the game by name hash, parsed, with its parents (nearest first); empty when the
+    /// game has none of that name.</summary>
+    public List<YtdFile> ParsedTextureChain(uint txd)
+    {
+        BuildTypeIndex();
+        var res = new List<YtdFile>(); var seen = new HashSet<uint>(); uint h = txd;
+        for (int i = 0; i < 10 && seen.Add(h); i++)
+        {
+            if (ytdByHash.TryGetValue(h, out var y) && ParsedYtd(y.Entry) is { } p) res.Add(p);
+            if (!parentTxd.TryGetValue(h, out h)) break;
+        }
+        return res;
+    }
+
     /// <summary>The .ydr / .yft of an archetype hash (interior entities name their model by hash).</summary>
     public GameAsset FindModel(uint hash) => modelByHash.TryGetValue(hash, out var a) ? a : TypesIndexed && assetOfArchetype.TryGetValue(hash, out var asset) && modelByHash.TryGetValue(asset, out a) ? a : null;
 

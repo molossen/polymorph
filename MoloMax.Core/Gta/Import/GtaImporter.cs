@@ -71,6 +71,12 @@ public static class GtaImporter
             }
         }
 
+        if (opt.ExtraDictionaries != null)
+            foreach (var o in opt.ExtraDictionaries)
+                if (o is Cw.YtdFile ey)
+                    foreach (var t in ey.TextureDict?.Textures?.data_items ?? Array.Empty<Cw.Texture>())
+                        if (t?.Name != null && !c.TextureFiles.ContainsKey(t.Name)) c.Pending.TryAdd(t.Name, t);
+
         switch (ext)
         {
             case ".ydr":

@@ -591,7 +591,8 @@ public sealed partial class EditorApp
             if (local == null && game == null) { s.State = 3; s.Error = "not in the stream folder (load the game for its models)"; continue; }
             s.State = 1; archLoading++; running++; archInFlight.Add(s);
             var g = game; var a = local == null ? s.Asset : null; uint hash = s.Hash;
-            s.Task = System.Threading.Tasks.Task.Run(() => LoadArchetype(g, hash, a, local));
+            var sfNow = stream;
+            s.Task = System.Threading.Tasks.Task.Run(() => LoadArchetype(g, hash, a, local, local != null && sfNow != null ? () => sfNow.TexturesFor(g, hash) : null));
         }
     }
 
@@ -603,12 +604,14 @@ public sealed partial class EditorApp
     /// One archetype's model, in the background: from the cache when read before, else its .ydr / .yft, else the drawable
     /// dictionary (.ydd) holding it — read once, every model inside goes to the cache (far LOD models come in big dictionaries).
     /// </summary>
-    static ArchLoad LoadArchetype(GameFiles g, uint hash, GameAsset a, string local = null)
+    static ArchLoad LoadArchetype(GameFiles g, uint hash, GameAsset a, string local = null, Func<IList<object>> streamTextures = null)
     {
         if (local != null)
         {
             // a file of the open stream folder: read as it is now (no cache: it changes while you work on it)
-            var lo = new MoloMax.Core.IO.ImportOptions { Scale = 1, AutoSmoothAngle = 0 };
+            // its textures are written in Polymorph's own folder (never a "_textures" folder inside the resource)
+            var lo = new MoloMax.Core.IO.ImportOptions { Scale = 1, AutoSmoothAngle = 0, TextureFolder = Path.Combine(MapModelsDir, "stream", Path.GetFileNameWithoutExtension(local) + "_" + ((uint)Path.GetDirectoryName(Path.GetFullPath(local)).ToLowerInvariant().GetHashCode(StringComparison.Ordinal)).ToString("X8") + "_textures") };
+            try { lo.ExtraDictionaries = streamTextures?.Invoke(); } catch { }
             var lr = MoloMax.Core.IO.ModelImporter.Import(local, lo);
             bool dict = local.EndsWith(".ydd", StringComparison.OrdinalIgnoreCase);
             var lp = lr.Meshes.Where(m => m.GtaType != GtaObjectType.Collision && (!dict || m.DrawableHash == hash)).ToList();

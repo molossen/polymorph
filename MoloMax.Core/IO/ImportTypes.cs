@@ -25,6 +25,9 @@ public sealed class ImportOptions
     public bool SkipExistingTextures;
     /// <summary>GTA models read from the game: only the textures their materials use are written (not the whole dictionary).</summary>
     public bool OnlyUsedTextures;
+    /// <summary>GTA models: more texture dictionaries to look in (parsed .ytd objects, first wins) when a material names a
+    /// texture the model does not carry: the archetype's dictionary from the .ytyp, the game's. Written only when used.</summary>
+    public System.Collections.Generic.IList<object> ExtraDictionaries;
 }
 
 /// <summary>A mesh read from a file. Face MatId values index <see cref="ImportResult.Materials"/>.</summary>

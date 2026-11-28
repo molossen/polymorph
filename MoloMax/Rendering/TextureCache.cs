@@ -466,6 +466,38 @@ public sealed class TextureCache : IDisposable
 
     static uint FourCC(string s) => (uint)(s[0] | (s[1] << 8) | (s[2] << 16) | (s[3] << 24));
 
+    /// <summary>A DDS in a small plain format, first level only, spread to 32-bit (grey -> grey, alpha only -> white with
+    /// that alpha, grey + alpha, 5-6-5 colour, 24-bit colour).</summary>
+    ShaderResourceView LoadDdsSmall(byte[] bytes, int width, int height, int offset, int bits, bool alphaOnly, bool grey)
+    {
+        int bpp = bits / 8, n = width * height;
+        if (width <= 0 || height <= 0 || offset + (long)n * bpp > bytes.Length) throw new InvalidDataException("DDS has no pixel data");
+        var px = new byte[n * 4];
+        for (int i = 0; i < n; i++)
+        {
+            int p = offset + i * bpp; byte r, g, b, al = 255;
+            if (bits == 8) { if (alphaOnly) { r = g = b = 255; al = bytes[p]; } else r = g = b = bytes[p]; }
+            else if (bits == 16)
+            {
+                if (grey) { r = g = b = bytes[p]; al = bytes[p + 1]; }
+                else { int v = bytes[p] | bytes[p + 1] << 8; r = (byte)((v >> 11 & 31) * 255 / 31); g = (byte)((v >> 5 & 63) * 255 / 63); b = (byte)((v & 31) * 255 / 31); }
+            }
+            else { b = bytes[p]; g = bytes[p + 1]; r = bytes[p + 2]; }
+            px[i * 4] = r; px[i * 4 + 1] = g; px[i * 4 + 2] = b; px[i * 4 + 3] = al;
+        }
+        var handle = GCHandle.Alloc(px, GCHandleType.Pinned);
+        try
+        {
+            using var tex = new Texture2D(device, new Texture2DDescription
+            {
+                Width = width, Height = height, MipLevels = 1, ArraySize = 1, Format = Format.R8G8B8A8_UNorm,
+                SampleDescription = new SampleDescription(1, 0), Usage = ResourceUsage.Immutable, BindFlags = BindFlags.ShaderResource,
+            }, new[] { new DataBox(handle.AddrOfPinnedObject(), width * 4, px.Length) });
+            return new ShaderResourceView(device, tex);
+        }
+        finally { handle.Free(); }
+    }
+
     ShaderResourceView LoadDds(byte[] bytes)
     {
         if (bytes.Length < 128 || BitConverter.ToUInt32(bytes, 0) != 0x20534444) throw new InvalidDataException("not a DDS file");
@@ -494,6 +526,9 @@ public sealed class TextureCache : IDisposable
                     case Format.BC2_UNorm: case Format.BC3_UNorm: case Format.BC3_UNorm_SRgb: case Format.BC5_UNorm:
                     case Format.BC7_UNorm: case Format.BC7_UNorm_SRgb: blockBytes = 16; break;
                     case Format.R8G8B8A8_UNorm: case Format.B8G8R8A8_UNorm: bpp = 4; break;
+                    case Format.R8_UNorm: return LoadDdsSmall(bytes, width, height, offset, 8, false, true);
+                    case Format.A8_UNorm: return LoadDdsSmall(bytes, width, height, offset, 8, true, false);
+                    case Format.R8G8_UNorm: return LoadDdsSmall(bytes, width, height, offset, 16, false, true);
                     default: throw new NotSupportedException($"DDS DXGI format {dxgi}");
                 }
             }
@@ -504,6 +539,9 @@ public sealed class TextureCache : IDisposable
             fmt = rMask == 0x00FF0000 ? Format.B8G8R8A8_UNorm : Format.R8G8B8A8_UNorm; bpp = 4;
             if ((pfFlags & 0x1) == 0 && fmt == Format.B8G8R8A8_UNorm) fmt = Format.B8G8R8X8_UNorm;
         }
+        else if (rgbBits is 8 or 16 or 24)
+            // small plain formats (grey, alpha only, grey + alpha, 5-6-5, 24-bit): the game uses them for masks and flat colours
+            return LoadDdsSmall(bytes, width, height, offset, (int)rgbBits, (pfFlags & 0x2) != 0 && (pfFlags & 0x20040) == 0, (pfFlags & 0x20000) != 0);
         else throw new NotSupportedException($"DDS with {rgbBits}-bit uncompressed pixels");
 
         // build the mip chain, stopping if the file is shorter than its header promises
