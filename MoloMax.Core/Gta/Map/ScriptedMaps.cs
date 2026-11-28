@@ -30,6 +30,7 @@ public static class ScriptedMaps
         for (int i = 0; i < n; i++)
         {
             if (!maps[i].Read) continue;
+            if (NeverInFreeRoam(names[i])) continue;
             if ((maps[i].Flags & 1) != 0) { scripted.Add(i); continue; }
             if (maps[i].Name == 0) { keep[i] = true; continue; }
             if (!byName.TryGetValue(maps[i].Name, out var ex) || Original(i) && !Original(ex)) byName[maps[i].Name] = i;
@@ -51,6 +52,10 @@ public static class ScriptedMaps
         }
         return keep;
     }
+
+    /// <summary>A place the game only shows in its story (North Yankton, the prologue): never part of the free-roam map,
+    /// and it sits where add-on islands are often built.</summary>
+    public static bool NeverInFreeRoam(string name) => name.StartsWith("prologue", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>A scripted map left out by default.</summary>
     public static bool Hidden(string name, HashSet<string> names, bool shortLod)

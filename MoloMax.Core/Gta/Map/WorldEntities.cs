@@ -42,7 +42,7 @@ public sealed class WorldEntities
     public int[] FarRoots = Array.Empty<int>();
     readonly Dictionary<long, List<int>> cells = new();
     public const float CellSize = 100f, NearRootDistance = 750f;
-    const int Magic = 0x45574D50, Version = 3; // "PMWE"; 2: scripted maps left out, 3: parents in the same map (flag 8 clear)
+    const int Magic = 0x45574D50, Version = 4; // "PMWE"; 2: scripted maps left out, 3: parents in the same map (flag 8 clear), 4: North Yankton left out
 
     static long Key(int x, int y) => ((long)x << 32) ^ (uint)y;
 

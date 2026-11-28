@@ -64,6 +64,8 @@ Download the latest version from the [website](https://molossen.github.io/polymo
   whose header names two channels over one-channel data is read as what the data is.
 - Polymorph no longer writes `..._textures` folders inside the resource: the textures it takes out of your models go to
   its own folder.
+- **North Yankton** (the snowy prologue map) is no longer drawn in MAP mode: it is not part of the free-roam map and
+  sat right where add-on islands are built.
 - **Clouds** no longer tremble when the camera moves far from the middle of the map (walking in Play on the coast).
 
 ## 2.1.1

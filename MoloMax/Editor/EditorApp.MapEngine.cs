@@ -78,10 +78,13 @@ public sealed partial class EditorApp
                 mapEngine.LoadGame(folder, enhanced);
             }
             // the maps opened for editing are drawn by Polymorph itself: the engine leaves their objects out
-            if (mapDocs.Count != engineHiddenCount || mapEngine.HasMap != engineHiddenReady)
+            if (mapDocs.Count != engineHiddenCount || mapEngine.HasMap != engineHiddenReady || (world != null) != engineHiddenWorld)
             {
-                engineHiddenCount = mapDocs.Count; engineHiddenReady = mapEngine.HasMap;
-                mapEngine.SetHiddenMaps(mapDocs.Keys.Select(k => MoloMax.Core.Gta.Map.MapDocument.Hash(k)).ToHashSet());
+                engineHiddenCount = mapDocs.Count; engineHiddenReady = mapEngine.HasMap; engineHiddenWorld = world != null;
+                var hidden = mapDocs.Keys.Select(k => MoloMax.Core.Gta.Map.MapDocument.Hash(k)).ToHashSet();
+                // North Yankton (the prologue) is not part of the free-roam map
+                if (world != null) foreach (var m in world.Ymaps) if (MoloMax.Core.Gta.Map.ScriptedMaps.NeverInFreeRoam(m.Name)) hidden.Add(MoloMax.Core.Gta.Map.MapDocument.Hash(m.Name));
+                mapEngine.SetHiddenMaps(hidden);
             }
             var vp = Viewports[ActiveViewport];
             if (wireOnlyView(vp)) return;
@@ -95,6 +98,7 @@ public sealed partial class EditorApp
     }
 
     int engineHiddenCount = -1; bool engineHiddenReady;
+    bool engineHiddenWorld;
     double engineLastOn; bool engineHolds; int engineIdleFrames; bool engineWasOn;
     /// <summary>Lets the map engine go (its models and textures leave the graphics card); it starts again when needed.</summary>
     internal void MapEngineClose() { try { mapEngine?.Dispose(); } catch { } mapEngine = null; mapEngineFolder = null; engineHiddenCount = -1; mapEngineFrameSet = false; }
