@@ -258,6 +258,9 @@ public sealed partial class EditorApp
             }
             Note($"{what}: map engine on {MapEngineOn}; {objs.Count} objects with a mesh ({MapLive().Count()} in all, {placeholderOf.Count} boxes made), {mats.Count} materials, {with} with a diffuse texture, {shown} shown, {with - shown} NOT shown; textures waiting {renderer.Textures.Pending}, let go {renderer.Textures.Trimmed}, on the card {renderer.Textures.GpuBytes / 1048576:N0} MB (budget {MapTextureBudget() / 1048576:N0} MB); errors: {string.Join(" | ", renderer.Textures.Errors.TakeLast(6))}");
             foreach (var b in bad) Note("   " + b);
+            var boxes = MapLive().Where(o => o.Mesh != null && placeholderOf.TryGetValue(o.Mesh, out _)).ToList();
+            var byState = boxes.GroupBy(o => placeholderOf[o.Mesh].State).Select(g => $"state {g.Key}: {g.Count()}");
+            Note($"   still shown as a box: {boxes.Count} ({string.Join(", ", byState)}); biggest: {string.Join(" | ", boxes.OrderByDescending(o => { var (mn, mx) = o.Mesh.Bounds(); return (mx - mn).Length() * MathF.Max(o.Scale.X, 0.01f); }).Take(12).Select(o => { var sl = placeholderOf[o.Mesh]; var (mn, mx) = o.Mesh.Bounds(); return $"{o.Name} {(mx - mn).Length():0} m state {sl.State} {sl.Error}"; }))}");
         }
         foreach (var x in Wait(45)) yield return x;
         Report("map engine on, 45 s"); yield return Shot("stream_engine_on");

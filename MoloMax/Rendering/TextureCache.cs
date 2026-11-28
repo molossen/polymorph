@@ -544,6 +544,13 @@ public sealed class TextureCache : IDisposable
             return LoadDdsSmall(bytes, width, height, offset, (int)rgbBits, (pfFlags & 0x2) != 0 && (pfFlags & 0x20040) == 0, (pfFlags & 0x20000) != 0);
         else throw new NotSupportedException($"DDS with {rgbBits}-bit uncompressed pixels");
 
+        // a two-channel block format named in the header over one-channel data (seen in map resources: half the bytes):
+        // read as what the data is
+        if (blockBytes == 16 && (fmt == Format.BC5_UNorm || fmt == Format.BC3_UNorm))
+        {
+            long first16 = (long)Math.Max(1, (width + 3) / 4) * Math.Max(1, (height + 3) / 4) * 16;
+            if (offset + first16 > bytes.Length && offset + first16 / 2 <= bytes.Length) { blockBytes = 8; fmt = fmt == Format.BC5_UNorm ? Format.BC4_UNorm : Format.BC1_UNorm; }
+        }
         // build the mip chain, stopping if the file is shorter than its header promises
         var boxes = new List<DataBox>();
         var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
