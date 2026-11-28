@@ -270,6 +270,21 @@ public sealed partial class EditorApp
         foreach (var x in Wait(45)) yield return x;
         Report("map engine off, 45 s"); yield return Shot("stream_engine_off");
         Settings.MapEngine = true;
+        // close views: the middle of a few of the folder's maps, from 35 m, to see the props placed there
+        var cam = vp.Camera; int shots = 0;
+        foreach (var want in (Environment.GetEnvironmentVariable("POLYMORPH_STREAM_CLOSE") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var pts = Scene.Objects.Where(o => entOf.TryGetValue(o.Id, out var de) && de.Item1.Name.Contains(want, StringComparison.OrdinalIgnoreCase)).Select(o => o.Position).ToList();
+            if (pts.Count == 0) { Note($"close view '{want}': no map of that name"); continue; }
+            var mid = new Vector3(pts.Select(p => p.X).OrderBy(x => x).ElementAt(pts.Count / 2), pts.Select(p => p.Y).OrderBy(x => x).ElementAt(pts.Count / 2), pts.Select(p => p.Z).OrderBy(x => x).ElementAt(pts.Count / 2));
+            cam.Target = mid + new Vector3(0, 0, 1.5f); cam.Distance = 35; cam.Pitch = 0.3f; cam.Yaw = 0.8f + shots * 1.3f;
+            foreach (var x in Wait(28)) yield return x;
+            Note($"close view '{want}': {pts.Count} objects, camera on {mid.X:0}, {mid.Y:0}, {mid.Z:0}; textures waiting {renderer.Textures.Pending}");
+            yield return Shot("close_" + want); shots++;
+            cam.Distance = 14; cam.Pitch = 0.18f;
+            foreach (var x in Wait(10)) yield return x;
+            yield return Shot("closer_" + want);
+        }
         CloseStreamFolder(); SetMapMode(false);
     }
 }
